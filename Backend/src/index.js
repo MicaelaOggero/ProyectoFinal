@@ -9,7 +9,7 @@ app.use(express.json())
 app.use(cookieParser())
 app.use('/static', express.static('public'))
 
-app.post('/cookie', (req, res)=>{
+app.post('e/cooki', (req, res)=>{
     const {name, modo} = req.body
     res.cookie('cookie', JSON.stringify({name, modo}), {maxAge:1000}).send('cookie')
 })

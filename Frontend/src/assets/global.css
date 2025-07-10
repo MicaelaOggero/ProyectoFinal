@@ -1,0 +1,64 @@
+/* Colores principales */
+:root {
+  --primary-blue: #0076F9;
+  --primary-blue-dark: #005bb5;
+  --input-bg: #f7f7f7;
+  --input-border: #e0e0e0;
+  --card-radius: 18px;
+  --transition: 0.2s;
+}
+
+body {
+  font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+  background: #f8f9fa;
+  color: #222;
+}
+
+/* Botón principal reutilizable */
+.btn-primary {
+  width: 100%;
+  padding: 0.9rem 0;
+  background: var(--primary-blue);
+  color: #fff;
+  border: none;
+  border-radius: 30px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  transition: background var(--transition);
+}
+
+.btn-primary:hover {
+  background: var(--primary-blue-dark);
+}
+
+/* Inputs redondeados reutilizables */
+.input-rounded {
+  width: 100%;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--input-border);
+  border-radius: 30px;
+  font-size: 1rem;
+  outline: none;
+  background: var(--input-bg);
+  transition: border var(--transition);
+}
+
+.input-rounded:focus {
+  border: 1.5px solid var(--primary-blue);
+  background: #fff;
+}
+
+/* Enlaces principales */
+.link-primary {
+  color: var(--primary-blue);
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: text-decoration var(--transition);
+}
+
+.link-primary:hover {
+  text-decoration: underline;
+} 
