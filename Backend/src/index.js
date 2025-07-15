@@ -1,26 +1,29 @@
 import express from 'express'
 import mongoose from 'mongoose'
 import dotenv from 'dotenv'
-import cookieParser from 'cookie-parser'
+import authRouter from '../src/modules/auth/auth.routes.js'
+import session from 'express-session'
+import MongoStore from 'connect-mongo'
 
 dotenv.config()
 const app=express()
 app.use(express.json())
-app.use(cookieParser())
 app.use('/static', express.static('public'))
+app.use(session({
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGO,
+    ttl: 60 * 60
+  }),
+  secret: process.env.SECRET_SESSION,
+  resave: true,
+  saveUninitialized: true,
+  cookie: {
+    httpOnly: true,
+    secure: false
+  }
+}))
 
-app.post('/cookie', (req, res)=>{
-    const {name, modo} = req.body
-    res.cookie('cookie', JSON.stringify({name, modo}), {maxAge:1000}).send('cookie')
-})
-
-app.get('/cookie', (req, res)=>{
-    
-})
-
-app.delete('/cookie', (req, res)=>{
-    
-})
+app.use('/api/session', authRouter)
 
 mongoose.connect('mongodb+srv://micaoggero17:lScrBJKESna5DDYv@cluster0.qy9szah.mongodb.net/ProyectoFinal?retryWrites=true&w=majority&appName=Cluster0')
 

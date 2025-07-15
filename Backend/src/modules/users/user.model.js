@@ -15,13 +15,18 @@ const userSchema = new mongoose.Schema({
   },
   habilidades: [{
     nombre: String,
-    nivel: { type: Number, min: 1, max: 5 }
+    nivel: { type: Number, min: 1, max: 5 },
+    aniosExperiencia: {
+      type: Number,
+      min: 0,
+      default: 0
+    }
   }],
   disponibilidadSemanal: Number, //Horas hombre por semana
   preferencias: {
     tipoTarea: [String],       // ej: ['frontend', 'testing']
     tecnologias: [String],     // ej: ['React', 'MongoDB']
-    },
+  },
   historialDesempeño: [{
     proyecto: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
     calificacion: Number,
@@ -32,6 +37,7 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
+  
 });
 
 const User = mongoose.model('User', userSchema);
