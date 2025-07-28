@@ -10,19 +10,37 @@ const userSchema = new mongoose.Schema({
   apellido: String,
   rol: {
     type: String,
-    enum: ['admin', 'desarrollador'],
+    enum: ['admin', 'user'],
+    default: 'user',
     required: true
   },
-  habilidades: [{
-    nombre: String,
-    nivel: { type: Number, min: 1, max: 5 },
-    aniosExperiencia: {
-      type: Number,
-      min: 0,
-      default: 0
-    }
-  }],
-  disponibilidadSemanal: Number, //Horas hombre por semana
+  habilidades: {
+    type: [
+      {
+        nombre: {
+          type: String,
+          required: true
+        },
+        nivel: {
+          type: Number,
+          min: 1,
+          max: 5,
+          required: true
+        },
+        aniosExperiencia: {
+          type: Number,
+          min: 0,
+          default: 0,
+          required: true
+        }
+      }
+    ],
+    required: true
+  },
+  disponibilidadSemanal: {
+    type: Number,
+    required: true
+  }, //Horas hombre por semana
   preferencias: {
     tipoTarea: [String],       // ej: ['frontend', 'testing']
     tecnologias: [String],     // ej: ['React', 'MongoDB']
@@ -32,12 +50,27 @@ const userSchema = new mongoose.Schema({
     calificacion: Number,
     comentario: String
   }],
-  costoPorHora: Number,
+  costoPorHora: {
+    type: Number,
+    required: true
+  },
   fechaCreacion: {
     type: Date,
     default: Date.now
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    match: [/.+@.+\..+/, 'El formato del email no es válido']
+  },
+
+  password: {
+    type: String,
+    required: true,
+    select: false // por seguridad: no se devuelve en queries normales
   }
-  
+
 });
 
 const User = mongoose.model('User', userSchema);
