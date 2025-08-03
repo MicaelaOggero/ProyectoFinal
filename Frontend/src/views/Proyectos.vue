@@ -1,21 +1,14 @@
 <template>
   <div class="container-fluid">
-    <!-- Barra de navegación con información de usuario -->
+    <!-- Encabezado de página -->
     <div class="d-flex justify-content-between align-items-center mt-3 mb-4">
       <h1>Gestión de Proyectos</h1>
       <div class="d-flex align-items-center gap-3">
-        <div v-if="currentUser" class="text-muted">
-          Bienvenido, {{ currentUser.nombre }} {{ currentUser.apellido }}
-          <span class="badge bg-info ms-1">{{ currentUser.rol }}</span>
-        </div>
-        <button v-if="!currentUser" class="btn btn-outline-primary" @click="showLoginModal">
-          Iniciar Sesión
-        </button>
         <button v-if="currentUser && isUserAdmin" class="btn btn-primary" @click="openCreateModal">
           Crear Nuevo Proyecto
         </button>
-        <button v-if="currentUser" class="btn btn-outline-secondary" @click="handleLogout">
-          Cerrar Sesión
+        <button v-if="!currentUser" class="btn btn-outline-primary" @click="showLoginModal">
+          Iniciar Sesión
         </button>
       </div>
     </div>
@@ -222,16 +215,6 @@ export default {
       await this.checkUserSession();
       this.showAlert('¡Sesión iniciada correctamente!', 'alert-success');
       this.loadProjects();
-    },
-    async handleLogout() {
-      try {
-        await AuthService.logout();
-        this.currentUser = null;
-        this.projects = [];
-        this.showAlert('Sesión cerrada correctamente', 'alert-info');
-      } catch (error) {
-        console.error('Error al cerrar sesión:', error);
-      }
     },
     // --- Métodos de Alertas ---
     showAlert(message, className) {
