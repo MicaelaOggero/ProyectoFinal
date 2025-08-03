@@ -20,15 +20,15 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="person in people" :key="person.id">
-              <td>{{ person.name }}</td>
+            <tr v-for="person in people" :key="person._id">
+              <td>{{ person.nombre }} {{ person.apellido }}</td>
               <td>{{ person.dni }}</td>
-              <td>{{ person.role }}</td>
-              <td>{{ displaySkills(person.skills) }}</td>
-              <td>{{ person.availability }}</td>
+              <td>{{ person.rol }}</td>
+              <td>{{ displaySkills(person.habilidades) }}</td>
+              <td>{{ person.disponibilidadSemanal }}</td>
               <td>
                 <button class="btn btn-sm btn-secondary" @click="openEditModal(person)">Editar</button>
-                <button class="btn btn-sm btn-danger ms-2" @click="deletePerson(person.id)">Eliminar</button>
+                <button class="btn btn-sm btn-danger ms-2" @click="deletePerson(person._id)">Eliminar</button>
               </td>
             </tr>
           </tbody>
@@ -113,6 +113,7 @@
 
 <script>
 import { Modal } from 'bootstrap';
+import UserService from '@/services/user.service.js';
 
 export default {
   name: 'PersonasView',
@@ -120,18 +121,7 @@ export default {
     return {
       modalInstance: null,
       isEditMode: false,
-      people: [
-        {
-          id: 1, name: 'Ana García', dni: '25123456', role: 'Líder de Proyecto', 
-          skills: [{name: 'Vue.js', level: 'Avanzado'}, {name: 'Node.js', level: 'Avanzado'}],
-          availability: 40, costPerHour: 50
-        },
-        {
-          id: 2, name: 'Carlos Rodriguez', dni: '30789012', role: 'Desarrollador', 
-          skills: [{name: 'Vue.js', level: 'Intermedio'}, {name: 'SQL', level: 'Junior'}],
-          availability: 35, costPerHour: 35
-        }
-      ],
+      people: [],
       editablePerson: { skills: [] },
       // Datos predefinidos
       skillOptions: ['JavaScript', 'Vue.js', 'Node.js', 'SQL', 'HTML & CSS', 'Python', 'Diseño UI'],
@@ -140,11 +130,19 @@ export default {
   },
   mounted() {
     this.modalInstance = new Modal(document.getElementById('personModal'));
+    this.loadUsers();
   },
   methods: {
     displaySkills(skills) {
       if (!skills || skills.length === 0) return 'N/A';
       return skills.map(s => `${s.name} (${s.level})`).join(', ');
+    },
+    loadUsers() {
+      UserService.getUsers().then(response => {
+        this.people = response.data;
+      }).catch(error => {
+        console.error('Error loading users:', error);
+      });
     },
     // --- Métodos para el Modal ---
     openCreateModal() {
@@ -167,20 +165,25 @@ export default {
     savePerson() {
       if (this.isEditMode) {
         // Lógica de Actualización
-        const index = this.people.findIndex(p => p.id === this.editablePerson.id);
-        if (index !== -1) {
-          this.people[index] = this.editablePerson;
-        }
+        UserService.updateUser(this.editablePerson._id, this.editablePerson).then(() => {
+          this.loadUsers();
+          this.closeModal();
+        }).catch(error => {
+          console.error('Error updating user:', error);
+        });
       } else {
-        // Lógica de Creación
-        this.editablePerson.id = Date.now(); // ID simple para el ejemplo
-        this.people.push(this.editablePerson);
+        // Lógica de Creación - NOTA: Falta implementar la creación de usuarios en el backend
+        // ya que requiere email y password, que no están en este formulario.
+        console.error('La creación de usuarios no está implementada en este formulario.');
       }
-      this.closeModal();
     },
     deletePerson(personId) {
       if (window.confirm('¿Estás seguro de que quieres eliminar a esta persona?')) {
-        this.people = this.people.filter(p => p.id !== personId);
+        UserService.deleteUser(personId).then(() => {
+          this.loadUsers();
+        }).catch(error => {
+          console.error('Error deleting user:', error);
+        });
       }
     },
     // --- Métodos para Habilidades ---

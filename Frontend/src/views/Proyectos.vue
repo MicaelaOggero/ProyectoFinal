@@ -1,14 +1,52 @@
 <template>
   <div class="container-fluid">
+    <!-- Barra de navegación con información de usuario -->
     <div class="d-flex justify-content-between align-items-center mt-3 mb-4">
       <h1>Gestión de Proyectos</h1>
-      <button class="btn btn-primary" @click="openCreateModal">Crear Nuevo Proyecto</button>
+      <div class="d-flex align-items-center gap-3">
+        <div v-if="currentUser" class="text-muted">
+          Bienvenido, {{ currentUser.nombre }} {{ currentUser.apellido }}
+          <span class="badge bg-info ms-1">{{ currentUser.rol }}</span>
+        </div>
+        <button v-if="!currentUser" class="btn btn-outline-primary" @click="showLoginModal">
+          Iniciar Sesión
+        </button>
+        <button v-if="currentUser && isUserAdmin" class="btn btn-primary" @click="openCreateModal">
+          Crear Nuevo Proyecto
+        </button>
+        <button v-if="currentUser" class="btn btn-outline-secondary" @click="handleLogout">
+          Cerrar Sesión
+        </button>
+      </div>
+    </div>
+
+    <!-- Alertas de estado -->
+    <div v-if="alertMessage" class="alert" :class="alertClass" role="alert">
+      {{ alertMessage }}
+      <button type="button" class="btn-close" @click="clearAlert" aria-label="Close"></button>
     </div>
 
     <!-- Tabla de Proyectos -->
     <div class="card">
       <div class="card-body">
-        <table class="table table-hover">
+        <div v-if="loading" class="text-center py-4">
+          <div class="spinner-border" role="status">
+            <span class="visually-hidden">Cargando...</span>
+          </div>
+          <p class="mt-2">Cargando proyectos...</p>
+        </div>
+        
+        <div v-else-if="!currentUser" class="text-center py-5">
+          <h5>Debes iniciar sesión para ver los proyectos</h5>
+          <button class="btn btn-primary mt-3" @click="showLoginModal">Iniciar Sesión</button>
+        </div>
+        
+        <div v-else-if="projects.length === 0" class="text-center py-5">
+          <h5>No hay proyectos disponibles</h5>
+          <p class="text-muted">{{ isUserAdmin ? 'Crea tu primer proyecto usando el botón "Crear Nuevo Proyecto"' : 'No tienes permisos para crear proyectos. Contacta a un administrador.' }}</p>
+        </div>
+        
+        <table v-else class="table table-hover">
           <thead>
             <tr>
               <th scope="col">Nombre del Proyecto</th>
@@ -19,15 +57,15 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="project in projects" :key="project.id">
+            <tr v-for="project in projects" :key="project._id">
               <td>{{ project.name }}</td>
               <td>{{ formatDate(project.startDate) }} - {{ formatDate(project.endDate) }}</td>
               <td>{{ project.difficulty }}</td>
               <td><span class="badge" :class="getStatusClass(project.status)">{{ project.status }}</span></td>
               <td>
-                <router-link :to="{ name: 'ProyectoDetalle', params: { id: project.id } }" class="btn btn-sm btn-info text-white">Ver</router-link>
-                <button class="btn btn-sm btn-secondary ms-2" @click="openEditModal(project)">Editar</button>
-                <button class="btn btn-sm btn-danger ms-2" @click="deleteProject(project.id)">Eliminar</button>
+                <router-link :to="{ name: 'ProyectoDetalle', params: { id: project._id } }" class="btn btn-sm btn-info text-white">Ver</router-link>
+                <button v-if="isUserAdmin" class="btn btn-sm btn-secondary ms-2" @click="openEditModal(project)">Editar</button>
+                <button v-if="isUserAdmin" class="btn btn-sm btn-danger ms-2" @click="deleteProject(project._id)">Eliminar</button>
               </td>
             </tr>
           </tbody>
@@ -87,38 +125,49 @@
       </div>
     </div>
 
+    <!-- Componente de Login -->
+    <LoginModal ref="loginModal" @login-success="handleLoginSuccess" />
+
   </div>
 </template>
 
 <script>
 import { Modal } from 'bootstrap';
+import ProjectService from '@/services/project.service.js';
+import AuthService from '@/services/auth.service.js';
+import LoginModal from '@/components/LoginModal.vue';
 
 export default {
   name: 'ProyectosView',
+  components: {
+    LoginModal
+  },
   data() {
     return {
       modalInstance: null,
       isEditMode: false,
-      projects: [
-        {
-          id: 1, name: 'Sistema de Gestión de Tareas', 
-          description: 'Desarrollo de un nuevo sistema para la asignación automática de tareas.',
-          startDate: '2025-07-01', endDate: '2025-12-31', difficulty: 'Alta', status: 'Activo'
-        },
-        {
-          id: 2, name: 'Migración a la Nube', 
-          description: 'Mover toda la infraestructura on-premise a servicios en la nube.',
-          startDate: '2025-08-15', endDate: '2025-10-30', difficulty: 'Media', status: 'Activo'
-        }
-      ],
+      projects: [],
       editableProject: {},
+      currentUser: null,
+      loading: false,
+      alertMessage: '',
+      alertClass: '',
       // Opciones para los selectores
       difficultyOptions: ['Baja', 'Media', 'Alta'],
       statusOptions: ['Activo', 'Pausado', 'Finalizado']
     };
   },
-  mounted() {
+  computed: {
+    isUserAdmin() {
+      return AuthService.isAdmin(this.currentUser);
+    }
+  },
+  async mounted() {
     this.modalInstance = new Modal(document.getElementById('projectModal'));
+    await this.checkUserSession();
+    if (this.currentUser) {
+      this.loadProjects();
+    }
   },
   methods: {
     formatDate(dateString) {
@@ -134,8 +183,75 @@ export default {
       if (status === 'Finalizado') return 'bg-secondary';
       return 'bg-light';
     },
+    async checkUserSession() {
+      try {
+        this.currentUser = await AuthService.checkSession();
+      } catch (error) {
+        console.error('Error verificando sesión:', error);
+        this.currentUser = null;
+      }
+    },
+    async loadProjects() {
+      if (!this.currentUser) {
+        this.showAlert('Debes iniciar sesión para ver los proyectos', 'alert-warning');
+        return;
+      }
+
+      this.loading = true;
+      try {
+        const response = await ProjectService.getProjects();
+        this.projects = response.data;
+        this.clearAlert();
+      } catch (error) {
+        console.error('Error loading projects:', error);
+        if (error.response?.status === 401) {
+          this.showAlert('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.', 'alert-warning');
+          this.currentUser = null;
+        } else {
+          this.showAlert('Error al cargar los proyectos. Intenta nuevamente.', 'alert-danger');
+        }
+      } finally {
+        this.loading = false;
+      }
+    },
+    // --- Métodos de Autenticación ---
+    showLoginModal() {
+      this.$refs.loginModal.show();
+    },
+    async handleLoginSuccess() {
+      await this.checkUserSession();
+      this.showAlert('¡Sesión iniciada correctamente!', 'alert-success');
+      this.loadProjects();
+    },
+    async handleLogout() {
+      try {
+        await AuthService.logout();
+        this.currentUser = null;
+        this.projects = [];
+        this.showAlert('Sesión cerrada correctamente', 'alert-info');
+      } catch (error) {
+        console.error('Error al cerrar sesión:', error);
+      }
+    },
+    // --- Métodos de Alertas ---
+    showAlert(message, className) {
+      this.alertMessage = message;
+      this.alertClass = className;
+      // Auto-ocultar después de 5 segundos
+      setTimeout(() => {
+        this.clearAlert();
+      }, 5000);
+    },
+    clearAlert() {
+      this.alertMessage = '';
+      this.alertClass = '';
+    },
     // --- Métodos para el Modal ---
     openCreateModal() {
+      if (!this.isUserAdmin) {
+        this.showAlert('Solo los administradores pueden crear proyectos', 'alert-warning');
+        return;
+      }
       this.isEditMode = false;
       this.editableProject = {
         name: '', description: '', startDate: '', endDate: '', 
@@ -144,6 +260,10 @@ export default {
       this.modalInstance.show();
     },
     openEditModal(project) {
+      if (!this.isUserAdmin) {
+        this.showAlert('Solo los administradores pueden editar proyectos', 'alert-warning');
+        return;
+      }
       this.isEditMode = true;
       this.editableProject = JSON.parse(JSON.stringify(project));
       this.modalInstance.show();
@@ -151,26 +271,55 @@ export default {
     closeModal() {
       this.modalInstance.hide();
     },
-    saveProject() {
+    async saveProject() {
       if (this.editableProject.startDate > this.editableProject.endDate) {
-        alert('La fecha de fin no puede ser anterior a la fecha de inicio.');
+        this.showAlert('La fecha de fin no puede ser anterior a la fecha de inicio.', 'alert-warning');
         return;
       }
 
-      if (this.isEditMode) {
-        const index = this.projects.findIndex(p => p.id === this.editableProject.id);
-        if (index !== -1) {
-          this.projects[index] = this.editableProject;
-        }
-      } else {
-        this.editableProject.id = Date.now();
-        this.projects.push(this.editableProject);
+      if (!this.isUserAdmin) {
+        this.showAlert('Solo los administradores pueden guardar proyectos', 'alert-warning');
+        return;
       }
-      this.closeModal();
+
+      try {
+        if (this.isEditMode) {
+          await ProjectService.updateProject(this.editableProject._id, this.editableProject);
+          this.showAlert('Proyecto actualizado correctamente', 'alert-success');
+        } else {
+          await ProjectService.createProject(this.editableProject);
+          this.showAlert('Proyecto creado correctamente', 'alert-success');
+        }
+        this.loadProjects();
+        this.closeModal();
+      } catch (error) {
+        console.error('Error saving project:', error);
+        if (error.response?.status === 401) {
+          this.showAlert('No tienes permisos para realizar esta acción', 'alert-danger');
+        } else {
+          this.showAlert('Error al guardar el proyecto. Intenta nuevamente.', 'alert-danger');
+        }
+      }
     },
-    deleteProject(projectId) {
+    async deleteProject(projectId) {
+      if (!this.isUserAdmin) {
+        this.showAlert('Solo los administradores pueden eliminar proyectos', 'alert-warning');
+        return;
+      }
+
       if (window.confirm('¿Estás seguro de que quieres eliminar este proyecto? Las tareas asociadas no se eliminarán.')) {
-        this.projects = this.projects.filter(p => p.id !== projectId);
+        try {
+          await ProjectService.deleteProject(projectId);
+          this.showAlert('Proyecto eliminado correctamente', 'alert-success');
+          this.loadProjects();
+        } catch (error) {
+          console.error('Error deleting project:', error);
+          if (error.response?.status === 401) {
+            this.showAlert('No tienes permisos para eliminar proyectos', 'alert-danger');
+          } else {
+            this.showAlert('Error al eliminar el proyecto. Intenta nuevamente.', 'alert-danger');
+          }
+        }
       }
     }
   }

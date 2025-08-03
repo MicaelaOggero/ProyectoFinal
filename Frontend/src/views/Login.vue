@@ -24,6 +24,7 @@
           <div class="login-input-group">
             <input type="password" placeholder="Contraseña" v-model="password" required class="input-rounded" />
           </div>
+          <div v-if="error" class="alert alert-danger">{{ error }}</div>
           <button type="submit" class="btn-primary">Ingresar</button>
         </form>
         <div class="login-forgot">
@@ -35,21 +36,28 @@
 </template>
 
 <script>
+import SessionService from '@/services/session.service.js';
+
 export default {
   name: 'LoginView',
   data() {
     return {
       email: 'correo-prueba@gmail.com',
-      password: '123456'
+      password: '123456',
+      error: null
     };
   },
   methods: {
     handleLogin() {
-      // Aquí irá la lógica para comunicarnos con el backend.
-      // Por ahora, simularemos un inicio de sesión exitoso.
-      console.log('Email:', this.email);
-      console.log('Password:', this.password);
-      this.$router.push('/dashboard');
+      this.error = null;
+      SessionService.login({ email: this.email, password: this.password })
+        .then(() => {
+          this.$router.push('/dashboard');
+        })
+        .catch(error => {
+          this.error = error.response ? error.response.data.error : 'An unexpected error occurred.';
+          console.error('Login failed:', this.error);
+        });
     }
   }
 }
