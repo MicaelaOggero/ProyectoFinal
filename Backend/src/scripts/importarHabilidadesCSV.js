@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import csv from 'csv-parser';
 
-import { conectarDB, desconectarDB } from '../config/db.js';
+import { conectarDB, desconectarDB } from '../config/db.js'
 import Habilidad from '../modules/skills/skills.model.js';
 
 async function importarDesdeCSV() {
@@ -35,11 +35,12 @@ async function importarDesdeCSV() {
             if (!existe) {
                 try {
                     await Habilidad.create(hab);
-                    console.log(`✔️ Habilidad guardada: ${hab.nombre} - Fuente: ${hab.fuentee}`);
+                    console.log(`✔️ Habilidad guardada: ${hab.nombre} - Fuente: ${hab.fuente}`);
                 } catch (err) {
                     console.error(`❌ Error al guardar ${hab.nombre}:`, err.message);
                 }
             }
+            
         }
 
         await desconectarDB();

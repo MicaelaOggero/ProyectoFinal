@@ -64,6 +64,7 @@ router.post('/login', async (req, res) => {
       return res.status(403).send({ status: 'error', error: 'Contraseña incorrecta' })
     }
 
+    
     req.session.nombre = user.nombre
     req.session.apellido = user.apellido
     req.session.rol = user.rol
