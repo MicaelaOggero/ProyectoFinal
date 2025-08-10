@@ -46,6 +46,7 @@
               <th scope="col">Fechas</th>
               <th scope="col">Dificultad</th>
               <th scope="col">Estado</th>
+              <th scope="col" title="Fecha y hora en que se creó el proyecto">Fecha de Creación</th>
               <th scope="col">Acciones</th>
             </tr>
           </thead>
@@ -55,6 +56,7 @@
               <td>{{ formatDate(project.startDate) }} - {{ formatDate(project.endDate) }}</td>
               <td>{{ project.difficulty }}</td>
               <td><span class="badge" :class="getStatusClass(project.status)">{{ project.status }}</span></td>
+              <td>{{ formatCreationDate(project.fechaCreacion) }}</td>
               <td>
                 <router-link :to="{ name: 'ProyectoDetalle', params: { id: project._id } }" class="btn btn-sm btn-info text-white">Ver</router-link>
                 <button v-if="isUserAdmin" class="btn btn-sm btn-secondary ms-2" @click="openEditModal(project)">Editar</button>
@@ -107,6 +109,10 @@
                      <option v-for="opt in statusOptions" :key="opt">{{ opt }}</option>
                   </select>
                 </div>
+              </div>
+              <div v-if="!isEditMode" class="alert alert-info">
+                <i class="bi bi-info-circle"></i>
+                <strong>Nota:</strong> La fecha de creación se asignará automáticamente al momento de guardar el proyecto.
               </div>
               <div class="modal-footer mt-4">
                 <button type="button" class="btn btn-secondary" @click="closeModal">Cancelar</button>
@@ -169,6 +175,17 @@ export default {
       // Sumar un día porque el input date puede tener problemas de zona horaria
       date.setDate(date.getDate() + 1);
       return date.toLocaleDateString('es-ES');
+    },
+    formatCreationDate(dateString) {
+      if (!dateString) return 'N/A';
+      const date = new Date(dateString);
+      return date.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
     },
     getStatusClass(status) {
       if (status === 'Activo') return 'bg-success';

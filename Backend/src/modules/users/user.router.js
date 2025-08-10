@@ -15,6 +15,23 @@ router.get('/', authAdmin, async (req, res) => {
   }
 })
 
+// Obtener un usuario específico por ID (requiere estar autenticado)
+router.get('/:id', authAdmin, async (req, res) => {
+  try {
+    const { id } = req.params
+    const usuario = await User.findById(id).select('-password') // excluye el password por seguridad
+    
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuario no encontrado' })
+    }
+    
+    res.json(usuario)
+  } catch (error) {
+    console.error('❌ Error al obtener usuario:', error)
+    res.status(500).json({ error: 'Error al obtener usuario' })
+  }
+})
+
 // Actualizar datos de un usuario (solo admin)
 router.put('/:id', authAdmin, async (req, res) => {
   try {

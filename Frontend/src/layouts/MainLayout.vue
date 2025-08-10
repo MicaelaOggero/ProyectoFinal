@@ -1,13 +1,10 @@
 <template>
   <div>
-    <Navbar />
+    <Navbar @toggle-sidebar="toggleSidebar" />
     <div class="container-fluid">
       <div class="row">
-        <div class="col-md-3 col-lg-2 d-none d-md-block bg-light sidebar">
-          <Sidebar />
-        </div>
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-          <router-view />
+        <main class="col-12 px-md-4">
+          <router-view @toggle-sidebar="toggleSidebar" />
         </main>
       </div>
     </div>
@@ -16,22 +13,43 @@
 
 <script>
 import Navbar from '@/components/Navbar.vue';
-import Sidebar from '@/components/Sidebar.vue';
 
 export default {
   name: 'MainLayout',
   components: {
-    Navbar,
-    Sidebar
+    Navbar
+  },
+  data() {
+    return {
+      sidebarVisible: false,
+      isMobile: false
+    };
+  },
+  mounted() {
+    this.checkScreenSize();
+    window.addEventListener('resize', this.checkScreenSize);
+  },
+  beforeUnmount() {
+    window.removeEventListener('resize', this.checkScreenSize);
+  },
+  methods: {
+    toggleSidebar() {
+      // No hacer nada ya que no hay sidebar
+    },
+    closeSidebar() {
+      // No hacer nada ya que no hay sidebar
+    },
+    checkScreenSize() {
+      this.isMobile = window.innerWidth < 768;
+    }
   }
 }
 </script>
 
 <style scoped>
-.sidebar {
-  padding: 0;
-}
 main {
   padding-top: 1.5rem;
+  width: 100% !important;
+  margin-left: 0 !important;
 }
 </style>

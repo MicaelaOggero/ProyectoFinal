@@ -7,6 +7,7 @@ import ProyectosView from '@/views/Proyectos.vue';
 import ProyectoDetalleView from '@/views/ProyectoDetalle.vue';
 import TareasView from '@/views/Tareas.vue';
 import PersonasView from '@/views/Personas.vue';
+import PerfilUsuarioView from '@/views/PerfilUsuario.vue';
 
 const routes = [
   {
@@ -46,6 +47,11 @@ const routes = [
         path: 'personas',
         name: 'Personas',
         component: PersonasView
+      },
+      {
+        path: 'perfil/:id',
+        name: 'PerfilUsuario',
+        component: PerfilUsuarioView
       }
     ]
   },

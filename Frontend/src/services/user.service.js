@@ -15,6 +15,10 @@ class UserService {
   deleteUser(id) {
     return axios.delete(API_URL + `/${id}`);
   }
+  
+  getUserById(id) {
+    return axios.get(API_URL + `/${id}`);
+  }
 }
 
 export default new UserService();

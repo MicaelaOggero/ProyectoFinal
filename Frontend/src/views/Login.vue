@@ -1,200 +1,154 @@
 <template>
-  <div class="login-main-wrapper">
-    <div class="login-illustration">
-      <div class="motivational-phrase">El orden no empieza en el código, empieza en la gestión.</div>
-      <!-- Ilustración SVG genérica -->
-      <svg width="320" height="320" viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="320" height="320" rx="32" fill="#E6F0FA"/>
-        <circle cx="160" cy="160" r="80" fill="#90CAF9"/>
-        <rect x="110" y="140" width="100" height="60" rx="12" fill="#fff"/>
-        <rect x="130" y="160" width="60" height="10" rx="5" fill="#90CAF9"/>
-        <rect x="130" y="175" width="60" height="10" rx="5" fill="#90CAF9"/>
-        <circle cx="160" cy="130" r="18" fill="#fff"/>
-        <circle cx="160" cy="130" r="10" fill="#90CAF9"/>
-      </svg>
-    </div>
-    <div class="login-form-section">
-      <div class="login-card">
-        <h2 class="login-title">¡Hola!</h2>
-        <p class="login-subtitle">Inicia sesión para continuar</p>
-        <form @submit.prevent="handleLogin">
-          <div class="login-input-group">
-            <input type="email" placeholder="Correo electrónico" v-model="email" required class="input-rounded" />
-          </div>
-          <div class="login-input-group">
-            <input type="password" placeholder="Contraseña" v-model="password" required class="input-rounded" />
-          </div>
-          <div v-if="error" class="alert alert-danger">{{ error }}</div>
-          <button type="submit" class="btn-primary">Ingresar</button>
-        </form>
-        <div class="login-forgot">
-          <a href="#" class="link-primary">¿Olvidaste tu contraseña?</a>
+  <div class="login-container">
+    <div class="login-form">
+      <h2>Iniciar Sesión</h2>
+      <form @submit.prevent="handleLogin">
+        <div class="form-group">
+          <label for="email">Email:</label>
+          <input
+            type="email"
+            id="email"
+            v-model="email"
+            required
+            class="form-control"
+          />
         </div>
+        <div class="form-group">
+          <label for="password">Contraseña:</label>
+          <input
+            type="password"
+            id="password"
+            v-model="password"
+            required
+            class="form-control"
+          />
+        </div>
+        <button type="submit" class="btn btn-primary" :disabled="loading">
+          {{ loading ? 'Iniciando sesión...' : 'Iniciar Sesión' }}
+        </button>
+      </form>
+      <div v-if="error" class="alert alert-danger mt-3">
+        {{ error }}
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import SessionService from '@/services/session.service.js';
+import AuthService from '@/services/auth.service.js';
 
 export default {
   name: 'LoginView',
   data() {
     return {
-      email: 'correo-prueba@gmail.com',
-      password: '123456',
+      email: '',
+      password: '',
+      loading: false,
       error: null
     };
   },
   methods: {
-    handleLogin() {
+    async handleLogin() {
+      this.loading = true;
       this.error = null;
-      SessionService.login({ email: this.email, password: this.password })
-        .then(() => {
-          this.$router.push('/dashboard');
-        })
-        .catch(error => {
-          this.error = error.response ? error.response.data.error : 'An unexpected error occurred.';
-          console.error('Login failed:', this.error);
-        });
+      
+      try {
+        await AuthService.login(this.email, this.password);
+        this.$router.push('/proyectos');
+      } catch (error) {
+        this.error = error.response?.data?.error || 'Error al iniciar sesión. Verifica tus credenciales.';
+      } finally {
+        this.loading = false;
+      }
     }
   }
 }
 </script>
 
 <style scoped>
-.login-main-wrapper {
+.login-container {
   display: flex;
+  justify-content: center;
+  align-items: center;
   min-height: 100vh;
+  background-color: #f8f9fa;
 }
 
-.login-illustration {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #fff;
-}
-
-.login-form-section {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #0076F9;
-  position: relative;
-  overflow: hidden;
-}
-
-.login-card {
-  background: #fff;
-  border-radius: 18px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-  padding: 2.5rem 2rem 2rem 2rem;
+.login-form {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   width: 100%;
-  max-width: 370px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  max-width: 400px;
 }
 
-.login-title {
-  font-size: 2rem;
-  font-weight: 700;
+.login-form h2 {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
   margin-bottom: 0.5rem;
-  color: #222;
-  text-align: center;
+  color: #555;
 }
 
-.login-subtitle {
-  color: #666;
-  margin-bottom: 2rem;
-  text-align: center;
-}
-
-.login-input-group {
+.form-control {
   width: 100%;
-  margin-bottom: 1.2rem;
-}
-
-.login-input-group input {
-  width: 100%;
-  padding: 0.9rem 1.1rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 30px;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
   font-size: 1rem;
+}
+
+.form-control:focus {
   outline: none;
-  background: #f7f7f7;
-  transition: border 0.2s;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 
-.login-input-group input:focus {
-  border: 1.5px solid #0076F9;
-  background: #fff;
-}
-
-.login-btn {
+.btn {
   width: 100%;
-  padding: 0.9rem 0;
-  background: #0076F9;
-  color: #fff;
+  padding: 0.75rem;
   border: none;
-  border-radius: 30px;
-  font-size: 1.1rem;
-  font-weight: 600;
+  border-radius: 4px;
+  font-size: 1rem;
   cursor: pointer;
-  margin-top: 0.5rem;
-  margin-bottom: 0.5rem;
-  transition: background 0.2s;
+  transition: background-color 0.2s;
 }
 
-.login-btn:hover {
-  background: #005bb5;
+.btn-primary {
+  background-color: #007bff;
+  color: white;
 }
 
-.login-forgot {
-  width: 100%;
-  text-align: right;
+.btn-primary:hover:not(:disabled) {
+  background-color: #0056b3;
 }
 
-.login-forgot a {
-  color: #0076F9;
-  font-size: 0.95rem;
-  text-decoration: none;
-  transition: text-decoration 0.2s;
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.login-forgot a:hover {
-  text-decoration: underline;
+.alert {
+  padding: 0.75rem;
+  border-radius: 4px;
 }
 
-.motivational-phrase {
-  width: 100%;
-  text-align: center;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #0076F9;
-  margin-bottom: 2.5rem;
-  animation: bounceIn 1.2s cubic-bezier(.68,-0.55,.27,1.55);
+.alert-danger {
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
 }
 
-@keyframes bounceIn {
-  0% {
-    opacity: 0;
-    transform: translateY(-60px) scale(0.8);
-  }
-  60% {
-    opacity: 1;
-    transform: translateY(20px) scale(1.05);
-  }
-  80% {
-    transform: translateY(-8px) scale(0.98);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.mt-3 {
+  margin-top: 1rem;
 }
 </style>
