@@ -23,26 +23,20 @@ const userSchema = new mongoose.Schema({
   habilidades: {
     type: [
       {
-        nombre: {
-          type: String,
-          required: true
-        },
-        nivel: {
-          type: Number,
-          min: 1,
-          max: 5,
-          required: true
-        },
-        aniosExperiencia: {
-          type: Number,
-          min: 0,
-          default: 0,
-          required: true
-        }
+        nombre: { type: String, required: true },
+        nivel: { type: Number, min: 1, max: 5, required: true }
       }
     ],
     required: true
   },
+
+  aniosExperiencia: {
+    type: Number,
+    min: 0,
+    default: 0,
+    required: true
+  },
+
   disponibilidadSemanal: {
     type: Number,
     required: true

@@ -36,13 +36,16 @@ router.get('/:id', authAdmin, async (req, res) => {
 router.put('/:id', authAdmin, async (req, res) => {
   try {
     const { id } = req.params
-    const { nombre, apellido, habilidades, disponibilidadSemanal } = req.body
+    const { nombre, apellido, habilidades, disponibilidadSemanal, aniosExperiencia, costoPorHora, historialDesempeño } = req.body
 
     const camposAActualizar = {
       nombre,
       apellido,
       habilidades,
-      disponibilidadSemanal
+      disponibilidadSemanal,
+      aniosExperiencia,
+      costoPorHora,
+      historialDesempeño
     }
 
     const usuarioActualizado = await User.findByIdAndUpdate(
