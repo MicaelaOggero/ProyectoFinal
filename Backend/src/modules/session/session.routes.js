@@ -1,6 +1,7 @@
 import { Router } from "express"
 import User from "../users/user.model.js"
-import {auth} from "../auth/auth.routes.js"
+import { auth } from "../auth/auth.routes.js"
+import { createHash, isValidPassword } from "../../utils/utils.js"
 
 const router = Router()
 
@@ -37,7 +38,7 @@ router.post('/register', async (req, res) => {
       historialDesempeño: [],
       costoPorHora,
       email,
-      password
+      password: createHash(password)
     })
 
     res.status(201).json({
@@ -55,9 +56,12 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body
-    const user = await User.findOne({ email, password })
+    const user = await User.findOne({ email })
     if (!user) {
-      return res.status(409).json({ error: 'El usuario no existe o la contraseña es incorrecta' })
+      return res.status(409).json({ error: 'El usuario no existe' })
+    }
+    if (!isValidPassword(user, password)) {
+      return res.status(403).send({ status: 'error', error: 'Contraseña incorrecta' })
     }
 
     req.session.nombre = user.nombre
@@ -79,12 +83,37 @@ router.delete('/logout', (req, res) => {
   })
 })
 
-router.get('/profile', auth, (req, res) =>{
-  const nombre = req.session.nombre 
-  const apellido = req.session.apellido 
-  const rol = req.session.rol 
+//Reestablecer contraseña
+router.patch("/reset-password", async (req, res) => {
+  const { email, password } = req.body;
 
-  res.status(200).send({status: 'ok', payload: {nombre, apellido, rol}})
+  if (!email) {
+    return res.status(400).send({ status: 'error', message: 'No se encontro el usuario' });
+  }
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(401).send('Usuario no encontrado');
+
+    await User.updateOne({ _id: user._id }, { $set: { password: createHash(password) } });
+
+    req.session.nombre = user.nombre;
+    req.session.apellido = user.apellido
+    req.session.rol = user.rol;
+
+    res.send('Reseteo de contraseña exitoso');
+  } catch (error) {
+    res.status(500).send('Error al resetear contraseña');
+  }
+});
+
+
+router.get('/profile', auth, (req, res) => {
+  const nombre = req.session.nombre
+  const apellido = req.session.apellido
+  const rol = req.session.rol
+
+  res.status(200).send({ status: 'ok', payload: { nombre, apellido, rol } })
 })
 
 export default router

@@ -74,7 +74,6 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: true,
-    select: false // por seguridad: no se devuelve en queries normales
   }
 
 });
