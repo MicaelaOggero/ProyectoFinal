@@ -2,9 +2,14 @@ import { Router } from "express"
 import User from "../users/user.model.js"
 import { auth } from "../auth/auth.routes.js"
 import { createHash, isValidPassword } from "../../utils/utils.js"
+import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const router = Router()
 
+//Reegistro tradicional
 router.post('/register', async (req, res) => {
   try {
     const {
@@ -53,7 +58,6 @@ router.post('/register', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor' })
   }
 })
-
 
 router.post('/login', async (req, res) => {
   try {
@@ -115,7 +119,7 @@ router.patch("/reset-password", async (req, res) => {
 router.get('/profile', auth, async (req, res) => {
   try {
 
-    const userId = req.session.userId; 
+    const userId = req.session.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'No autorizado' });
@@ -139,7 +143,7 @@ router.get('/profile', auth, async (req, res) => {
 // Actualizar datos del usuario logueado (no admin, solo su propio perfil)
 router.put('/me', auth, async (req, res) => {
   try {
-    const userId = req.session.userId 
+    const userId = req.session.userId
     if (!userId) return res.status(401).json({ error: 'No autorizado' })
 
     // Campos que permitís actualizar (podés ajustar)
@@ -161,6 +165,59 @@ router.put('/me', auth, async (req, res) => {
     res.status(500).json({ error: 'Error interno' })
   }
 })
+
+//Registro y logueado con cuenta de google
+// Configurar serialización y deserialización (para sesión)
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await User.findById(id);
+    done(null, user);
+  } catch (err) {
+    done(err);
+  }
+});
+
+// Configurar la estrategia de Google
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: 'http://localhost:8080/api/session/auth/google/callback'
+},
+  async (accessToken, refreshToken, profile, done) => {
+    // Aquí buscas o creas el usuario en tu base
+    try {
+      let user = await User.findOne({ googleId: profile.id });
+
+      if (!user) {
+        user = await User.create({
+          googleId: profile.id,
+          nombre: profile.name.givenName,
+          apellido: profile.name.familyName,
+          email: profile.emails[0].value,
+        });
+      }
+      done(null, user);
+    } catch (error) {
+      done(error, null);
+    }
+  }));
+
+//Rutas para autenticación con google
+
+router.get('/auth/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
+
+router.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  (req, res) => {
+    // Login exitoso
+    res.redirect('/'); // o a donde quieras mandar al usuario
+  }
+);
 
 
 export default router

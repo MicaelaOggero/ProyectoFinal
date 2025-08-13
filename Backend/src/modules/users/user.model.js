@@ -1,18 +1,21 @@
 import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema({
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true // para que no exija que todos los usuarios tengan googleId
+  },
   dni: {
     type: String,
-    required: true,
-    unique: true
+    unique: true,
+    default:0
   },
   nombre: {
     type: String,
-    required: true
   },
   apellido: {
     type: String,
-    required: true
   },
   rol: {
     type: String,
@@ -27,7 +30,8 @@ const userSchema = new mongoose.Schema({
         nivel: { type: Number, min: 1, max: 5, required: true }
       }
     ],
-    required: true
+    required: true,
+    default:[]
   },
 
   aniosExperiencia: {
@@ -39,7 +43,8 @@ const userSchema = new mongoose.Schema({
 
   disponibilidadSemanal: {
     type: Number,
-    required: true
+    required: true,
+    default:0
   }, //Horas hombre por semana
   preferencias: {
     tipoTarea: [String],       // ej: ['frontend', 'testing']
@@ -52,7 +57,8 @@ const userSchema = new mongoose.Schema({
   }],
   costoPorHora: {
     type: Number,
-    required: true
+    required: true,
+    default: 0
   },
   fechaCreacion: {
     type: Date,
@@ -67,7 +73,7 @@ const userSchema = new mongoose.Schema({
 
   password: {
     type: String,
-    required: true,
+    required: function() { return !this.googleId; } 
   }
 
 });

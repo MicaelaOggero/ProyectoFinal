@@ -7,7 +7,7 @@ import sessionRouter from '../src/modules/session/session.routes.js'
 import projectRouter from '../src/modules/projects/project.routes.js'
 import userRouter from '../src/modules/users/user.routes.js'
 import skillRouter from '../src/modules/skills/skills.routes.js'
-
+import passport from 'passport'
 
 dotenv.config()
 const app=express()
@@ -47,6 +47,15 @@ app.use(session({
     secure: false
   }
 }))
+
+app.use(session({
+  secret: 'tu-secreto',
+  resave: false,
+  saveUninitialized: false
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 
 app.use('/api/session', sessionRouter)
