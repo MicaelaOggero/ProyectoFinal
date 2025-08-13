@@ -42,9 +42,10 @@
         <table v-else class="table table-hover">
           <thead>
             <tr>
-              <th scope="col">Nombre del Proyecto</th>
+              <th scope="col">Nombre</th>
               <th scope="col">Fechas</th>
               <th scope="col">Dificultad</th>
+              <th scope="col">Prioridad</th>
               <th scope="col">Estado</th>
               <th scope="col" title="Fecha y hora en que se creó el proyecto">Fecha de Creación</th>
               <th scope="col">Acciones</th>
@@ -55,6 +56,7 @@
               <td>{{ project.name }}</td>
               <td>{{ formatDate(project.startDate) }} - {{ formatDate(project.endDate) }}</td>
               <td>{{ project.difficulty }}</td>
+              <td><span class="badge" :class="getPriorityClass(project.priority)">{{ project.priority }}</span></td>
               <td><span class="badge" :class="getStatusClass(project.status)">{{ project.status }}</span></td>
               <td>{{ formatCreationDate(project.fechaCreacion) }}</td>
               <td>
@@ -97,13 +99,19 @@
                 </div>
               </div>
                <div class="row">
-                <div class="col-md-6 mb-3">
+                <div class="col-md-4 mb-3">
                   <label for="projectDifficulty" class="form-label">Nivel de Dificultad</label>
                   <select class="form-select" id="projectDifficulty" v-model="editableProject.difficulty">
                     <option v-for="opt in difficultyOptions" :key="opt">{{ opt }}</option>
                   </select>
                 </div>
-                <div class="col-md-6 mb-3">
+                <div class="col-md-4 mb-3">
+                  <label for="projectPriority" class="form-label">Prioridad</label>
+                  <select class="form-select" id="projectPriority" v-model="editableProject.priority">
+                    <option v-for="opt in priorityOptions" :key="opt">{{ opt }}</option>
+                  </select>
+                </div>
+                <div class="col-md-4 mb-3">
                   <label for="projectStatus" class="form-label">Estado</label>
                   <select class="form-select" id="projectStatus" v-model="editableProject.status">
                      <option v-for="opt in statusOptions" :key="opt">{{ opt }}</option>
@@ -153,7 +161,8 @@ export default {
       alertClass: '',
       // Opciones para los selectores
       difficultyOptions: ['Baja', 'Media', 'Alta'],
-      statusOptions: ['Activo', 'Pausado', 'Finalizado']
+      statusOptions: ['Activo', 'Pausado', 'Finalizado'],
+      priorityOptions: ['Baja', 'Media', 'Alta']
     };
   },
   computed: {
@@ -191,6 +200,12 @@ export default {
       if (status === 'Activo') return 'bg-success';
       if (status === 'Pausado') return 'bg-warning text-dark';
       if (status === 'Finalizado') return 'bg-secondary';
+      return 'bg-light';
+    },
+    getPriorityClass(priority) {
+      if (priority === 'Baja') return 'bg-success';
+      if (priority === 'Media') return 'bg-warning text-dark';
+      if (priority === 'Alta') return 'bg-danger';
       return 'bg-light';
     },
     async checkUserSession() {
@@ -255,7 +270,7 @@ export default {
       this.isEditMode = false;
       this.editableProject = {
         name: '', description: '', startDate: '', endDate: '', 
-        difficulty: 'Media', status: 'Activo'
+        difficulty: 'Media', status: 'Activo', priority: 'Media'
       };
       this.modalInstance.show();
     },

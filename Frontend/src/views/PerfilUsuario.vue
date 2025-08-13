@@ -73,7 +73,6 @@
                   <div class="card-body">
                     <h6 class="card-title text-success">{{ skill.nombre }}</h6>
                     <div class="d-flex justify-content-between align-items-center">
-                      <span class="badge bg-primary">{{ skill.nivel }}</span>
                       <span class="text-muted">{{ skill.aniosExperiencia }} años de experiencia</span>
                     </div>
                   </div>

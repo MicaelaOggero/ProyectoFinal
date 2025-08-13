@@ -17,10 +17,29 @@ router.get('/', auth, async (req, res) => {
   }
 })
 
+// Obtener un proyecto específico por ID con equipo y tareas
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params
+    
+    const proyecto = await Project.findById(id)
+      .populate('equipo.usuario', 'nombre apellido email rol')
+    
+    if (!proyecto) {
+      return res.status(404).json({ error: 'Proyecto no encontrado' })
+    }
+
+    res.json(proyecto)
+  } catch (error) {
+    console.error('❌ Error al obtener proyecto:', error)
+    res.status(500).json({ error: 'Error al obtener proyecto' })
+  }
+})
+
 // Crear un nuevo proyecto (solo admins)
 router.post('/', authAdmin, async (req, res) => {
   try {
-    const { nombre, descripcion, fechaInicio, fechaFin, nivelDificultad, estado } = req.body
+    const { nombre, descripcion, fechaInicio, fechaFin, nivelDificultad, prioridad, estado, equipo } = req.body
 
     const nuevoProyecto = await Project.create({
       nombre,
@@ -28,7 +47,9 @@ router.post('/', authAdmin, async (req, res) => {
       fechaInicio,
       fechaFin,
       nivelDificultad,
-      estado
+      prioridad,
+      estado,
+      equipo: equipo || []
     })
 
     res.status(201).json({ message: 'Proyecto creado con éxito', proyecto: nuevoProyecto })

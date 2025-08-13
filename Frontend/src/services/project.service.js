@@ -21,13 +21,21 @@ class ProjectService {
       'Finalizado': 'finalizado'
     };
 
+    const priorityMap = {
+      'Baja': 'baja',
+      'Media': 'media',
+      'Alta': 'alta'
+    };
+
     return {
       nombre: project.name,
       descripcion: project.description,
       fechaInicio: project.startDate,
       fechaFin: project.endDate,
       nivelDificultad: difficultyMap[project.difficulty] || 3,
-      estado: statusMap[project.status] || 'activo'
+      prioridad: priorityMap[project.priority] || 'media',
+      estado: statusMap[project.status] || 'activo',
+      equipo: project.team || []
     };
   }
 
@@ -47,6 +55,12 @@ class ProjectService {
       'finalizado': 'Finalizado'
     };
 
+    const priorityMap = {
+      'baja': 'Baja',
+      'media': 'Media',
+      'alta': 'Alta'
+    };
+
     return {
       _id: project._id,
       name: project.nombre,
@@ -54,7 +68,9 @@ class ProjectService {
       startDate: project.fechaInicio ? project.fechaInicio.split('T')[0] : '',
       endDate: project.fechaFin ? project.fechaFin.split('T')[0] : '',
       difficulty: difficultyMap[project.nivelDificultad] || 'Media',
+      priority: priorityMap[project.prioridad] || 'Media',
       status: statusMap[project.estado] || 'Activo',
+      team: project.equipo || [],
       fechaCreacion: project.fechaCreacion
     };
   }
@@ -67,6 +83,16 @@ class ProjectService {
       return { data: mappedProjects };
     } catch (error) {
       console.error('Error en getProjects:', error);
+      throw error;
+    }
+  }
+
+  async getProjectById(id) {
+    try {
+      const response = await axios.get(`${API_URL}/${id}`);
+      return { data: this._mapToFrontend(response.data) };
+    } catch (error) {
+      console.error('Error en getProjectById:', error);
       throw error;
     }
   }

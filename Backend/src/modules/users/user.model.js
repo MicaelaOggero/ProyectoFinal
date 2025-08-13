@@ -9,7 +9,7 @@ const userSchema = new mongoose.Schema({
   dni: {
     type: String,
     unique: true,
-    default:0
+    default: 0
   },
   nombre: {
     type: String,
@@ -26,12 +26,20 @@ const userSchema = new mongoose.Schema({
   habilidades: {
     type: [
       {
-        nombre: { type: String, required: true },
-        nivel: { type: Number, min: 1, max: 5, required: true }
+        nombre: {
+          type: String,
+          required: true
+        },
+        aniosExperiencia: {
+          type: Number,
+          min: 0,
+          default: 0,
+          required: true
+        }
       }
     ],
     required: true,
-    default:[]
+    default: []
   },
 
   aniosExperiencia: {
@@ -44,26 +52,31 @@ const userSchema = new mongoose.Schema({
   disponibilidadSemanal: {
     type: Number,
     required: true,
-    default:0
-  }, //Horas hombre por semana
+    default: 0
+  }, // Horas hombre por semana
+
   preferencias: {
     tipoTarea: [String],       // ej: ['frontend', 'testing']
     tecnologias: [String],     // ej: ['React', 'MongoDB']
   },
+
   historialDesempeño: [{
     proyecto: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
     calificacion: Number,
     comentario: String
   }],
+
   costoPorHora: {
     type: Number,
     required: true,
     default: 0
   },
+
   fechaCreacion: {
     type: Date,
     default: Date.now
   },
+
   email: {
     type: String,
     required: true,
@@ -73,9 +86,8 @@ const userSchema = new mongoose.Schema({
 
   password: {
     type: String,
-    required: function() { return !this.googleId; } 
+    required: function () { return !this.googleId; }
   }
-
 });
 
 const User = mongoose.model('User', userSchema);

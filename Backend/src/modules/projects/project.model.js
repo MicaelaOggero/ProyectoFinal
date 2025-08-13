@@ -22,11 +22,32 @@ const projectSchema = new mongoose.Schema({
     max: 5,
     required: true
   },
+  prioridad: {
+    type: String,
+    enum: ['alta', 'media', 'baja'],
+    default: 'media',
+    required: true
+  },
   estado: {
     type: String,
     enum: ['activo', 'pausado', 'finalizado'],
     default: 'activo'
   },
+  equipo: [{
+    usuario: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    rol: {
+      type: String,
+      required: true
+    },
+    fechaAsignacion: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   fechaCreacion: {
     type: Date,
     default: Date.now
