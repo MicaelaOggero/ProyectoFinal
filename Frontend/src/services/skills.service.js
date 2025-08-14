@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8080/api/skills';
+const API_URL = 'http://localhost:8080/api/skill';
 
 class SkillsService {
   getSkills() {
