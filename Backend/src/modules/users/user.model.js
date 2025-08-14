@@ -28,7 +28,6 @@ const userSchema = new mongoose.Schema({
       {
         nombre: { type: String, required: true },
         nivel: { type: Number, min: 1, max: 5, required: true }
-
       }
     ],
     required: true,
