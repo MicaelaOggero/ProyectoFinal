@@ -126,7 +126,7 @@ router.get('/profile', auth, async (req, res) => {
     }
 
     // Buscar el usuario en la base de datos, excluyendo password y fechaCreacion
-    const user = await User.findOne({ userId }).select('-password -fechaCreacion').lean();
+    const user = await User.findById(userId).select('-password -fechaCreacion').lean();
 
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
