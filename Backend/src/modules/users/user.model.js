@@ -9,13 +9,15 @@ const userSchema = new mongoose.Schema({
   dni: {
     type: String,
     unique: true,
-    default:0
+    required: function() { return !this.googleId; }
   },
   nombre: {
     type: String,
+    required: function() { return !this.googleId; }
   },
   apellido: {
     type: String,
+    required: function() { return !this.googleId; }
   },
   rol: {
     type: String,
@@ -30,36 +32,47 @@ const userSchema = new mongoose.Schema({
         nivel: { type: Number, min: 1, max: 5, required: true }
       }
     ],
-    required: true,
-    default:[]
+    default: [],
+    required: function () { return this.rol === 'user' || !this.googleId;}
   },
 
   aniosExperiencia: {
     type: Number,
     min: 0,
     default: 0,
-    required: true
+    required: function () { return this.rol === 'user' || !this.googleId;; }
   },
 
   disponibilidadSemanal: {
     type: Number,
-    required: true,
-    default:0
+    required: function () { return this.rol === 'user' || !this.googleId;; },
+    default: 0
   }, //Horas hombre por semana
   preferencias: {
-    tipoTarea: [String],       // ej: ['frontend', 'testing']
-    tecnologias: [String],     // ej: ['React', 'MongoDB']
+    tipoTarea: {
+      type: [String],
+      default: []
+    },
+    tecnologias: {
+      type: [String],
+      default: []
+    }
   },
-  historialDesempeño: [{
-    proyecto: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
-    calificacion: Number,
-    comentario: String
-  }],
+  historialDesempeño: {
+    type: [
+      {
+        proyecto: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
+        calificacion: Number,
+        comentario: String
+      }
+    ],
+    default: []
+  },
   costoPorHora: {
     type: Number,
-    required: true,
     default: 0
   },
+
   fechaCreacion: {
     type: Date,
     default: Date.now
@@ -73,7 +86,7 @@ const userSchema = new mongoose.Schema({
 
   password: {
     type: String,
-    required: function() { return !this.googleId; } 
+    required: function () { return !this.googleId; }
   }
 
 });

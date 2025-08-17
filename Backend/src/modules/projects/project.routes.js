@@ -6,16 +6,17 @@ const router = Router()
 
 
 
-// Obtener todos los proyectos (solo usuarios autenticados)
-router.get('/', auth, async (req, res) => {
+// Obtener proyectos (solo admins, solo los que crearon)
+router.get('/', authAdmin, async (req, res) => {
   try {
-    const projects = await Project.find()
-    res.json(projects)
+    const projects = await Project.find({ administrador: req.userId }); // filtra por admin creador
+    res.json(projects);
   } catch (error) {
-    console.error('❌ Error al obtener proyectos:', error)
-    res.status(500).json({ error: 'Error al obtener proyectos' })
+    console.error('❌ Error al obtener proyectos:', error);
+    res.status(500).json({ error: 'Error al obtener proyectos' });
   }
-})
+});
+
 
 // Obtener un proyecto específico por ID con equipo y tareas
 router.get('/:id', auth, async (req, res) => {
@@ -39,7 +40,10 @@ router.get('/:id', auth, async (req, res) => {
 // Crear un nuevo proyecto (solo admins)
 router.post('/', authAdmin, async (req, res) => {
   try {
-    const { nombre, descripcion, fechaInicio, fechaFin, nivelDificultad, prioridad, estado, equipo } = req.body
+    const { nombre, descripcion, fechaInicio, fechaFin, nivelDificultad, prioridad, estado, equipo } = req.body;
+
+    // El middleware authAdmin debe poner el id del usuario en req.userId
+    const administradorId = req.userId;
 
     const nuevoProyecto = await Project.create({
       nombre,
@@ -49,15 +53,16 @@ router.post('/', authAdmin, async (req, res) => {
       nivelDificultad,
       prioridad,
       estado,
-      equipo: equipo || []
-    })
+      administrador: administradorId, // asigna el admin automáticamente
+    });
 
-    res.status(201).json({ message: 'Proyecto creado con éxito', proyecto: nuevoProyecto })
+    res.status(201).json({ message: 'Proyecto creado con éxito', proyecto: nuevoProyecto });
   } catch (error) {
-    console.error('❌ Error al crear proyecto:', error)
-    res.status(500).json({ error: 'Error al crear proyecto' })
+    console.error('❌ Error al crear proyecto:', error);
+    res.status(500).json({ error: 'Error al crear proyecto' });
   }
-})
+});
+
 
 // Actualizar un proyecto por ID (solo admins)
 router.put('/:id', authAdmin, async (req, res) => {

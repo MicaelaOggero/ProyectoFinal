@@ -27,9 +27,9 @@ router.post('/register', async (req, res) => {
     } = req.body
 
     // Verificar duplicado
-    const user = await User.findOne({ dni })
+    const user = await User.findOne({ email })
     if (user) {
-      return res.status(409).json({ error: 'Ya existe un usuario con ese DNI' })
+      return res.status(409).json({ error: 'Ya existe un usuario con ese Email' })
     }
 
     // Crear el nuevo usuario

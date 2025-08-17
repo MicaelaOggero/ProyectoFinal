@@ -51,7 +51,12 @@ const projectSchema = new mongoose.Schema({
   fechaCreacion: {
     type: Date,
     default: Date.now
-  }
+  },
+  administrador: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true // asegura que cada proyecto tenga un admin asignado
+  },
 });
 
 const Project = mongoose.model('Project', projectSchema);
