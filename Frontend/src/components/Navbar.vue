@@ -1,5 +1,5 @@
 <template>
-  <nav class="navbar navbar-expand-lg custom-navbar">
+  <nav class="navbar navbar-expand-lg custom-navbar sticky-top">
     <div class="container-fluid">
       <!-- Iconos de navegación -->
       <div class="navbar-left-section">
@@ -17,10 +17,12 @@
       <!-- Información del usuario y acciones -->
       <div class="navbar-right-section">
         <div v-if="currentUser" class="user-info">
-          <span class="user-name">
-            {{ currentUser.nombre }} {{ currentUser.apellido }}
-            <span class="role-badge">{{ currentUser.rol }}</span>
-          </span>
+          <router-link to="/mi-perfil" class="user-profile-link">
+            <span class="user-name">
+              {{ currentUser.nombre }} {{ currentUser.apellido }}
+              <span class="role-badge">{{ currentUser.rol }}</span>
+            </span>
+          </router-link>
         </div>
         <div class="logout-section">
           <a v-if="currentUser" class="nav-link logout-link" href="#" @click.prevent="handleLogout">
@@ -145,12 +147,32 @@ export default {
   align-items: center;
 }
 
+.user-profile-link {
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.3s ease;
+}
+
+.user-profile-link:hover {
+  text-decoration: none;
+  color: inherit;
+  transform: translateY(-1px);
+}
+
 .user-name {
   color: white;
   font-weight: 600;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.3s;
+}
+
+.user-name:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .role-badge {

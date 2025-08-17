@@ -1,11 +1,23 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8080/api/session';
+const API_URL = process.env.VUE_APP_API_URL || 'http://localhost:8080/api/session';
 
 class AuthService {
   constructor() {
     // Configurar axios para incluir cookies en todas las requests
     axios.defaults.withCredentials = true;
+  }
+
+  async register(userData) {
+    try {
+      console.log('Intentando registro con:', { ...userData, password: '***' });
+      const response = await axios.post(`${API_URL}/register`, userData);
+      console.log('Respuesta del registro:', response.data);
+      return response;
+    } catch (error) {
+      console.error('Error en registro:', error.response?.data || error.message);
+      throw error;
+    }
   }
 
   async login(email, password) {
@@ -19,6 +31,82 @@ class AuthService {
       return response;
     } catch (error) {
       console.error('Error en login:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  // Método para iniciar autenticación con Google
+  async loginWithGoogle() {
+    try {
+      // Redirigir al usuario a la ruta de autenticación de Google
+      window.location.href = `${API_URL}/auth/google`;
+    } catch (error) {
+      console.error('Error al iniciar autenticación con Google:', error);
+      throw error;
+    }
+  }
+
+  // Método para completar perfil después de Google OAuth
+  async completeGoogleProfile(profileData) {
+    try {
+      console.log('Completando perfil de Google con:', profileData);
+      const response = await axios.put(`${API_URL}/complete-profile`, profileData);
+      console.log('Perfil completado:', response.data);
+      return response;
+    } catch (error) {
+      console.error('Error al completar perfil:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  // Método para verificar si el usuario necesita completar su perfil
+  async checkProfileCompletion() {
+    try {
+      const response = await axios.get(`${API_URL}/profile`);
+      if (response.data.status === 'ok') {
+        const user = response.data.payload;
+        // Verificar si faltan campos requeridos
+        return {
+          isComplete: !!(user.dni && user.rol && user.disponibilidadSemanal !== undefined),
+          user: user
+        };
+      }
+      return { isComplete: false, user: null };
+    } catch (error) {
+      console.error('Error verificando completitud del perfil:', error);
+      return { isComplete: false, user: null };
+    }
+  }
+
+  // Método para obtener usuarios pendientes de aprobación (solo admin)
+  async getPendingUsers() {
+    try {
+      const response = await axios.get(`${API_URL}/pending-users`);
+      return response.data;
+    } catch (error) {
+      console.error('Error obteniendo usuarios pendientes:', error);
+      throw error;
+    }
+  }
+
+  // Método para aprobar un usuario (solo admin)
+  async approveUser(userId) {
+    try {
+      const response = await axios.put(`${API_URL}/approve-user/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error aprobando usuario:', error);
+      throw error;
+    }
+  }
+
+  // Método para rechazar un usuario (solo admin)
+  async rejectUser(userId) {
+    try {
+      const response = await axios.put(`${API_URL}/reject-user/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error rechazando usuario:', error);
       throw error;
     }
   }
