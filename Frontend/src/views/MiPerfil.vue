@@ -260,10 +260,143 @@
             <button type="button" class="btn-close" @click="closeEditModal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
-            <p class="text-muted">La funcionalidad de edición se implementará próximamente.</p>
+            <form @submit.prevent="saveProfile">
+              <!-- Información Personal -->
+              <div class="row mb-4">
+                <div class="col-12">
+                  <h6 class="text-primary mb-3">
+                    <i class="bi bi-person me-2"></i>Información Personal
+                  </h6>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="editDni" class="form-label">DNI *</label>
+                  <input 
+                    type="text" 
+                    class="form-control" 
+                    id="editDni" 
+                    v-model="editForm.dni"
+                    maxlength="8"
+                    pattern="[0-9]{8}"
+                    required
+                    @input="validateDni"
+                  >
+                  <div class="form-text">8 dígitos numéricos</div>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="editAniosExperiencia" class="form-label">Años de Experiencia</label>
+                  <input 
+                    type="number" 
+                    class="form-control" 
+                    id="editAniosExperiencia" 
+                    v-model="editForm.aniosExperiencia"
+                    min="0"
+                    max="50"
+                  >
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="editDisponibilidadSemanal" class="form-label">Disponibilidad Semanal (horas)</label>
+                  <input 
+                    type="number" 
+                    class="form-control" 
+                    id="editDisponibilidadSemanal" 
+                    v-model="editForm.disponibilidadSemanal"
+                    min="1"
+                    max="168"
+                  >
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="editCostoPorHora" class="form-label">Costo por Hora ($)</label>
+                  <input 
+                    type="number" 
+                    class="form-control" 
+                    id="editCostoPorHora" 
+                    v-model="editForm.costoPorHora"
+                    min="0"
+                    step="0.01"
+                  >
+                </div>
+              </div>
+
+              <!-- Habilidades -->
+              <div class="row mb-4">
+                <div class="col-12">
+                  <h6 class="text-success mb-3">
+                    <i class="bi bi-tools me-2"></i>Habilidades Técnicas *
+                  </h6>
+                  <div v-for="(skill, index) in editForm.habilidades" :key="index" class="row mb-3">
+                    <div class="col-md-5">
+                      <input 
+                        type="text" 
+                        class="form-control" 
+                        :placeholder="'Nombre de habilidad ' + (index + 1)"
+                        v-model="skill.nombre"
+                        required
+                      >
+                    </div>
+                    <div class="col-md-4">
+                      <select class="form-select" v-model="skill.nivel" required>
+                        <option value="">Seleccionar nivel</option>
+                        <option value="1">1 - Principiante</option>
+                        <option value="2">2 - Básico</option>
+                        <option value="3">3 - Intermedio</option>
+                        <option value="4">4 - Avanzado</option>
+                        <option value="5">5 - Experto</option>
+                      </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-center">
+                      <button 
+                        type="button" 
+                        class="btn btn-outline-danger btn-sm me-2"
+                        @click="removeSkill(index)"
+                        :disabled="editForm.habilidades.length === 1"
+                      >
+                        <i class="bi bi-trash"></i>
+                      </button>
+                      <span class="badge bg-secondary">{{ skill.nivel || 'N/A' }}/5</span>
+                    </div>
+                  </div>
+                  <button 
+                    type="button" 
+                    class="btn btn-outline-success btn-sm"
+                    @click="addSkill"
+                  >
+                    <i class="bi bi-plus-circle me-1"></i>Agregar Habilidad
+                  </button>
+                </div>
+              </div>
+
+              <!-- Preferencias -->
+              <div class="row mb-4">
+                <div class="col-12">
+                  <h6 class="text-info mb-3">
+                    <i class="bi bi-heart me-2"></i>Preferencias de Trabajo
+                  </h6>
+                  <textarea 
+                    class="form-control" 
+                    rows="3" 
+                    placeholder="Describe tus preferencias de trabajo, tipo de proyectos que te gustan, etc."
+                    v-model="editForm.preferencias"
+                  ></textarea>
+                </div>
+              </div>
+
+              <!-- Mensaje de estado -->
+              <div v-if="editMessage" class="alert" :class="editMessageClass" role="alert">
+                {{ editMessage }}
+              </div>
+            </form>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="closeEditModal">Cerrar</button>
+            <button type="button" class="btn btn-secondary" @click="closeEditModal">Cancelar</button>
+            <button 
+              type="button" 
+              class="btn btn-primary" 
+              @click="saveProfile"
+              :disabled="saving"
+            >
+              <span v-if="saving" class="spinner-border spinner-border-sm me-2" role="status"></span>
+              {{ saving ? 'Guardando...' : 'Guardar Cambios' }}
+            </button>
           </div>
         </div>
       </div>
@@ -282,14 +415,37 @@ export default {
       user: null,
       loading: true,
       error: null,
-      editModalInstance: null
+      editModalInstance: null,
+      editForm: {
+        dni: '',
+        aniosExperiencia: null,
+        disponibilidadSemanal: null,
+        costoPorHora: null,
+        habilidades: [],
+        preferencias: ''
+      },
+      saving: false,
+      editMessage: '',
+      editMessageClass: ''
     };
   },
   async mounted() {
     this.editModalInstance = new Modal(document.getElementById('editProfileModal'));
+    this.initializeEditForm();
     await this.loadUserProfile();
   },
   methods: {
+    initializeEditForm() {
+      this.editForm = {
+        dni: '',
+        aniosExperiencia: 0,
+        disponibilidadSemanal: 40,
+        costoPorHora: 0,
+        habilidades: [{ nombre: '', nivel: '' }],
+        preferencias: ''
+      };
+    },
+    
     async loadUserProfile() {
       this.loading = true;
       this.error = null;
@@ -367,10 +523,95 @@ export default {
         : 'Tu cuenta está siendo revisada por un administrador';
     },
     editProfile() {
+      // Solo copiar los campos editables
+      this.editForm = {
+        dni: this.user.dni || '',
+        aniosExperiencia: this.user.aniosExperiencia || 0,
+        disponibilidadSemanal: this.user.disponibilidadSemanal || 40,
+        costoPorHora: this.user.costoPorHora || 0,
+        habilidades: this.user.habilidades ? [...this.user.habilidades] : [{ nombre: '', nivel: '' }],
+        preferencias: this.user.preferencias || ''
+      };
+      
+      // Asegurar que siempre haya al menos una habilidad
+      if (this.editForm.habilidades.length === 0) {
+        this.editForm.habilidades = [{ nombre: '', nivel: '' }];
+      }
+      
       this.editModalInstance.show();
     },
     closeEditModal() {
       this.editModalInstance.hide();
+      this.editMessage = ''; // Limpiar mensaje de estado
+      this.editMessageClass = ''; // Limpiar clase de mensaje
+      this.initializeEditForm(); // Reinicializar formulario
+    },
+    addSkill() {
+      this.editForm.habilidades.push({ nombre: '', nivel: '' });
+    },
+    
+    removeSkill(index) {
+      if (this.editForm.habilidades.length > 1) {
+        this.editForm.habilidades.splice(index, 1);
+      }
+    },
+    
+    validateDni() {
+      // Solo permitir números en el DNI
+      this.editForm.dni = this.editForm.dni.replace(/\D/g, '');
+      // Limitar a 8 dígitos
+      if (this.editForm.dni.length > 8) {
+        this.editForm.dni = this.editForm.dni.slice(0, 8);
+      }
+    },
+    async saveProfile() {
+      this.saving = true;
+      this.editMessage = '';
+      this.editMessageClass = '';
+
+      try {
+        // Validar campos requeridos
+        if (!this.editForm.dni) {
+          throw new Error('El DNI es obligatorio');
+        }
+
+        if (this.editForm.dni.length !== 8 || isNaN(this.editForm.dni)) {
+          throw new Error('El DNI debe tener 8 dígitos numéricos');
+        }
+
+        if (this.editForm.habilidades.length === 0) {
+          throw new Error('Debes agregar al menos una habilidad');
+        }
+
+        for (let skill of this.editForm.habilidades) {
+          if (!skill.nombre || !skill.nivel) {
+            throw new Error('Por favor completa todas las habilidades');
+          }
+        }
+
+        const updatedUser = await AuthService.updateProfile(this.editForm);
+        if (updatedUser) {
+          // Recargar el perfil del usuario
+          await this.loadUserProfile();
+          
+          this.editMessage = '¡Perfil actualizado exitosamente!';
+          this.editMessageClass = 'alert-success';
+          
+          // Cerrar modal después de 2 segundos
+          setTimeout(() => {
+            this.closeEditModal();
+          }, 2000);
+        } else {
+          this.editMessage = 'No se pudieron guardar los cambios. Inténtalo de nuevo.';
+          this.editMessageClass = 'alert-danger';
+        }
+      } catch (error) {
+        console.error('Error saving profile:', error);
+        this.editMessage = error.message || 'Error al guardar los cambios. Verifica tu conexión e intenta nuevamente.';
+        this.editMessageClass = 'alert-danger';
+      } finally {
+        this.saving = false;
+      }
     },
     goToProjects() {
       this.$router.push('/proyectos');

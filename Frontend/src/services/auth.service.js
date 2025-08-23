@@ -59,6 +59,23 @@ class AuthService {
     }
   }
 
+  // Método para actualizar el perfil del usuario
+  async updateProfile(profileData) {
+    try {
+      console.log('Actualizando perfil con:', profileData);
+      const response = await axios.put(`${API_URL}/me`, profileData);
+      console.log('Perfil actualizado:', response.data);
+      
+      if (response.data.status === 'ok') {
+        return response.data.payload;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error al actualizar perfil:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
   // Método para verificar si el usuario necesita completar su perfil
   async checkProfileCompletion() {
     try {
