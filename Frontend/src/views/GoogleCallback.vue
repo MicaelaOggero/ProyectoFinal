@@ -28,9 +28,10 @@
         <p class="text-muted">
           Has iniciado sesión con Google. Necesitamos que completes algunos datos adicionales para continuar.
         </p>
-        <button @click="showCompleteProfile" class="btn btn-primary">
-          Completar Perfil
-        </button>
+        <p class="text-info">
+          <i class="bi bi-info-circle me-2"></i>
+          El formulario se abrirá automáticamente para completar tu perfil.
+        </p>
       </div>
 
       <div v-else-if="pendingApproval" class="approval-section">
@@ -140,9 +141,7 @@ export default {
       }
     },
 
-    showCompleteProfile() {
-      this.$refs.completeProfileModal.show();
-    },
+
 
     async handleProfileCompleted() {
       // Verificar nuevamente el estado del perfil
