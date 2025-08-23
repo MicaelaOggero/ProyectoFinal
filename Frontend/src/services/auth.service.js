@@ -50,7 +50,7 @@ class AuthService {
   async completeGoogleProfile(profileData) {
     try {
       console.log('Completando perfil de Google con:', profileData);
-      const response = await axios.put(`${API_URL}/complete-profile`, profileData);
+      const response = await axios.put(`${API_URL}/me`, profileData);
       console.log('Perfil completado:', response.data);
       return response;
     } catch (error) {
@@ -62,8 +62,20 @@ class AuthService {
   // Método para verificar si el usuario necesita completar su perfil
   async checkProfileCompletion() {
     try {
-      const response = await axios.get(`${API_URL}/check-profile-completion`);
-      return response.data;
+      const response = await axios.get(`${API_URL}/profile`);
+      if (response.data.status === 'ok') {
+        const user = response.data.payload;
+        
+        // Verificar si el perfil está completo basándose en los datos del usuario
+        const isComplete = user.dni && 
+                          user.nombre && 
+                          user.apellido && 
+                          user.habilidades && 
+                          user.habilidades.length > 0;
+        
+        return { isComplete };
+      }
+      return { isComplete: false };
     } catch (error) {
       console.error('Error verificando completitud del perfil:', error);
       return { isComplete: false };

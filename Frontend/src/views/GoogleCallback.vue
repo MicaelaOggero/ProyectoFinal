@@ -28,10 +28,9 @@
         <p class="text-muted">
           Has iniciado sesión con Google. Necesitamos que completes algunos datos adicionales para continuar.
         </p>
-        <p class="text-info">
-          <i class="bi bi-info-circle me-2"></i>
-          El formulario se abrirá automáticamente para completar tu perfil.
-        </p>
+        <button @click="showCompleteProfileForm" class="btn btn-primary">
+          Completar Perfil
+        </button>
       </div>
 
       <div v-else-if="pendingApproval" class="approval-section">
@@ -64,7 +63,7 @@
 
     <!-- Modales -->
     <CompleteGoogleProfile 
-      v-if="needsProfileCompletion"
+      ref="completeProfileModal"
       @profile-completed="handleProfileCompleted"
     />
     
@@ -125,10 +124,13 @@ export default {
         const profileCheck = await AuthService.checkProfileCompletion();
         
         if (!profileCheck.isComplete) {
+          // Perfil incompleto - mostrar opción para completarlo
           this.needsProfileCompletion = true;
         } else if (user.rol === 'user' && !user.approved) {
+          // Perfil completo pero pendiente de aprobación
           this.pendingApproval = true;
         } else {
+          // Perfil completo y aprobado - ir al dashboard
           this.profileComplete = true;
           this.startRedirect();
         }
@@ -141,17 +143,29 @@ export default {
       }
     },
 
-
+    showCompleteProfileForm() {
+      this.$refs.completeProfileModal.show();
+    },
 
     async handleProfileCompleted() {
-      // Verificar nuevamente el estado del perfil
-      const profileCheck = await AuthService.checkProfileCompletion();
+      console.log('Evento profile-completed recibido');
       
-      if (profileCheck.isComplete) {
-        this.needsProfileCompletion = false;
+      try {
+        // Verificar nuevamente el estado del perfil
+        const profileCheck = await AuthService.checkProfileCompletion();
+        console.log('Verificación de perfil:', profileCheck);
         
-        // Siempre será usuario, mostrar mensaje de espera
-        this.pendingApproval = true;
+        if (profileCheck.isComplete) {
+          console.log('Perfil completo, mostrando aprobación pendiente');
+          this.needsProfileCompletion = false;
+          
+          // Siempre será usuario, mostrar mensaje de espera
+          this.pendingApproval = true;
+        } else {
+          console.log('Perfil aún incompleto');
+        }
+      } catch (error) {
+        console.error('Error en handleProfileCompleted:', error);
       }
     },
 

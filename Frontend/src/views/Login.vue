@@ -181,19 +181,7 @@
           </div>
 
           <div class="row">
-            <div class="col-md-6">
-              <div class="form-group">
-                <label for="aniosExperiencia">Años de Experiencia</label>
-                <input
-                  type="number"
-                  id="aniosExperiencia"
-                  v-model="registerData.aniosExperiencia"
-                  class="form-control"
-                  min="0"
-                  max="50"
-                />
-              </div>
-            </div>
+          
             <div class="col-md-6">
               <div class="form-group">
                 <label for="disponibilidadSemanal">Disponibilidad Semanal (horas)</label>
