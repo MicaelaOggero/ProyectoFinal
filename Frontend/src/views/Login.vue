@@ -112,12 +112,15 @@
             </div>
             <div class="col-md-6">
               <div class="form-group">
-                <label for="rol">Rol *</label>
-                <select id="rol" v-model="registerData.rol" required class="form-control">
-                  <option value="">Selecciona un rol</option>
-                  <option value="desarrollador">Desarrollador</option>
-                  <option value="admin">Administrador</option>
-                </select>
+                <label for="aniosExperiencia">Años de Experiencia</label>
+                <input
+                  type="number"
+                  id="aniosExperiencia"
+                  v-model="registerData.aniosExperiencia"
+                  class="form-control"
+                  min="0"
+                  max="50"
+                />
               </div>
             </div>
           </div>
@@ -207,26 +210,14 @@
           </div>
 
           <div class="form-group">
-            <label for="costoPorHora">Costo por Hora ($)</label>
+            <label for="habilidades">Habilidades (separadas por comas)</label>
             <input
-              type="number"
-              id="costoPorHora"
-              v-model="registerData.costoPorHora"
+              type="text"
+              id="habilidades"
+              v-model="habilidadesText"
               class="form-control"
-              min="0"
-              step="0.01"
+              placeholder="JavaScript, React, Node.js"
             />
-          </div>
-
-          <div class="form-group">
-            <label for="preferencias">Preferencias de Trabajo</label>
-            <textarea
-              id="preferencias"
-              v-model="registerData.preferencias"
-              class="form-control"
-              rows="3"
-              placeholder="Describe tus preferencias de trabajo..."
-            ></textarea>
           </div>
 
           <button type="submit" class="btn btn-primary" :disabled="loading">
@@ -265,15 +256,13 @@ export default {
         dni: '',
         nombre: '',
         apellido: '',
-        rol: '',
         habilidades: [],
         aniosExperiencia: 0,
         disponibilidadSemanal: 0,
-        preferencias: '',
-        costoPorHora: 0,
         email: '',
         password: ''
-      }
+      },
+      habilidadesText: ''
     };
   },
   methods: {
@@ -283,7 +272,7 @@ export default {
       
       try {
         await AuthService.login(this.loginData.email, this.loginData.password);
-        this.$router.push('/proyectos');
+        this.$router.push('/dashboard');
       } catch (error) {
         this.error = error.response?.data?.error || 'Error al iniciar sesión. Verifica tus credenciales.';
       } finally {
@@ -298,7 +287,7 @@ export default {
       try {
         // Validar campos requeridos
         if (!this.registerData.dni || !this.registerData.nombre || !this.registerData.apellido || 
-            !this.registerData.rol || !this.registerData.email || !this.registerData.password) {
+            !this.registerData.email || !this.registerData.password) {
           throw new Error('Por favor completa todos los campos requeridos');
         }
 
@@ -310,6 +299,14 @@ export default {
         // Validar contraseña
         if (this.registerData.password.length < 6) {
           throw new Error('La contraseña debe tener al menos 6 caracteres');
+        }
+
+        // Convertir habilidades de texto a array
+        if (this.habilidadesText.trim()) {
+          this.registerData.habilidades = this.habilidadesText.split(',').map(skill => ({
+            nombre: skill.trim(),
+            nivel: 3 // Nivel intermedio por defecto
+          }));
         }
 
         await AuthService.register(this.registerData);
@@ -351,15 +348,13 @@ export default {
         dni: '',
         nombre: '',
         apellido: '',
-        rol: '',
         habilidades: [],
         aniosExperiencia: 0,
         disponibilidadSemanal: 0,
-        preferencias: '',
-        costoPorHora: 0,
         email: '',
         password: ''
       };
+      this.habilidadesText = '';
     }
   }
 }

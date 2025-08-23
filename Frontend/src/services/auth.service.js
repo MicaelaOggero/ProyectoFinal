@@ -62,19 +62,11 @@ class AuthService {
   // Método para verificar si el usuario necesita completar su perfil
   async checkProfileCompletion() {
     try {
-      const response = await axios.get(`${API_URL}/profile`);
-      if (response.data.status === 'ok') {
-        const user = response.data.payload;
-        // Verificar si faltan campos requeridos
-        return {
-          isComplete: !!(user.dni && user.rol && user.disponibilidadSemanal !== undefined),
-          user: user
-        };
-      }
-      return { isComplete: false, user: null };
+      const response = await axios.get(`${API_URL}/check-profile-completion`);
+      return response.data;
     } catch (error) {
       console.error('Error verificando completitud del perfil:', error);
-      return { isComplete: false, user: null };
+      return { isComplete: false };
     }
   }
 

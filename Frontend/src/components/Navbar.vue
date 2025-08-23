@@ -46,6 +46,11 @@ export default {
       currentUser: null
     };
   },
+  computed: {
+    isAuthenticated() {
+      return !!this.currentUser;
+    }
+  },
   async mounted() {
     await this.checkUserSession();
   },
@@ -58,7 +63,7 @@ export default {
   methods: {
     async checkUserSession() {
       try {
-        const user = await AuthService.checkSession();
+        const user = await AuthService.getCurrentUser();
         this.currentUser = user;
         console.log('Usuario actual en navbar:', user);
       } catch (error) {

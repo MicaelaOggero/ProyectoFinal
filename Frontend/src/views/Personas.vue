@@ -118,24 +118,7 @@
                   </div>
                 </div>
               </div>
-               <div class="mb-3">
-                  <label for="personCost" class="form-label">Costo por Hora ($) *</label>
-                  <input 
-                    type="number" 
-                    step="0.01" 
-                    class="form-control" 
-                    :class="{ 'is-invalid': hasFieldError('costPerHour') }"
-                    id="personCost" 
-                    v-model.number="editablePerson.costPerHour" 
-                    required
-                    min="0.01"
-                    placeholder="Ej: 25.50"
-                  >
-                  <div class="invalid-feedback" v-if="hasFieldError('costPerHour')">
-                    {{ getFieldError('costPerHour') }}
-                  </div>
-                </div>
-
+              
               <hr>
               <h5>Habilidades Técnicas *</h5>
               <div v-if="hasFieldError('skills')" class="alert alert-danger">

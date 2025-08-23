@@ -67,6 +67,53 @@
                   <option>Completada</option>
                 </select>
               </div>
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="taskStartDate" class="form-label">Fecha de Inicio</label>
+                  <input 
+                    type="date" 
+                    class="form-control" 
+                    id="taskStartDate" 
+                    v-model="newTask.startDate" 
+                    @change="validateTaskDates"
+                    :class="{ 'is-invalid': taskDateErrors.startDate }"
+                    required
+                  >
+                  <div class="invalid-feedback" v-if="taskDateErrors.startDate">
+                    {{ taskDateErrors.startDate }}
+                  </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="taskEndDate" class="form-label">Fecha de Fin</label>
+                  <input 
+                    type="date" 
+                    class="form-control" 
+                    id="taskEndDate" 
+                    v-model="newTask.endDate" 
+                    @change="validateTaskDates"
+                    :class="{ 'is-invalid': taskDateErrors.endDate }"
+                    required
+                  >
+                  <div class="invalid-feedback" v-if="taskDateErrors.endDate">
+                    {{ taskDateErrors.endDate }}
+                  </div>
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="taskDeadline" class="form-label">Plazo de Entrega</label>
+                <input 
+                  type="date" 
+                  class="form-control" 
+                  id="taskDeadline" 
+                  v-model="newTask.deadline" 
+                  @change="validateTaskDates"
+                  :class="{ 'is-invalid': taskDateErrors.deadline }"
+                  required
+                >
+                <div class="invalid-feedback" v-if="taskDateErrors.deadline">
+                  {{ taskDateErrors.deadline }}
+                </div>
+              </div>
               <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" @click="closeCreateModal">Cancelar</button>
                 <button type="submit" class="btn btn-primary">Guardar Tarea</button>
@@ -98,7 +145,10 @@ export default {
         name: '',
         projectId: 1,
         personId: 1,
-        status: 'Pendiente'
+        status: 'Pendiente',
+        startDate: '',
+        endDate: '',
+        deadline: ''
       },
       // Datos de ejemplo para los selectores del formulario
       sampleProjects: [
@@ -109,7 +159,12 @@ export default {
         { id: 1, name: 'Ana García' },
         { id: 2, name: 'Carlos Rodriguez' },
         { id: 3, name: 'Laura Martinez' }
-      ]
+      ],
+      taskDateErrors: {
+        startDate: '',
+        endDate: '',
+        deadline: ''
+      }
     };
   },
   mounted() {
@@ -123,10 +178,56 @@ export default {
       this.createModalInstance.hide();
     },
     createTask() {
+      // Validar fechas antes de crear la tarea
+      if (!this.newTask.startDate || !this.newTask.endDate || !this.newTask.deadline) {
+        alert('Por favor complete todas las fechas requeridas');
+        return;
+      }
+
+      const startDate = new Date(this.newTask.startDate);
+      const endDate = new Date(this.newTask.endDate);
+      const deadline = new Date(this.newTask.deadline);
+
+      // Validar que las fechas sean válidas
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || isNaN(deadline.getTime())) {
+        alert('Por favor ingrese fechas válidas');
+        return;
+      }
+
+      // Validar que fechaFin no sea anterior a fechaInicio
+      if (endDate < startDate) {
+        alert('La fecha de fin no puede ser anterior a la fecha de inicio');
+        return;
+      }
+
+      // Validar que el plazo de entrega no sea anterior a la fecha de inicio
+      if (deadline < startDate) {
+        alert('El plazo de entrega no puede ser anterior a la fecha de inicio');
+        return;
+      }
+
+      // Validar que el plazo de entrega no sea anterior a la fecha de fin
+      if (deadline < endDate) {
+        alert('El plazo de entrega no puede ser anterior a la fecha de fin');
+        return;
+      }
+
       this.tasks.push({
         id: this.tasks.length + 1,
         ...this.newTask
       });
+      
+      // Limpiar el formulario
+      this.newTask = {
+        name: '',
+        projectId: 1,
+        personId: 1,
+        status: 'Pendiente',
+        startDate: '',
+        endDate: '',
+        deadline: ''
+      };
+      
       this.closeCreateModal();
     },
     // Métodos para obtener nombres a partir de IDs
@@ -144,6 +245,37 @@ export default {
       if (status === 'En Progreso') return 'bg-warning text-dark';
       if (status === 'Pendiente') return 'bg-secondary';
       return 'bg-light';
+    },
+    validateTaskDates() {
+      this.taskDateErrors = {
+        startDate: '',
+        endDate: '',
+        deadline: ''
+      };
+
+      if (this.newTask.startDate && this.newTask.endDate) {
+        const start = new Date(this.newTask.startDate);
+        const end = new Date(this.newTask.endDate);
+        if (start > end) {
+          this.taskDateErrors.endDate = 'La fecha de fin no puede ser anterior a la de inicio.';
+        }
+      }
+
+      if (this.newTask.startDate && this.newTask.deadline) {
+        const start = new Date(this.newTask.startDate);
+        const deadline = new Date(this.newTask.deadline);
+        if (start > deadline) {
+          this.taskDateErrors.deadline = 'El plazo de entrega no puede ser anterior a la fecha de inicio.';
+        }
+      }
+
+      if (this.newTask.endDate && this.newTask.deadline) {
+        const end = new Date(this.newTask.endDate);
+        const deadline = new Date(this.newTask.deadline);
+        if (end > deadline) {
+          this.taskDateErrors.deadline = 'El plazo de entrega no puede ser anterior a la fecha de fin.';
+        }
+      }
     }
   }
 }
@@ -152,5 +284,35 @@ export default {
 <style scoped>
 .btn-info {
     color: white;
+}
+
+/* Estilos para validación de fechas */
+.is-invalid {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+}
+
+.invalid-feedback {
+  display: block;
+  color: #dc3545;
+  font-size: 0.875em;
+  margin-top: 0.25rem;
+}
+
+/* Estilos para el modal */
+.modal-dialog {
+  max-width: 600px;
+}
+
+/* Estilos para la tabla */
+.table th {
+  background-color: #f8f9fa;
+  border-top: none;
+}
+
+/* Estilos para badges de estado */
+.badge {
+  font-size: 0.875em;
+  padding: 0.5em 0.75em;
 }
 </style>

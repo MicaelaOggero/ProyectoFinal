@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <NavbarComponent />
+    <NavbarComponent v-if="isAuthenticated" />
     <main class="main-content">
       <router-view/>
     </main>
@@ -9,11 +9,37 @@
 
 <script>
 import NavbarComponent from '@/components/Navbar.vue';
+import AuthService from '@/services/auth.service.js';
 
 export default {
   name: 'App',
   components: {
     NavbarComponent
+  },
+  data() {
+    return {
+      isAuthenticated: false
+    };
+  },
+  async created() {
+    await this.checkAuthStatus();
+  },
+  watch: {
+    // Observar cambios en la ruta para actualizar el estado de autenticación
+    '$route'() {
+      this.checkAuthStatus();
+    }
+  },
+  methods: {
+    async checkAuthStatus() {
+      try {
+        const user = await AuthService.getCurrentUser();
+        this.isAuthenticated = !!user;
+      } catch (error) {
+        console.error('Error verificando autenticación:', error);
+        this.isAuthenticated = false;
+      }
+    }
   }
 }
 </script>

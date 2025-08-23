@@ -112,10 +112,12 @@ export default {
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         // Verificar si el usuario está autenticado
-        const user = await AuthService.checkSession();
+        const user = await AuthService.getCurrentUser();
         
         if (!user) {
-          throw new Error('No se pudo autenticar con Google');
+          // Si no existe el usuario, lo mando directo al login
+          this.$router.push('/login');
+          return;
         }
 
         // Verificar si el perfil está completo

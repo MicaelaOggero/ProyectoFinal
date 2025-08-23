@@ -195,3 +195,4 @@ async loadUserProfile() {
 - [ ] Historial de proyectos
 - [ ] Estadísticas de rendimiento
 - [ ] Gráficos de progreso
+

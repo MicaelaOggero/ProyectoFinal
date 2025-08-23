@@ -22,8 +22,8 @@
                 <div class="user-icon mb-3">
                   <i class="bi bi-person-workspace"></i>
                 </div>
-                <h5>Registro como Desarrollador</h5>
-                <p class="text-muted">Completa tu perfil para acceder a proyectos y oportunidades de trabajo</p>
+                <h5>Completar Perfil de Usuario</h5>
+                <p class="text-muted">Completa tu información básica para continuar</p>
               </div>
             </div>
 
@@ -72,18 +72,6 @@
                   placeholder="40"
                 >
               </div>
-              <div class="col-md-6 mb-3">
-                <label for="costoPorHora" class="form-label">Costo por Hora ($)</label>
-                <input 
-                  type="number" 
-                  class="form-control" 
-                  id="costoPorHora" 
-                  v-model="userData.costoPorHora" 
-                  min="0"
-                  step="0.01"
-                  placeholder="25.00"
-                >
-              </div>
             </div>
 
             <!-- Habilidades -->
@@ -124,17 +112,7 @@
               </button>
             </div>
 
-            <!-- Preferencias -->
-            <div class="mb-3">
-              <label for="preferencias" class="form-label">Preferencias de Trabajo</label>
-              <textarea 
-                class="form-control" 
-                id="preferencias" 
-                v-model="userData.preferencias" 
-                rows="3"
-                placeholder="Describe tus preferencias de trabajo, tecnologías que prefieres, tipos de proyectos..."
-              ></textarea>
-            </div>
+
 
             <!-- Información de Aprobación -->
             <div class="alert alert-warning">
@@ -171,8 +149,6 @@ export default {
         rol: 'user', // Siempre será 'user'
         aniosExperiencia: 0,
         disponibilidadSemanal: 40,
-        preferencias: '',
-        costoPorHora: 0,
         habilidades: []
       },
       errorMessage: '',
@@ -199,8 +175,6 @@ export default {
         rol: 'user', // Siempre será 'user'
         aniosExperiencia: 0,
         disponibilidadSemanal: 40,
-        preferencias: '',
-        costoPorHora: 0,
         habilidades: []
       };
       this.addSkill(); // Agregar primera habilidad

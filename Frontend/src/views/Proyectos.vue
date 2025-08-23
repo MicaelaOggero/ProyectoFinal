@@ -91,11 +91,33 @@
               <div class="row">
                 <div class="col-md-6 mb-3">
                   <label for="projectStartDate" class="form-label">Fecha de Inicio</label>
-                  <input type="date" class="form-control" id="projectStartDate" v-model="editableProject.startDate" required>
+                  <input 
+                    type="date" 
+                    class="form-control" 
+                    id="projectStartDate" 
+                    v-model="editableProject.startDate" 
+                    @change="validateDates"
+                    :class="{ 'is-invalid': dateErrors.startDate }"
+                    required
+                  >
+                  <div class="invalid-feedback" v-if="dateErrors.startDate">
+                    {{ dateErrors.startDate }}
+                  </div>
                 </div>
                 <div class="col-md-6 mb-3">
                   <label for="projectEndDate" class="form-label">Fecha de Fin</label>
-                  <input type="date" class="form-control" id="projectEndDate" v-model="editableProject.endDate" required>
+                  <input 
+                    type="date" 
+                    class="form-control" 
+                    id="projectEndDate" 
+                    v-model="editableProject.endDate" 
+                    @change="validateDates"
+                    :class="{ 'is-invalid': dateErrors.endDate }"
+                    required
+                  >
+                  <div class="invalid-feedback" v-if="dateErrors.endDate">
+                    {{ dateErrors.endDate }}
+                  </div>
                 </div>
               </div>
                <div class="row">
@@ -162,7 +184,11 @@ export default {
       // Opciones para los selectores
       difficultyOptions: ['Baja', 'Media', 'Alta'],
       statusOptions: ['Activo', 'Pausado', 'Finalizado'],
-      priorityOptions: ['Baja', 'Media', 'Alta']
+      priorityOptions: ['Baja', 'Media', 'Alta'],
+      dateErrors: {
+        startDate: '',
+        endDate: ''
+      }
     };
   },
   computed: {
@@ -287,8 +313,32 @@ export default {
       this.modalInstance.hide();
     },
     async saveProject() {
-      if (this.editableProject.startDate > this.editableProject.endDate) {
-        this.showAlert('La fecha de fin no puede ser anterior a la fecha de inicio.', 'alert-warning');
+      // Validación mejorada de fechas
+      if (!this.editableProject.startDate || !this.editableProject.endDate) {
+        this.showAlert('Las fechas de inicio y fin son obligatorias', 'alert-warning');
+        return;
+      }
+
+      const startDate = new Date(this.editableProject.startDate);
+      const endDate = new Date(this.editableProject.endDate);
+      
+      // Validar que las fechas sean válidas
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        this.showAlert('Por favor ingrese fechas válidas', 'alert-warning');
+        return;
+      }
+
+      // Validar que fechaFin no sea anterior a fechaInicio
+      if (endDate < startDate) {
+        this.showAlert('La fecha de fin no puede ser anterior a la fecha de inicio. Por favor corrija las fechas.', 'alert-danger');
+        return;
+      }
+
+      // Validar que la fecha de inicio no sea en el pasado (opcional)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Resetear a medianoche para comparar solo fechas
+      if (startDate < today) {
+        this.showAlert('La fecha de inicio no puede ser en el pasado', 'alert-warning');
         return;
       }
 
@@ -309,7 +359,10 @@ export default {
         this.closeModal();
       } catch (error) {
         console.error('Error saving project:', error);
-        if (error.response?.status === 401) {
+        if (error.response?.status === 400 && error.response?.data?.error) {
+          // Mostrar mensaje de error específico del backend
+          this.showAlert(error.response.data.error, 'alert-danger');
+        } else if (error.response?.status === 401) {
           this.showAlert('No tienes permisos para realizar esta acción', 'alert-danger');
         } else {
           this.showAlert('Error al guardar el proyecto. Intenta nuevamente.', 'alert-danger');
@@ -336,7 +389,90 @@ export default {
           }
         }
       }
+    },
+    validateDates() {
+      this.dateErrors = {
+        startDate: '',
+        endDate: ''
+      };
+
+      const startDate = new Date(this.editableProject.startDate);
+      const endDate = new Date(this.editableProject.endDate);
+
+      if (isNaN(startDate.getTime())) {
+        this.dateErrors.startDate = 'Fecha de inicio inválida.';
+      }
+      if (isNaN(endDate.getTime())) {
+        this.dateErrors.endDate = 'Fecha de fin inválida.';
+      }
+
+      if (this.editableProject.startDate && this.editableProject.endDate) {
+        if (endDate < startDate) {
+          this.dateErrors.endDate = 'La fecha de fin no puede ser anterior a la fecha de inicio.';
+        }
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (startDate < today) {
+          this.dateErrors.startDate = 'La fecha de inicio no puede ser en el pasado.';
+        }
+      }
     }
   }
 }
 </script>
+
+<style scoped>
+.modal-dialog {
+  max-width: 800px;
+}
+
+.table th {
+  background-color: #f8f9fa;
+  border-top: none;
+}
+
+.btn-group .btn {
+  margin-right: 5px;
+}
+
+.btn-group .btn:last-child {
+  margin-right: 0;
+}
+
+/* Estilos para validación de fechas */
+.is-invalid {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+}
+
+.invalid-feedback {
+  display: block;
+  color: #dc3545;
+  font-size: 0.875em;
+  margin-top: 0.25rem;
+}
+
+/* Estilos para alertas */
+.alert {
+  margin-bottom: 1rem;
+  border-radius: 0.375rem;
+}
+
+.alert-danger {
+  color: #721c24;
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+}
+
+.alert-warning {
+  color: #856404;
+  background-color: #fff3cd;
+  border-color: #ffeaa7;
+}
+
+.alert-success {
+  color: #155724;
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+}
+</style>
