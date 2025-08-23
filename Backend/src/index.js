@@ -8,6 +8,8 @@ import projectRouter from '../src/modules/projects/project.routes.js'
 import userRouter from '../src/modules/users/user.routes.js'
 import skillRouter from '../src/modules/skills/skills.routes.js'
 import passport from 'passport'
+import cookieParser from 'cookie-parser'
+import '../src/config/passport.config.js' 
 
 dotenv.config()
 const app=express()
@@ -33,25 +35,21 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json())
+app.use(cookieParser())
 app.use('/static', express.static('public'))
+
 app.use(session({
   store: MongoStore.create({
     mongoUrl: process.env.MONGO,
     ttl: 60 * 60
   }),
-  secret: process.env.SECRET_SESSION,
-  resave: true,
-  saveUninitialized: true,
+  secret: process.env.SECRET_SESSION || 'tu-secreto',
+  resave: false,
+  saveUninitialized: false,
   cookie: {
     httpOnly: true,
     secure: false
   }
-}))
-
-app.use(session({
-  secret: 'tu-secreto',
-  resave: false,
-  saveUninitialized: false
 }));
 
 app.use(passport.initialize());

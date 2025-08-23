@@ -1,13 +1,11 @@
 import { Router } from "express"
-import { auth, authAdmin } from "../auth/auth.routes.js"
+import { auth, authAdmin, authToken } from "../../middlewares/auth.js"
 import Project from "../projects/project.model.js"
 
 const router = Router()
 
-
-
 // Obtener proyectos (solo admins, solo los que crearon)
-router.get('/', authAdmin, async (req, res) => {
+router.get('/', authAdmin, authToken, async (req, res) => {
   try {
     const projects = await Project.find({ administrador: req.userId }); // filtra por admin creador
     res.json(projects);
@@ -17,28 +15,27 @@ router.get('/', authAdmin, async (req, res) => {
   }
 });
 
-
-// Obtener un proyecto específico por ID con equipo y tareas
+// Obtener un proyecto específico por ID (sin populate)
 router.get('/:id', auth, async (req, res) => {
   try {
-    const { id } = req.params
+    const { id } = req.params;
     
-    const proyecto = await Project.findById(id)
-      .populate('equipo.usuario', 'nombre apellido email rol')
-    
+    const proyecto = await Project.findById(id);
+
     if (!proyecto) {
-      return res.status(404).json({ error: 'Proyecto no encontrado' })
+      return res.status(404).json({ error: 'Proyecto no encontrado' });
     }
 
-    res.json(proyecto)
+    res.json(proyecto);
   } catch (error) {
-    console.error('❌ Error al obtener proyecto:', error)
-    res.status(500).json({ error: 'Error al obtener proyecto' })
+    console.error('❌ Error al obtener proyecto:', error);
+    res.status(500).json({ error: 'Error al obtener proyecto' });
   }
-})
+});
+
 
 // Crear un nuevo proyecto (solo admins)
-router.post('/', authAdmin, async (req, res) => {
+router.post('/', authAdmin, authToken, async (req, res) => {
   try {
     const { nombre, descripcion, fechaInicio, fechaFin, nivelDificultad, prioridad, estado, equipo } = req.body;
 
@@ -63,9 +60,8 @@ router.post('/', authAdmin, async (req, res) => {
   }
 });
 
-
 // Actualizar un proyecto por ID (solo admins)
-router.put('/:id', authAdmin, async (req, res) => {
+router.put('/:id', authAdmin, authToken, async (req, res) => {
   try {
     const { id } = req.params
     const datosActualizados = req.body
@@ -84,7 +80,7 @@ router.put('/:id', authAdmin, async (req, res) => {
 })
 
 // Eliminar un proyecto por ID (solo admins)
-router.delete('/:id', authAdmin, async (req, res) => {
+router.delete('/:id', authAdmin, authToken, async (req, res) => {
   try {
     const { id } = req.params
 
@@ -100,6 +96,5 @@ router.delete('/:id', authAdmin, async (req, res) => {
     res.status(500).json({ error: 'Error al eliminar proyecto' })
   }
 })
-
 
 export default router

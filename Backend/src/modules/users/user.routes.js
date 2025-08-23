@@ -1,12 +1,12 @@
 import { Router } from "express"
 import User from "../users/user.model.js"
-import { authAdmin } from "../auth/auth.routes.js"
+import { authAdmin, authToken } from "../../middlewares/auth.js"
 import Project from '../projects/project.model.js'; // asegurate de importar el modelo Project
 
 const router = Router()
 
 // Obtener todos los usuarios con rol 'user' (requiere estar autenticado)
-router.get('/', authAdmin, async (req, res) => {
+router.get('/', authAdmin, authToken, async (req, res) => {
   try {
     const usuarios = await User.find({ rol: 'user' }).select('-password'); // filtra por rol y excluye password
     res.json(usuarios);
@@ -16,17 +16,16 @@ router.get('/', authAdmin, async (req, res) => {
   }
 });
 
-
 // Obtener un usuario específico por ID (requiere estar autenticado)
 router.get('/:id', authAdmin, async (req, res) => {
   try {
     const { id } = req.params
     const usuario = await User.findById(id).select('-password') // excluye el password por seguridad
-    
+
     if (!usuario) {
       return res.status(404).json({ error: 'Usuario no encontrado' })
     }
-    
+
     res.json(usuario)
   } catch (error) {
     console.error('❌ Error al obtener usuario:', error)
@@ -83,8 +82,8 @@ router.delete('/:id', authAdmin, async (req, res) => {
     if (usuario.rol === 'admin') {
       const proyectos = await Project.find({ administrador: usuario._id })
       if (proyectos.length > 0) {
-        return res.status(400).json({ 
-          error: 'No se puede eliminar un admin que tenga proyectos asociados' 
+        return res.status(400).json({
+          error: 'No se puede eliminar un admin que tenga proyectos asociados'
         })
       }
     }

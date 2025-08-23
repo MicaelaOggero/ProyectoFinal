@@ -8,16 +8,22 @@ const userSchema = new mongoose.Schema({
   },
   dni: {
     type: String,
-    unique: true,
-    required: function() { return !this.googleId; }
+    validate: {
+      validator: async function (value) {
+        if (!value) return true; // si está vacío, no valida
+        const count = await mongoose.models.User.countDocuments({ dni: value });
+        return count === 0;
+      },
+      message: "El DNI ya está registrado"
+    }
   },
   nombre: {
     type: String,
-    required: function() { return !this.googleId; }
+    required: function () { return !this.googleId; }
   },
   apellido: {
     type: String,
-    required: function() { return !this.googleId; }
+    required: function () { return !this.googleId; }
   },
   rol: {
     type: String,
@@ -33,7 +39,7 @@ const userSchema = new mongoose.Schema({
       }
     ],
     default: [],
-    required: function () { return this.rol === 'user' || !this.googleId;}
+    required: function () { return this.rol === 'user' || !this.googleId; }
   },
 
   aniosExperiencia: {
