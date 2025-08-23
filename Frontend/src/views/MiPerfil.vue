@@ -83,10 +83,7 @@
                     <i class="bi bi-calendar-plus me-2 text-muted"></i>
                     <strong>Fecha de Registro:</strong> {{ formatDate(user.fechaCreacion) }}
                   </li>
-                  <li class="mb-2">
-                    <i class="bi bi-fingerprint me-2 text-muted"></i>
-                    <strong>ID de Usuario:</strong> <code class="small">{{ user._id || 'No disponible' }}</code>
-                  </li>
+                
                   <li class="mb-2" v-if="user.googleId">
                     <i class="bi bi-google me-2 text-muted"></i>
                     <strong>Registrado con:</strong> Google
@@ -454,26 +451,9 @@ export default {
         // Obtener el usuario actual de la sesión
         const currentUser = await AuthService.checkSession();
         if (currentUser) {
-          // Si checkSession no devuelve datos completos, intentar obtener más información
-          if (!currentUser.dni || !currentUser.habilidades) {
-            console.log('Datos incompletos del usuario, intentando obtener perfil completo...');
-            try {
-              // Intentar obtener perfil completo
-              const profileResponse = await AuthService.checkProfileCompletion();
-              if (profileResponse.user) {
-                this.user = { ...currentUser, ...profileResponse.user };
-              } else {
-                this.user = currentUser;
-              }
-            } catch (profileError) {
-              console.log('No se pudo obtener perfil completo, usando datos de sesión:', profileError);
-              this.user = currentUser;
-            }
-          } else {
-            this.user = currentUser;
-          }
-          
-          console.log('Usuario cargado:', this.user);
+          // Ahora checkSession devuelve todos los campos del usuario
+          this.user = currentUser;
+          console.log('Usuario cargado completo:', this.user);
         } else {
           this.error = 'No se pudo cargar tu perfil. Por favor, inicia sesión nuevamente.';
         }

@@ -15,6 +15,7 @@
               <th scope="col">DNI</th>
               <th scope="col">Rol</th>
               <th scope="col">Habilidades</th>
+              <th scope="col">Años Exp.</th>
               <th scope="col">Disponibilidad (hs/sem)</th>
               <th scope="col">Acciones</th>
             </tr>
@@ -29,6 +30,7 @@
               <td>{{ person.dni }}</td>
               <td>{{ person.rol }}</td>
               <td>{{ displaySkills(person.habilidades) }}</td>
+              <td>{{ person.aniosExperiencia || 'N/A' }}</td>
               <td>{{ person.disponibilidadSemanal }}</td>
               <td>
                 <button class="btn btn-sm btn-secondary" @click="openEditModal(person)">Editar</button>
@@ -118,6 +120,32 @@
                   </div>
                 </div>
               </div>
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="personYearsExperience" class="form-label">Años de Experiencia</label>
+                  <input 
+                    type="number" 
+                    class="form-control" 
+                    id="personYearsExperience" 
+                    v-model.number="editablePerson.yearsExperience" 
+                    min="0"
+                    max="50"
+                    placeholder="Ej: 3"
+                  >
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="personCostPerHour" class="form-label">Costo por Hora ($)</label>
+                  <input 
+                    type="number" 
+                    class="form-control" 
+                    id="personCostPerHour" 
+                    v-model.number="editablePerson.costPerHour" 
+                    min="0"
+                    step="0.01"
+                    placeholder="Ej: 25.50"
+                  >
+                </div>
+              </div>
               
               <hr>
               <h5>Habilidades Técnicas *</h5>
@@ -139,17 +167,20 @@
                   </div>
                 </div>
                 <div class="col-md-4">
-                  <input 
-                    type="number" 
-                    class="form-control" 
-                    :class="{ 'is-invalid': hasFieldError(`skill_${index}_experience`) }"
-                    placeholder="Años de experiencia" 
-                    v-model.number="skill.yearsExperience" 
-                    min="0" 
-                    max="50"
+                  <select 
+                    class="form-select" 
+                    :class="{ 'is-invalid': hasFieldError(`skill_${index}_level`) }"
+                    v-model="skill.level"
                   >
-                  <div class="invalid-feedback" v-if="hasFieldError(`skill_${index}_experience`)">
-                    {{ getFieldError(`skill_${index}_experience`) }}
+                    <option disabled value="">Nivel</option>
+                    <option value="1">1 - Principiante</option>
+                    <option value="2">2 - Básico</option>
+                    <option value="3">3 - Intermedio</option>
+                    <option value="4">4 - Avanzado</option>
+                    <option value="5">5 - Experto</option>
+                  </select>
+                  <div class="invalid-feedback" v-if="hasFieldError(`skill_${index}_level`)">
+                    {{ getFieldError(`skill_${index}_level`) }}
                   </div>
                 </div>
                 <div class="col-md-2">
@@ -252,8 +283,8 @@ export default {
             this.validationErrors[`skill_${i}_name`] = 'Debe seleccionar una habilidad';
             isValid = false;
           }
-          if (skill.yearsExperience < 0 || skill.yearsExperience > 50) {
-            this.validationErrors[`skill_${i}_experience`] = 'Los años de experiencia deben estar entre 0 y 50';
+          if (!skill.level || skill.level.toString().trim() === '') {
+            this.validationErrors[`skill_${i}_level`] = 'Debe seleccionar un nivel para la habilidad';
             isValid = false;
           }
         }
@@ -317,7 +348,7 @@ export default {
 
     displaySkills(skills) {
       if (!skills || skills.length === 0) return 'N/A';
-      return skills.map(s => `${s.nombre} (${s.aniosExperiencia} años)`).join(', ');
+      return skills.map(s => `${s.nombre} (Nivel ${s.nivel}/5)`).join(', ');
     },
     loadUsers() {
       UserService.getUsers().then(response => {
@@ -340,7 +371,7 @@ export default {
       this.isEditMode = false;
       this.editablePerson = {
         name: '', dni: '', role: 'Desarrollador', availability: 40, costPerHour: 20,
-        skills: [{ name: '', yearsExperience: 0 }]
+        skills: [{ name: '', level: '1' }]
       };
       this.clearValidationErrors();
       this.modalInstance.show();
@@ -355,9 +386,10 @@ export default {
         role: person.rol,
         availability: person.disponibilidadSemanal,
         costPerHour: person.costoPorHora,
+        yearsExperience: person.aniosExperiencia,
         skills: (person.habilidades || []).map(skill => ({
-          name: skill.name,
-          yearsExperience: skill.aniosExperiencia
+          name: skill.nombre,
+          level: skill.nivel
         }))
       };
       this.clearValidationErrors();
@@ -389,9 +421,11 @@ export default {
           apellido: this.editablePerson.name.split(' ')[1] || '',
           habilidades: this.editablePerson.skills.map(skill => ({
             nombre: skill.name,
-            aniosExperiencia: skill.yearsExperience || 0
+            nivel: skill.level
           })),
-          disponibilidadSemanal: this.editablePerson.availability
+          disponibilidadSemanal: this.editablePerson.availability,
+          aniosExperiencia: this.editablePerson.yearsExperience,
+          costoPorHora: this.editablePerson.costPerHour
         };
         
         // Lógica de Actualización
@@ -421,7 +455,7 @@ export default {
     },
     // --- Métodos para Habilidades ---
     addSkill() {
-      this.editablePerson.skills.push({ name: '', yearsExperience: 0 });
+      this.editablePerson.skills.push({ name: '', level: '1' });
     },
     removeSkill(index) {
       this.editablePerson.skills.splice(index, 1);

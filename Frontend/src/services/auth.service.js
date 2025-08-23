@@ -63,15 +63,23 @@ class AuthService {
   async updateProfile(profileData) {
     try {
       console.log('Actualizando perfil con:', profileData);
-      const response = await axios.put(`${API_URL}/me`, profileData);
-      console.log('Perfil actualizado:', response.data);
+      console.log('URL de la API:', `${API_URL}/me`);
+      console.log('Configuración de axios:', axios.defaults);
       
-      if (response.data.status === 'ok') {
-        return response.data.payload;
+      const response = await axios.put(`${API_URL}/me`, profileData);
+      console.log('Respuesta del servidor:', response);
+      console.log('Datos de la respuesta:', response.data);
+      
+      // El backend devuelve { message: "...", usuario: ... }
+      if (response.data.usuario) {
+        return response.data.usuario;
       }
       return null;
     } catch (error) {
-      console.error('Error al actualizar perfil:', error.response?.data || error.message);
+      console.error('Error completo:', error);
+      console.error('Respuesta del error:', error.response);
+      console.error('Estado del error:', error.response?.status);
+      console.error('Datos del error:', error.response?.data);
       throw error;
     }
   }
@@ -90,12 +98,12 @@ class AuthService {
                           user.habilidades && 
                           user.habilidades.length > 0;
         
-        return { isComplete };
+        return { isComplete, user }; // También devolver el usuario completo
       }
-      return { isComplete: false };
+      return { isComplete: false, user: null };
     } catch (error) {
       console.error('Error verificando completitud del perfil:', error);
-      return { isComplete: false };
+      return { isComplete: false, user: null };
     }
   }
 
@@ -149,12 +157,8 @@ class AuthService {
       const response = await axios.get(`${API_URL}/profile`);
       console.log('Respuesta del profile:', response.data);
       if (response.data.status === 'ok') {
-        return {
-          nombre: response.data.payload.nombre,
-          apellido: response.data.payload.apellido,
-          rol: response.data.payload.rol,
-          email: response.data.payload.email || 'N/A' // El backend no devuelve email en profile
-        };
+        // Devolver todos los campos del usuario, no solo los básicos
+        return response.data.payload;
       }
       return null;
     } catch (error) {
@@ -168,12 +172,8 @@ class AuthService {
       const response = await axios.get(`${API_URL}/profile`);
       console.log('Verificando sesión:', response.data);
       if (response.data.status === 'ok') {
-        return {
-          nombre: response.data.payload.nombre,
-          apellido: response.data.payload.apellido,
-          rol: response.data.payload.rol,
-          email: response.data.payload.email || 'N/A'
-        };
+        // Devolver todos los campos del usuario, no solo los básicos
+        return response.data.payload;
       }
       return null;
     } catch (error) {

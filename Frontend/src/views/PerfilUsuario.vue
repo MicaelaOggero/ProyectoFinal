@@ -46,6 +46,7 @@
                     <span class="badge" :class="getRoleClass(user.rol)">{{ user.rol }}</span>
                   </li>
                   <li><strong>Email:</strong> {{ user.email }}</li>
+                  <li><strong>Años de Experiencia:</strong> {{ user.aniosExperiencia || 'No especificado' }}</li>
                   <li><strong>Disponibilidad:</strong> {{ user.disponibilidadSemanal }} hs/semana</li>
                   <li><strong>Costo por Hora:</strong> ${{ user.costoPorHora }}</li>
                 </ul>
@@ -54,7 +55,6 @@
                 <h5>Información del Sistema</h5>
                 <ul class="list-unstyled">
                   <li><strong>Fecha de Creación:</strong> {{ formatDate(user.fechaCreacion) }}</li>
-                  <li><strong>ID de Usuario:</strong> <code>{{ user._id }}</code></li>
                 </ul>
               </div>
             </div>
@@ -73,7 +73,14 @@
                   <div class="card-body">
                     <h6 class="card-title text-success">{{ skill.nombre }}</h6>
                     <div class="d-flex justify-content-between align-items-center">
-                      <span class="text-muted">{{ skill.aniosExperiencia }} años de experiencia</span>
+                      <span class="text-muted">Nivel {{ skill.nivel }}/5</span>
+                      <span class="badge bg-success">{{ getNivelText(skill.nivel) }}</span>
+                    </div>
+                    <div class="skill-level-bar mt-2">
+                      <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-success" 
+                             :style="{ width: (skill.nivel / 5) * 100 + '%' }"></div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -127,6 +134,10 @@
               <div class="mb-3">
                 <h3 class="text-success">{{ user.disponibilidadSemanal }}</h3>
                 <p class="text-muted mb-0">Horas/Semana</p>
+              </div>
+              <div class="mb-3">
+                <h3 class="text-warning">{{ user.aniosExperiencia || 'N/A' }}</h3>
+                <p class="text-muted mb-0">Años Exp.</p>
               </div>
               <div>
                 <h3 class="text-info">${{ user.costoPorHora }}</h3>
@@ -249,6 +260,16 @@ export default {
       if (rating >= 3) return 'bg-warning';
       return 'bg-danger';
     },
+    getNivelText(nivel) {
+      const niveles = {
+        1: 'Principiante',
+        2: 'Básico',
+        3: 'Intermedio',
+        4: 'Avanzado',
+        5: 'Experto'
+      };
+      return niveles[nivel] || 'N/A';
+    },
     editProfile() {
       this.editModalInstance.show();
     },
@@ -278,5 +299,28 @@ export default {
 
 .text-decoration-none:hover {
   text-decoration: underline !important;
+}
+
+.skill-level-bar .progress {
+  margin-bottom: 0.5rem;
+}
+
+.card {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border: none;
+  border-radius: 8px;
+}
+
+.card-header {
+  border-radius: 8px 8px 0 0 !important;
+}
+
+.list-unstyled li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f8f9fa;
+}
+
+.list-unstyled li:last-child {
+  border-bottom: none;
 }
 </style> 
