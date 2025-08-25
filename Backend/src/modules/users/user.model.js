@@ -8,14 +8,6 @@ const userSchema = new mongoose.Schema({
   },
   dni: {
     type: String,
-    validate: {
-      validator: async function (value) {
-        if (!value) return true; // si está vacío, no valida
-        const count = await mongoose.models.User.countDocuments({ dni: value });
-        return count === 0;
-      },
-      message: "El DNI ya está registrado"
-    }
   },
   nombre: {
     type: String,
@@ -23,7 +15,6 @@ const userSchema = new mongoose.Schema({
   },
   apellido: {
     type: String,
-    required: function () { return !this.googleId; }
   },
   rol: {
     type: String,

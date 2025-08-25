@@ -10,8 +10,8 @@ router.post("/login", sessionController.loginUser);
 router.delete("/logout", authToken, sessionController.logoutUser);
 
 // Gestión de perfil
-router.get("/profile", authToken, sessionController.getProfile);
-router.put("/me", auth, authToken, sessionController.updateMe);
+router.get("/profile", auth, sessionController.getProfile);
+router.put("/me", authToken, sessionController.updateMe);
 router.patch("/reset-password", sessionController.resetPassword);
 
 // Google OAuth

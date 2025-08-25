@@ -1,12 +1,12 @@
 import * as userService from "./user.service.js";
 
-// Obtener todos los usuarios (solo admins)
+// Obtener todos los usuarios con rol 'user'
 export const getUsers = async (req, res) => {
   try {
-    const usuarios = await userService.getUsers();
+    const usuarios = await userService.getUsers(req.user.rol);
     res.json(usuarios);
   } catch (error) {
-    console.error("❌ Error en getUsers:", error);
+    console.error("❌ Error en controller.getUsers:", error);
     res.status(500).json({ error: "Error al obtener usuarios" });
   }
 };
@@ -18,7 +18,7 @@ export const getUserById = async (req, res) => {
     if (!usuario) return res.status(404).json({ error: "Usuario no encontrado" });
     res.json(usuario);
   } catch (error) {
-    console.error("❌ Error en getUserById:", error);
+    console.error("❌ Error en controller.getUserById:", error);
     res.status(500).json({ error: "Error al obtener usuario" });
   }
 };
@@ -30,7 +30,7 @@ export const updateUser = async (req, res) => {
     if (!usuario) return res.status(404).json({ error: "Usuario no encontrado" });
     res.json({ message: "Usuario actualizado", usuario });
   } catch (error) {
-    console.error("❌ Error en updateUser:", error);
+    console.error("❌ Error en controller.updateUser:", error);
     res.status(500).json({ error: "Error al actualizar usuario" });
   }
 };
@@ -42,7 +42,7 @@ export const deleteUser = async (req, res) => {
     if (!usuario) return res.status(404).json({ error: "Usuario no encontrado" });
     res.json({ message: "Usuario eliminado correctamente", usuario });
   } catch (error) {
-    console.error("❌ Error en deleteUser:", error);
+    console.error("❌ Error en controller.deleteUser:", error);
     res.status(500).json({ error: "Error al eliminar usuario" });
   }
 };

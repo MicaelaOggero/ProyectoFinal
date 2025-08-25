@@ -3,13 +3,21 @@ import * as projectService from "./project.service.js";
 // Obtener todos los proyectos de un admin
 export const getProjects = async (req, res) => {
   try {
-    const projects = await projectService.getProjects(req.userId);
+    // Si el usuario NO es admin, devolvemos lista vacía
+    if (req.user.rol !== "admin") {
+      return res.json([]); 
+    }
+
+    // Si es admin, traer sus proyectos
+    const projects = await projectService.getProjects(req.user._id);
     res.json(projects);
   } catch (error) {
     console.error("❌ Error en controller.getProjects:", error);
     res.status(500).json({ error: "Error al obtener proyectos" });
   }
 };
+
+
 
 // Obtener un proyecto por ID
 export const getProjectById = async (req, res) => {
@@ -31,7 +39,7 @@ export const getProjectById = async (req, res) => {
 // Crear un nuevo proyecto
 export const createProject = async (req, res) => {
   try {
-    const administradorId = req.userId;
+    const administradorId = req.user._id;  // ✅ usar el id del usuario logueado
     const nuevoProyecto = await projectService.createProject(req.body, administradorId);
 
     res.status(201).json({ message: "Proyecto creado con éxito", proyecto: nuevoProyecto });
@@ -40,6 +48,7 @@ export const createProject = async (req, res) => {
     res.status(500).json({ error: "Error al crear proyecto" });
   }
 };
+
 
 // Actualizar un proyecto
 export const updateProject = async (req, res) => {
