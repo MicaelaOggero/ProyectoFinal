@@ -10,10 +10,10 @@ import {
 const router = express.Router();
 
 // Crear
-router.post("/", crearTask);
+router.post("/:projectId", crearTask);
 
-// Actualizar
-router.put("/:taskId", actualizarTask);
+// Actualización parcial de tarea
+router.patch("/:taskId", actualizarTask);
 
 // Eliminar
 router.delete("/:taskId", eliminarTask);
@@ -23,5 +23,7 @@ router.get("/proyecto/:projectId", listarTasksPorProyecto);
 
 // Listar por desarrollador
 router.get("/desarrollador/:userId", listarTasksPorDesarrollador);
+
+// Listar tarea por proyecto y desarrollador
 
 export default router;

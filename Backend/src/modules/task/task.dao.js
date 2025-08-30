@@ -5,9 +5,14 @@ export async function createTask(data) {
   return await Task.create(data);
 }
 
-// Actualizar por ID
-export async function updateTask(taskId, data) {
-  return await Task.findByIdAndUpdate(taskId, data, { new: true });
+// Obtener tarea por ID (DAO mínimo)
+export async function getTaskByIdDAO(taskId) {
+  return await Task.findById(taskId);
+}
+
+// Guardar cambios en la tarea
+export async function saveTask(task) {
+  return await task.save();
 }
 
 // Eliminar por ID

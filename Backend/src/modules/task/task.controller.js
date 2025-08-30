@@ -8,7 +8,12 @@ import {
 
 export async function crearTask(req, res) {
   try {
-    const task = await addTask(req.body);
+    const { projectId } = req.params;
+
+    // unimos datos del body con el projectId de la URL
+    const taskData = { ...req.body, proyecto: projectId };
+
+    const task = await addTask(taskData);
     res.status(201).json(task);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -17,10 +22,25 @@ export async function crearTask(req, res) {
 
 export async function actualizarTask(req, res) {
   try {
-    const task = await editTask(req.params.taskId, req.body);
-    res.json(task);
+    const { taskId } = req.params;
+    const usuarioId = req.user?._id; // asumimos que el middleware auth agrega req.user
+    const taskData = req.body;
+
+    const tareaActualizada = await editTask(taskId, taskData, usuarioId);
+    res.json(tareaActualizada);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+}
+
+export async function getTaskById(req, res) {
+  try {
+    const { taskId } = req.params;
+
+    const tarea = await getTaskById(taskId);
+    res.json(tarea);
+  } catch (error) {
+    res.status(404).json({ error: error.message });
   }
 }
 
