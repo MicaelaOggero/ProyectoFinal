@@ -334,11 +334,11 @@ export default {
         return;
       }
 
-      // Validar que la fecha de inicio no sea en el pasado (opcional)
+      // Validar que la fecha de inicio no sea anterior a hoy
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // Resetear a medianoche para comparar solo fechas
-      if (startDate < today) {
-        this.showAlert('La fecha de inicio no puede ser en el pasado', 'alert-warning');
+      const todayString = today.toISOString().split('T')[0]; // Obtener solo la fecha en formato YYYY-MM-DD
+      if (this.editableProject.startDate < todayString) {
+        this.showAlert('La fecha de inicio no puede ser anterior a hoy', 'alert-warning');
         return;
       }
 
@@ -411,9 +411,9 @@ export default {
           this.dateErrors.endDate = 'La fecha de fin no puede ser anterior a la fecha de inicio.';
         }
         const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (startDate < today) {
-          this.dateErrors.startDate = 'La fecha de inicio no puede ser en el pasado.';
+        const todayString = today.toISOString().split('T')[0]; // Obtener solo la fecha en formato YYYY-MM-DD
+        if (this.editableProject.startDate < todayString) {
+          this.dateErrors.startDate = 'La fecha de inicio no puede ser anterior a hoy.';
         }
       }
     }

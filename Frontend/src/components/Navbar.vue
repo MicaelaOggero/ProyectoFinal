@@ -11,7 +11,7 @@
 
       <!-- Título centrado -->
       <div class="navbar-brand-container">
-        <span class="navbar-brand-text">Gestor de Proyectos</span>
+        <img src="@/assets/Group 1.png" alt="Logo" class="navbar-logo" />
       </div>
 
       <!-- Información del usuario y acciones -->
@@ -281,5 +281,8 @@ export default {
     align-items: flex-start;
     gap: 0.25rem;
   }
+}
+.navbar-logo {
+  height: 80px;
 }
 </style>
