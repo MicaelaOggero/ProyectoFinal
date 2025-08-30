@@ -32,44 +32,26 @@ const userSchema = new mongoose.Schema({
     default: [],
     required: function () { return this.rol === 'user' || !this.googleId; }
   },
-
   aniosExperiencia: {
     type: Number,
     min: 0,
     default: 0,
     required: function () { return this.rol === 'user' || !this.googleId;; }
   },
-
   disponibilidadSemanal: {
     type: Number,
     required: function () { return this.rol === 'user' || !this.googleId;; },
     default: 0
   }, //Horas hombre por semana
-  preferencias: {
-    tipoTarea: {
-      type: [String],
-      default: []
-    },
-    tecnologias: {
-      type: [String],
-      default: []
-    }
-  },
-  historialDesempeño: {
-    type: [
-      {
-        proyecto: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
-        calificacion: Number,
-        comentario: String
-      }
-    ],
-    default: []
-  },
+  preferencias: [{
+    habilidad: String,
+    puntuacionPromedio: { type: Number, min: 1, max: 5 },
+    vecesCalificado: { type: Number, default: 0 }
+  }],
   costoPorHora: {
     type: Number,
     default: 0
   },
-
   fechaCreacion: {
     type: Date,
     default: Date.now
@@ -80,12 +62,10 @@ const userSchema = new mongoose.Schema({
     unique: true,
     match: [/.+@.+\..+/, 'El formato del email no es válido']
   },
-
   password: {
     type: String,
     required: function () { return !this.googleId; }
   }
-
 });
 
 const User = mongoose.model('User', userSchema);
