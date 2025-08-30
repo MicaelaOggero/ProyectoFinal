@@ -8,7 +8,7 @@
         </button>
         <h1>Perfil de Usuario</h1>
       </div>
-      <div v-if="isUserAdmin" class="d-flex gap-2">
+      <div v-if="canEditProfile" class="d-flex gap-2">
         <button class="btn btn-primary" @click="editProfile">Editar Perfil</button>
       </div>
     </div>
@@ -179,11 +179,142 @@
             <button type="button" class="btn-close" @click="closeEditModal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
-            <!-- Aquí iría el formulario de edición -->
-            <p class="text-muted">La funcionalidad de edición se implementará próximamente.</p>
+            <form @submit.prevent="saveProfile">
+              <!-- Información Personal -->
+              <div class="row mb-4">
+                <div class="col-12">
+                  <h6 class="text-primary mb-3">
+                    <i class="bi bi-person me-2"></i>Información Personal
+                  </h6>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="editDni" class="form-label">DNI *</label>
+                  <input 
+                    type="text" 
+                    class="form-control" 
+                    id="editDni" 
+                    v-model="editForm.dni"
+                    maxlength="8"
+                    pattern="[0-9]{8}"
+                    required
+                  >
+                  <div class="form-text">8 dígitos numéricos</div>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="editAniosExperiencia" class="form-label">Años de Experiencia</label>
+                  <input 
+                    type="number" 
+                    class="form-control" 
+                    id="editAniosExperiencia" 
+                    v-model="editForm.aniosExperiencia"
+                    min="0"
+                    max="50"
+                  >
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="editDisponibilidadSemanal" class="form-label">Disponibilidad Semanal (horas)</label>
+                  <input 
+                    type="number" 
+                    class="form-control" 
+                    id="editDisponibilidadSemanal" 
+                    v-model="editForm.disponibilidadSemanal"
+                    min="1"
+                    max="168"
+                  >
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="editCostoPorHora" class="form-label">Costo por Hora ($)</label>
+                  <input 
+                    type="number" 
+                    class="form-control" 
+                    id="editCostoPorHora" 
+                    v-model="editForm.costoPorHora"
+                    min="0"
+                    step="0.01"
+                  >
+                </div>
+              </div>
+
+              <!-- Habilidades -->
+              <div class="row mb-4">
+                <div class="col-12">
+                  <h6 class="text-success mb-3">
+                    <i class="bi bi-tools me-2"></i>Habilidades Técnicas *
+                  </h6>
+                  <div v-for="(skill, index) in editForm.habilidades" :key="index" class="row mb-3">
+                    <div class="col-md-5">
+                      <input 
+                        type="text" 
+                        class="form-control" 
+                        :placeholder="'Nombre de habilidad ' + (index + 1)"
+                        v-model="skill.nombre"
+                        required
+                      >
+                    </div>
+                    <div class="col-md-4">
+                      <select class="form-select" v-model="skill.nivel" required>
+                        <option value="">Seleccionar nivel</option>
+                        <option value="1">1 - Principiante</option>
+                        <option value="2">2 - Básico</option>
+                        <option value="3">3 - Intermedio</option>
+                        <option value="4">4 - Avanzado</option>
+                        <option value="5">5 - Experto</option>
+                      </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-center">
+                      <button 
+                        type="button" 
+                        class="btn btn-outline-danger btn-sm me-2"
+                        @click="removeSkill(index)"
+                        :disabled="editForm.habilidades.length === 1"
+                      >
+                        <i class="bi bi-trash"></i>
+                      </button>
+                      <span class="badge bg-secondary">{{ skill.nivel || 'N/A' }}/5</span>
+                    </div>
+                  </div>
+                  <button 
+                    type="button" 
+                    class="btn btn-outline-success btn-sm"
+                    @click="addSkill"
+                  >
+                    <i class="bi bi-plus-circle me-1"></i>Agregar Habilidad
+                  </button>
+                </div>
+              </div>
+
+              <!-- Preferencias -->
+              <div class="row mb-4">
+                <div class="col-12">
+                  <h6 class="text-info mb-3">
+                    <i class="bi bi-heart me-2"></i>Preferencias de Trabajo
+                  </h6>
+                  <textarea 
+                    class="form-control" 
+                    rows="3" 
+                    placeholder="Describe tus preferencias de trabajo, tipo de proyectos que te gustan, etc."
+                    v-model="editForm.preferencias"
+                  ></textarea>
+                </div>
+              </div>
+
+              <!-- Mensaje de estado -->
+              <div v-if="editMessage" class="alert" :class="editMessageClass" role="alert">
+                {{ editMessage }}
+              </div>
+            </form>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="closeEditModal">Cerrar</button>
+            <button type="button" class="btn btn-secondary" @click="closeEditModal">Cancelar</button>
+            <button 
+              type="button" 
+              class="btn btn-primary" 
+              @click="saveProfile"
+              :disabled="saving"
+            >
+              <span v-if="saving" class="spinner-border spinner-border-sm me-2" role="status"></span>
+              {{ saving ? 'Guardando...' : 'Guardar Cambios' }}
+            </button>
           </div>
         </div>
       </div>
@@ -204,18 +335,45 @@ export default {
       loading: true,
       error: null,
       editModalInstance: null,
-      currentUser: null
+      currentUser: null,
+      editForm: {
+        dni: '',
+        aniosExperiencia: null,
+        disponibilidadSemanal: null,
+        costoPorHora: null,
+        habilidades: [],
+        preferencias: ''
+      },
+      editMessage: '',
+      editMessageClass: '',
+      saving: false
     };
   },
   computed: {
     isUserAdmin() {
       return AuthService.isAdmin(this.currentUser);
+    },
+    canEditProfile() {
+      // Si no hay usuario logueado, no puede editar
+      if (!this.currentUser) return false;
+      
+      // Si es administrador, puede editar cualquier perfil
+      if (this.isUserAdmin) return true;
+      
+      // Si no es admin, solo puede editar su propio perfil
+      return this.currentUser._id === this.$route.params.id;
     }
   },
   async mounted() {
-    this.editModalInstance = new Modal(document.getElementById('editProfileModal'));
     await this.checkUserSession();
     this.loadUserProfile();
+    // Inicializar el modal después de que el DOM esté listo
+    this.$nextTick(() => {
+      const modalElement = document.getElementById('editProfileModal');
+      if (modalElement) {
+        this.editModalInstance = new Modal(modalElement);
+      }
+    });
   },
   methods: {
     async checkUserSession() {
@@ -271,10 +429,107 @@ export default {
       return niveles[nivel] || 'N/A';
     },
     editProfile() {
-      this.editModalInstance.show();
+      // Cargar los datos actuales del usuario en el formulario
+      this.editForm = {
+        dni: this.user.dni || '',
+        aniosExperiencia: this.user.aniosExperiencia || null,
+        disponibilidadSemanal: this.user.disponibilidadSemanal || null,
+        costoPorHora: this.user.costoPorHora || null,
+        habilidades: this.user.habilidades ? [...this.user.habilidades] : [{ nombre: '', nivel: '' }],
+        preferencias: this.user.preferencias || ''
+      };
+      this.editMessage = '';
+      
+      // Verificar que el modal esté inicializado antes de mostrarlo
+      if (this.editModalInstance) {
+        this.editModalInstance.show();
+      } else {
+        // Intentar inicializar el modal si no está disponible
+        this.initModal();
+        // Esperar un poco y luego intentar mostrar el modal
+        setTimeout(() => {
+          if (this.editModalInstance) {
+            this.editModalInstance.show();
+          } else {
+            console.error('No se pudo inicializar el modal');
+          }
+        }, 100);
+      }
     },
     closeEditModal() {
-      this.editModalInstance.hide();
+      if (this.editModalInstance) {
+        this.editModalInstance.hide();
+      }
+      this.editMessage = '';
+    },
+    addSkill() {
+      this.editForm.habilidades.push({ nombre: '', nivel: '' });
+    },
+    removeSkill(index) {
+      if (this.editForm.habilidades.length > 1) {
+        this.editForm.habilidades.splice(index, 1);
+      }
+    },
+    async saveProfile() {
+      this.saving = true;
+      this.editMessage = '';
+      
+      try {
+        // Validar que al menos una habilidad tenga nombre y nivel
+        const validSkills = this.editForm.habilidades.filter(skill => 
+          skill.nombre.trim() && skill.nivel
+        );
+        
+        if (validSkills.length === 0) {
+          this.editMessage = 'Debes agregar al menos una habilidad técnica.';
+          this.editMessageClass = 'alert-danger';
+          return;
+        }
+        
+        // Preparar datos para enviar al backend
+        const userData = {
+          dni: this.editForm.dni,
+          aniosExperiencia: this.editForm.aniosExperiencia,
+          disponibilidadSemanal: this.editForm.disponibilidadSemanal,
+          costoPorHora: this.editForm.costoPorHora,
+          habilidades: validSkills,
+          preferencias: this.editForm.preferencias
+        };
+        
+        // Actualizar el usuario
+        const userId = this.$route.params.id;
+        await UserService.updateUser(userId, userData);
+        
+        // Actualizar el perfil local
+        this.user = { ...this.user, ...userData };
+        
+        this.editMessage = 'Perfil actualizado correctamente.';
+        this.editMessageClass = 'alert-success';
+        
+        // Cerrar el modal después de 2 segundos
+        setTimeout(() => {
+          this.closeEditModal();
+        }, 2000);
+        
+      } catch (error) {
+        console.error('Error updating profile:', error);
+        this.editMessage = 'Error al actualizar el perfil. Intenta nuevamente.';
+        this.editMessageClass = 'alert-danger';
+      } finally {
+        this.saving = false;
+      }
+    },
+    
+    // Método para reinicializar el modal si es necesario
+    initModal() {
+      if (!this.editModalInstance) {
+        this.$nextTick(() => {
+          const modalElement = document.getElementById('editProfileModal');
+          if (modalElement) {
+            this.editModalInstance = new Modal(modalElement);
+          }
+        });
+      }
     }
   }
 }
