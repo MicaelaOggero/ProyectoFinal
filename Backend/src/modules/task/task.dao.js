@@ -32,3 +32,12 @@ export async function findTasksByDeveloper(userId) {
     .populate("proyecto", "nombre")
     .populate("desarrolladorAsignado", "nombre email");
 }
+
+// Buscar tareas por proyecto y desarrollador
+export async function findTasksByProjectAndDeveloper(projectId, developerId) {
+  const filtro = { proyecto: projectId };
+  if (developerId) {
+    filtro.desarrolladorAsignado = developerId;
+  }
+  return await Task.find(filtro);
+}

@@ -3,7 +3,8 @@ import {
   editTask,
   removeTask,
   getTasksByProject,
-  getTasksByDeveloper
+  getTasksByDeveloper,
+  getTasksByProjectAndDeveloper
 } from "./task.service.js";
 
 export async function crearTask(req, res) {
@@ -68,5 +69,15 @@ export async function listarTasksPorDesarrollador(req, res) {
     res.json(tasks);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+}
+
+export async function listarTasksPorProyectoYDev(req, res) {
+  try {
+    const { projectId, developerId } = req.params;
+    const tasks = await getTasksByProjectAndDeveloper(projectId, developerId);
+    res.json(tasks);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 }

@@ -4,7 +4,8 @@ import {
   getTaskByIdDAO,
   deleteTask,
   findTasksByProject,
-  findTasksByDeveloper
+  findTasksByDeveloper,
+  findTasksByProjectAndDeveloper
 } from "./task.dao.js";
 
 import Project from "../projects/project.model.js";
@@ -84,4 +85,9 @@ export async function getTasksByProject(projectId) {
 
 export async function getTasksByDeveloper(userId) {
   return await findTasksByDeveloper(userId);
+}
+
+
+export async function getTasksByProjectAndDeveloper(projectId, developerId) {
+  return await findTasksByProjectAndDeveloper(projectId, developerId);
 }

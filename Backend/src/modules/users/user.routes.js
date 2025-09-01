@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authToken, authAdmin, auth } from "../../middlewares/auth.js";
 import * as userController from "./user.controller.js";
 
+
 const router = Router();
 
 // Obtener todos los usuarios con rol = user (solo admin)
