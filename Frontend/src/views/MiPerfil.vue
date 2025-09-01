@@ -48,7 +48,7 @@
           </div>
           <div class="card-body">
             <div class="row">
-              <div class="col-md-6">
+              <div class="col-md-6" v-if="user.rol !== 'admin'">
                 <h5>Información Personal</h5>
                 <ul class="list-unstyled">
                   <li class="mb-2">
@@ -76,7 +76,7 @@
                   </li>
                 </ul>
               </div>
-              <div class="col-md-6">
+              <div class="col-md-6" v-if="user.rol !== 'admin'">
                 <h5>Información del Sistema</h5>
                 <ul class="list-unstyled">
                   <li class="mb-2">
@@ -97,12 +97,29 @@
                   </li>
                 </ul>
               </div>
+              <!-- Información Personal para Administrador -->
+              <div class="col-md-12" v-if="user.rol === 'admin'">
+                <h5>Información Personal</h5>
+                <ul class="list-unstyled">
+                  <li class="mb-2">
+                    <i class="bi bi-card-text me-2 text-muted"></i>
+                    <strong>DNI:</strong> {{ user.dni || 'No especificado' }}
+                  </li>
+                  <li class="mb-2">
+                    <i class="bi bi-shield-check me-2 text-muted"></i>
+                    <strong>Rol:</strong> 
+                    <span class="badge" :class="getRoleClass(user.rol)">
+                      {{ user.rol === 'admin' ? 'Administrador' : 'Desarrollador' }}
+                    </span>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Habilidades -->
-        <div class="card mb-4">
+        <div v-if="user.rol !== 'admin'" class="card mb-4">
           <div class="card-header bg-success text-white">
             <h4 class="mb-0">
               <i class="bi bi-tools me-2"></i>
@@ -140,7 +157,7 @@
         </div>
 
         <!-- Preferencias -->
-        <div v-if="user.preferencias" class="card mb-4">
+         <div v-if="user.preferencias && user.rol !== 'admin'" class="card mb-4">
           <div class="card-header bg-info text-white">
             <h4 class="mb-0">
               <i class="bi bi-heart me-2"></i>
@@ -151,9 +168,55 @@
             <p class="text-muted">{{ user.preferencias }}</p>
           </div>
         </div>
+
+         <!-- Estadísticas -->
+         <div class="card mb-4">
+           <div class="card-header bg-primary text-white">
+             <h4 class="mb-0">
+               <i class="bi bi-graph-up me-2"></i>
+               Estadísticas
+             </h4>
+           </div>
+           <div class="card-body">
+             <!-- Estadísticas para Usuarios Normales -->
+             <div v-if="user.rol !== 'admin'" class="row text-center">
+               <div class="col-md-4 mb-3">
+                 <h3 class="text-success">{{ user.habilidades ? user.habilidades.length : 0 }}</h3>
+                 <p class="text-muted mb-0">Habilidades</p>
+               </div>
+               <div class="col-md-4 mb-3">
+                 <h3 class="text-info">{{ user.disponibilidadSemanal || 'N/A' }}</h3>
+                 <p class="text-muted mb-0">Horas/Semana</p>
+               </div>
+               <div class="col-md-4 mb-3">
+                 <h3 class="text-warning">${{ user.costoPorHora || 'N/A' }}</h3>
+                 <p class="text-muted mb-0">Costo/Hora</p>
+               </div>
+             </div>
+             <!-- Estadísticas para Administrador -->
+             <div v-else class="row text-center">
+               <div class="col-md-3 mb-3">
+                 <h3 class="text-success">{{ projectStats.totalProyectos || 0 }}</h3>
+                 <p class="text-muted mb-0">Total Proyectos</p>
+               </div>
+               <div class="col-md-3 mb-3">
+                 <h3 class="text-info">{{ projectStats.proyectosActivos || 0 }}</h3>
+                 <p class="text-muted mb-0">Proyectos Activos</p>
+               </div>
+               <div class="col-md-3 mb-3">
+                 <h3 class="text-warning">{{ projectStats.proyectosPendientes || 0 }}</h3>
+                 <p class="text-muted mb-0">Pendientes de Entrega</p>
+               </div>
+               <div class="col-md-3 mb-3">
+                 <h3 class="text-danger">{{ projectStats.proyectosFinalizados || 0 }}</h3>
+                 <p class="text-muted mb-0">Proyectos Finalizados</p>
+               </div>
+             </div>
+           </div>
+         </div>
       </div>
 
-      <!-- Sidebar con Estadísticas -->
+       <!-- Sidebar -->
       <div class="col-md-4">
         <!-- Estado de la Cuenta -->
         <div v-if="user.rol !== 'admin'" class="card mb-4">
@@ -192,32 +255,6 @@
                 </div>
                 <h6 class="mt-2">Cuenta de Administrador</h6>
                 <p class="text-muted small">Tienes acceso completo al sistema</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Estadísticas Rápidas -->
-        <div class="card mb-4">
-          <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">
-              <i class="bi bi-graph-up me-2"></i>
-              Estadísticas
-            </h5>
-          </div>
-          <div class="card-body">
-            <div class="text-center">
-              <div class="mb-3">
-                <h3 class="text-success">{{ user.habilidades ? user.habilidades.length : 0 }}</h3>
-                <p class="text-muted mb-0">Habilidades</p>
-              </div>
-              <div class="mb-3">
-                <h3 class="text-info">{{ user.disponibilidadSemanal || 'N/A' }}</h3>
-                <p class="text-muted mb-0">Horas/Semana</p>
-              </div>
-              <div>
-                <h3 class="text-warning">${{ user.costoPorHora || 'N/A' }}</h3>
-                <p class="text-muted mb-0">Costo/Hora</p>
               </div>
             </div>
           </div>
@@ -404,6 +441,7 @@
 <script>
 import { Modal } from 'bootstrap';
 import AuthService from '@/services/auth.service.js';
+import ProjectService from '@/services/project.service.js';
 
 export default {
   name: 'MiPerfilView',
@@ -423,7 +461,13 @@ export default {
       },
       saving: false,
       editMessage: '',
-      editMessageClass: ''
+      editMessageClass: '',
+      projectStats: {
+        totalProyectos: 0,
+        proyectosActivos: 0,
+        proyectosPendientes: 0,
+        proyectosFinalizados: 0
+      }
     };
   },
   async mounted() {
@@ -454,6 +498,11 @@ export default {
           // Ahora checkSession devuelve todos los campos del usuario
           this.user = currentUser;
           console.log('Usuario cargado completo:', this.user);
+          
+          // Si es administrador, cargar estadísticas de proyectos
+          if (this.user.rol === 'admin') {
+            await this.loadProjectStats();
+          }
         } else {
           this.error = 'No se pudo cargar tu perfil. Por favor, inicia sesión nuevamente.';
         }
@@ -462,6 +511,25 @@ export default {
         this.error = 'No se pudo cargar tu perfil. Verifica tu conexión e intenta nuevamente.';
       } finally {
         this.loading = false;
+      }
+    },
+    
+    async loadProjectStats() {
+      try {
+        const projectsResponse = await ProjectService.getProjects();
+        const projects = projectsResponse.data;
+        
+        this.projectStats = {
+          totalProyectos: projects.length,
+          proyectosActivos: projects.filter(p => p.estado === 'activo').length,
+          proyectosPendientes: projects.filter(p => p.estado === 'pausado').length,
+          proyectosFinalizados: projects.filter(p => p.estado === 'finalizado').length
+        };
+        
+        console.log('Estadísticas de proyectos cargadas:', this.projectStats);
+      } catch (error) {
+        console.error('Error loading project stats:', error);
+        // En caso de error, mantener valores por defecto
       }
     },
     formatDate(dateString) {

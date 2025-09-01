@@ -59,20 +59,44 @@
               </div>
             </div>
 
-            <div class="row">
-              <div class="col-md-6 mb-3">
-                <label for="disponibilidadSemanal" class="form-label">Disponibilidad Semanal (horas)</label>
-                <input 
-                  type="number" 
-                  class="form-control" 
-                  id="disponibilidadSemanal" 
-                  v-model="userData.disponibilidadSemanal" 
-                  min="0"
-                  max="168"
-                  placeholder="40"
-                >
-              </div>
-            </div>
+                         <div class="row">
+               <div class="col-md-6 mb-3">
+                 <label for="disponibilidadSemanal" class="form-label">Disponibilidad Semanal (horas)</label>
+                 <input 
+                   type="number" 
+                   class="form-control" 
+                   id="disponibilidadSemanal" 
+                   v-model="userData.disponibilidadSemanal" 
+                   min="0"
+                   max="168"
+                   placeholder="40"
+                 >
+               </div>
+               <div class="col-md-6 mb-3">
+                 <label for="costoPorHora" class="form-label">Costo por Hora ($)</label>
+                 <input 
+                   type="number" 
+                   class="form-control" 
+                   id="costoPorHora" 
+                   v-model="userData.costoPorHora" 
+                   min="0"
+                   step="0.01"
+                   placeholder="0"
+                 >
+               </div>
+             </div>
+
+             <!-- Preferencias -->
+             <div class="mb-3">
+               <label for="preferencias" class="form-label">Preferencias de Trabajo</label>
+               <textarea 
+                 class="form-control" 
+                 id="preferencias"
+                 rows="3" 
+                 placeholder="Describe tus preferencias de trabajo, tipo de proyectos que te gustan, etc."
+                 v-model="userData.preferencias"
+               ></textarea>
+             </div>
 
             <!-- Habilidades -->
             <div class="mb-3">
@@ -114,18 +138,17 @@
 
 
 
-            <!-- Información de Aprobación -->
-            <div class="alert alert-warning">
-              <i class="bi bi-exclamation-triangle me-2"></i>
-              <strong>Importante:</strong> Tu cuenta será revisada por un administrador antes de ser aprobada. 
-              Recibirás una notificación por email cuando tu cuenta sea aprobada.
+            <!-- Información de Completado -->
+            <div class="alert alert-success">
+              <i class="bi bi-check-circle me-2"></i>
+              <strong>¡Casi listo!</strong> Una vez que completes tu perfil, tendrás acceso completo al sistema.
             </div>
 
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" @click="closeModal">Cancelar</button>
               <button type="submit" class="btn btn-primary" :disabled="loading">
                 <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status"></span>
-                Completar Perfil y Enviar para Aprobación
+                Completar Perfil y Continuar
               </button>
             </div>
           </form>
@@ -144,13 +167,15 @@ export default {
   data() {
     return {
       modalInstance: null,
-      userData: {
-        dni: '',
-        rol: 'user', // Siempre será 'user'
-        aniosExperiencia: 0,
-        disponibilidadSemanal: 40,
-        habilidades: []
-      },
+             userData: {
+         dni: '',
+         rol: 'user', // Siempre será 'user'
+         aniosExperiencia: 0,
+         disponibilidadSemanal: 40,
+         costoPorHora: 0,
+         preferencias: '',
+         habilidades: []
+       },
       errorMessage: '',
       loading: false
     };
@@ -169,16 +194,18 @@ export default {
     closeModal() {
       this.modalInstance.hide();
     },
-    resetForm() {
-      this.userData = {
-        dni: '',
-        rol: 'user', // Siempre será 'user'
-        aniosExperiencia: 0,
-        disponibilidadSemanal: 40,
-        habilidades: []
-      };
-      this.addSkill(); // Agregar primera habilidad
-    },
+         resetForm() {
+       this.userData = {
+         dni: '',
+         rol: 'user', // Siempre será 'user'
+         aniosExperiencia: 0,
+         disponibilidadSemanal: 40,
+         costoPorHora: 0,
+         preferencias: '',
+         habilidades: []
+       };
+       this.addSkill(); // Agregar primera habilidad
+     },
     addSkill() {
       this.userData.habilidades.push({
         nombre: '',
