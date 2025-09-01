@@ -66,23 +66,17 @@
       ref="completeProfileModal"
       @profile-completed="handleProfileCompleted"
     />
-    
-    <ApprovalPending 
-      ref="approvalPendingModal"
-    />
   </div>
 </template>
 
 <script>
 import CompleteGoogleProfile from '@/components/CompleteGoogleProfile.vue';
-import ApprovalPending from '@/components/ApprovalPending.vue';
 import AuthService from '@/services/auth.service.js';
 
 export default {
   name: 'GoogleCallback',
   components: {
-    CompleteGoogleProfile,
-    ApprovalPending
+    CompleteGoogleProfile
   },
   data() {
     return {
@@ -126,11 +120,8 @@ export default {
         if (!profileCheck.isComplete) {
           // Perfil incompleto - mostrar opción para completarlo
           this.needsProfileCompletion = true;
-        } else if (user.rol === 'user' && !user.approved) {
-          // Perfil completo pero pendiente de aprobación
-          this.pendingApproval = true;
         } else {
-          // Perfil completo y aprobado - ir al dashboard
+          // Perfil completo - ir directamente al dashboard sin verificar aprobación
           this.profileComplete = true;
           this.startRedirect();
         }
@@ -156,11 +147,12 @@ export default {
         console.log('Verificación de perfil:', profileCheck);
         
         if (profileCheck.isComplete) {
-          console.log('Perfil completo, mostrando aprobación pendiente');
+          console.log('Perfil completo, redirigiendo al dashboard');
           this.needsProfileCompletion = false;
           
-          // Siempre será usuario, mostrar mensaje de espera
-          this.pendingApproval = true;
+          // Ir directamente al dashboard sin esperar aprobación
+          this.profileComplete = true;
+          this.startRedirect();
         } else {
           console.log('Perfil aún incompleto');
         }
@@ -169,9 +161,7 @@ export default {
       }
     },
 
-    showApprovalDetails() {
-      this.$refs.approvalPendingModal.show();
-    },
+
 
     startRedirect() {
       this.redirectProgress = 0;

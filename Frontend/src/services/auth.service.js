@@ -50,7 +50,22 @@ class AuthService {
   async completeGoogleProfile(profileData) {
     try {
       console.log('Completando perfil de Google con:', profileData);
-      const response = await axios.put(`${API_URL}/me`, profileData);
+      
+      // Asegurar que todos los campos necesarios estén presentes
+      const completeProfileData = {
+        dni: profileData.dni,
+        rol: profileData.rol || 'user',
+        aniosExperiencia: profileData.aniosExperiencia || 0,
+        disponibilidadSemanal: profileData.disponibilidadSemanal || 40,
+        costoPorHora: profileData.costoPorHora || 0,
+        preferencias: profileData.preferencias || '',
+        habilidades: profileData.habilidades || []
+      };
+      
+      console.log('Datos completos a enviar:', completeProfileData);
+      
+      // Usar el endpoint /me para actualizar el perfil
+      const response = await axios.put(`${API_URL}/me`, completeProfileData);
       console.log('Perfil completado:', response.data);
       return response;
     } catch (error) {
@@ -92,11 +107,16 @@ class AuthService {
         const user = response.data.payload;
         
         // Verificar si el perfil está completo basándose en los datos del usuario
+        // Para usuarios registrados con Google, solo necesitamos DNI y habilidades
         const isComplete = user.dni && 
-                          user.nombre && 
-                          user.apellido && 
                           user.habilidades && 
                           user.habilidades.length > 0;
+        
+        console.log('Verificación de perfil:', { 
+          dni: !!user.dni, 
+          habilidades: user.habilidades?.length > 0,
+          isComplete 
+        });
         
         return { isComplete, user }; // También devolver el usuario completo
       }
