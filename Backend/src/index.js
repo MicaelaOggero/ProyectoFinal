@@ -10,7 +10,10 @@ import skillRouter from '../src/modules/skills/skills.routes.js'
 import taskRouter from '../src/modules/task/task.routes.js'
 import passport from 'passport'
 import cookieParser from 'cookie-parser'
+import cors from 'cors'
 import '../src/config/passport.config.js' 
+import '../src/utils/resetDisponibilidad.js'
+import { conectarDB } from "./config/db.js"
 
 dotenv.config()
 const app=express()
@@ -34,6 +37,12 @@ app.use((req, res, next) => {
     next();
   }
 });
+
+app.use(cors({
+  origin: "http://localhost:8081",
+  credentials: true
+}));
+
 
 app.use(express.json())
 app.use(cookieParser())
@@ -63,7 +72,8 @@ app.use('/api/user', userRouter)
 app.use('/api/skill', skillRouter)
 app.use('/api/task', taskRouter)
 
-mongoose.connect('mongodb+srv://micaoggero17:lScrBJKESna5DDYv@cluster0.qy9szah.mongodb.net/ProyectoFinal?retryWrites=true&w=majority&appName=Cluster0')
+// Conectar a la base de datos
+conectarDB()
 
 app.listen(process.env.PORT, () => console.log("servidor escuchando en el puerto " + process.env.PORT))
 

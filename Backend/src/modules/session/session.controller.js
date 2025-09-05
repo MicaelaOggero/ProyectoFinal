@@ -13,12 +13,19 @@ export const registerUser = async (req, res) => {
 // Iniciar sesión de usuario
 export const loginUser = async (req, res) => {
   try {
-    const token = await sessionService.loginUser(req.body, req.session);
-    res.cookie("cookieToken", token, {
-      maxAge: 60 * 60 * 24 * 1000, // 1 día
+    const { email, password } = req.body;  // 🔥 extraer email y password
+    const result = await sessionService.loginUser(email, password);
+
+    if (!result) return res.status(400).json({ error: "Credenciales inválidas" });
+
+    res.cookie("cookieToken", result.token, {
       httpOnly: true,
-      secure: false
-    }).send({ status: "login success" });
+      secure: false, // true en producción con HTTPS
+      asameSite: "lax"
+    });
+
+    return res.json({ message: "login success", token: result.token });
+
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message });
   }
@@ -47,7 +54,7 @@ export const resetPassword = async (req, res) => {
 // Obtener perfil de usuario
 export const getProfile = async (req, res) => {
   try {
-    const profile = await sessionService.getProfile(req.user?._id);
+    const profile = await sessionService.getProfile(req.user._id); // ✅ ahora sí
     res.json({ status: "ok", payload: profile });
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message });
@@ -57,18 +64,51 @@ export const getProfile = async (req, res) => {
 // Actualizar perfil de usuario
 export const updateMe = async (req, res) => {
   try {
-    const updated = await sessionService.updateMe(req.session.userId, req.body);
+    const updated = await sessionService.updateMe(req.user._id, req.body);
     res.json({ message: "Perfil actualizado", usuario: updated });
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message });
   }
 };
 
-// Google OAuth
+// Dashboard - Información del usuario logueado
+export async function dashboardController(req, res) {
+  try {
+    const user = req.user; // el middleware auth ya lo puso
+    if (!user) return res.status(401).json({ error: "No autorizado" });
+
+    const payload = await sessionService.getDashboardData(user);
+
+    res.json({ status: "ok", payload });
+  } catch (err) {
+    console.error("Error obteniendo dashboard:", err);
+    res.status(500).json({ error: "Error obteniendo dashboard" });
+  }
+}
+
+// Google OAuth - Iniciar login con Google
 export const googleAuth = (req, res, next) => {
   sessionService.googleAuth()(req, res, next);
 };
 
 export const googleCallback = (req, res, next) => {
   sessionService.googleCallback(req, res, next);
+};
+
+export const getGoogleSession = async (req, res) => {
+  try {
+    // El middleware auth ya cargó req.user
+    const userId = req.user._id;  
+
+    // Buscar en la DB para traer los datos completos
+    const user = await sessionService.getProfile(userId);
+
+    return res.json({
+      user,
+      token: req.cookies.cookieToken // también podés mandar req.headers.authorization
+    });
+  } catch (error) {
+    console.error("Error en getGoogleSession:", error);
+    return res.status(500).json({ error: "Error obteniendo sesión Google" });
+  }
 };

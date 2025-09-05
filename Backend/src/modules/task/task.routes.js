@@ -5,7 +5,9 @@ import {
   eliminarTask,
   listarTasksPorProyecto,
   listarTasksPorDesarrollador,
-  listarTasksPorProyectoYDev
+  listarTasksPorProyectoYDev,
+  asignarAutomaticoController,
+  obtenerTareasOrdenadasController
 } from "./task.controller.js";
 import { authToken, authAdmin, auth } from "../../middlewares/auth.js";
 
@@ -28,5 +30,11 @@ router.get("/desarrollador/:userId", auth, listarTasksPorDesarrollador);
 
 // Listar tarea por proyecto y desarrollador
 router.get("/proyecto/:projectId/desarrollador/:developerId", auth, listarTasksPorProyectoYDev);
+
+// Asignación automática de tareas
+router.post("/tasks/asignar-automatico", authAdmin, asignarAutomaticoController);
+
+// Obtener tareas ordenadas por prioridad y dificultad
+router.get("/ordenadas/:projectId", authAdmin, obtenerTareasOrdenadasController);
 
 export default router;

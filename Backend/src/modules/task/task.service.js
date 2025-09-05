@@ -5,9 +5,12 @@ import {
   deleteTask,
   findTasksByProject,
   findTasksByDeveloper,
-  findTasksByProjectAndDeveloper
+  findTasksByProjectAndDeveloper,
+  getTareasSinAsignar
+
 } from "./task.dao.js";
 
+import { ordenarTareas } from '../assignments/prioridadDificultadTareas.js';
 import Project from "../projects/project.model.js";
 import User from "../users/user.model.js";
 
@@ -91,3 +94,10 @@ export async function getTasksByDeveloper(userId) {
 export async function getTasksByProjectAndDeveloper(projectId, developerId) {
   return await findTasksByProjectAndDeveloper(projectId, developerId);
 }
+
+export const obtenerTareasOrdenadasPorProyecto = async (projectId) => {
+  const tareas = await getTareasSinAsignar(projectId, { estado: 'pendiente' });
+  const tareasOrdenadas = ordenarTareas(tareas);
+  console.log("Tareas ordenadas:", tareasOrdenadas);
+  return tareasOrdenadas;
+};
