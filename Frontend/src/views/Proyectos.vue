@@ -207,8 +207,8 @@ export default {
     formatDate(dateString) {
       if (!dateString) return 'N/A';
       const date = new Date(dateString);
-      // Sumar un día porque el input date puede tener problemas de zona horaria
-      date.setDate(date.getDate() + 1);
+      // Verificar que la fecha sea válida
+      if (isNaN(date.getTime())) return 'N/A';
       return date.toLocaleDateString('es-ES');
     },
     formatCreationDate(dateString) {
@@ -359,13 +359,18 @@ export default {
         this.closeModal();
       } catch (error) {
         console.error('Error saving project:', error);
+        console.error('Error response:', error.response);
+        console.error('Error response data:', error.response?.data);
+        
         if (error.response?.status === 400 && error.response?.data?.error) {
           // Mostrar mensaje de error específico del backend
-          this.showAlert(error.response.data.error, 'alert-danger');
+          this.showAlert(`Error del servidor: ${error.response.data.error}`, 'alert-danger');
         } else if (error.response?.status === 401) {
           this.showAlert('No tienes permisos para realizar esta acción', 'alert-danger');
+        } else if (error.response?.status === 500) {
+          this.showAlert(`Error interno del servidor: ${error.response?.data?.error || 'Error desconocido'}`, 'alert-danger');
         } else {
-          this.showAlert('Error al guardar el proyecto. Intenta nuevamente.', 'alert-danger');
+          this.showAlert(`Error al guardar el proyecto: ${error.message}`, 'alert-danger');
         }
       }
     },

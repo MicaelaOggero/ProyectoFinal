@@ -21,46 +21,51 @@ export default {
       isAuthenticated: false
     };
   },
-  async created() {
-    // En páginas de autenticación, no hacer nada
-    if (this.isAuthPage()) {
-      console.log('App: Página de autenticación, no verificando sesión');
-      return;
+async created() {
+  if (localStorage.getItem("token")) {
+    this.checkAuthStatus(); // solo llamamos si hay token
+  }
+},
+
+watch: {
+  '$route'() {
+    if (this.$route.path !== '/login') {
+      this.checkAuthStatus();
     }
-    
-    // Solo verificar autenticación si no estamos en páginas de autenticación
-    await this.checkAuthStatus();
-  },
-  watch: {
-    // Observar cambios en la ruta para actualizar el estado de autenticación
-    '$route'() {
-      if (this.isAuthPage()) {
-        // En páginas de autenticación, no mostrar navbar
-        this.isAuthenticated = false;
-      } else {
-        // Solo verificar autenticación si no estamos en páginas de autenticación
-        this.checkAuthStatus();
-      }
-    }
-  },
+  }
+},
+
+
   methods: {
-    isAuthPage() {
-      // Páginas donde no necesitamos verificar la autenticación
-      const authRoutes = ['/login', '/google-callback'];
-      // Verificar que la ruta esté disponible
-      return this.$route && this.$route.path && authRoutes.includes(this.$route.path);
-    },
-    async checkAuthStatus() {
-      console.log('Verificando autenticación para ruta:', this.$route.path);
-      
-      try {
-        const user = await AuthService.getCurrentUser();
-        this.isAuthenticated = !!user;
-      } catch (error) {
-        console.error('Error verificando autenticación:', error);
-        this.isAuthenticated = false;
-      }
+ async checkAuthStatus() {
+  if (this.$route.path === '/login') {
+    this.isAuthenticated = false;
+    return;
+  }
+
+  try {
+    let user = await AuthService.getCurrentUser(); // login normal
+
+    // Si no hay usuario normal, probar con Google
+    if (!user) {
+      user = await AuthService.getCurrentUserGoogle();
     }
+
+    this.isAuthenticated = !!user;
+
+    if (!user) {
+      this.$router.push('/login');
+    } else {
+      this.$root.currentUser = user;
+    }
+  } catch {
+    this.isAuthenticated = false;
+    this.$router.push('/login');
+  }
+},
+
+
+
   }
 }
 </script>

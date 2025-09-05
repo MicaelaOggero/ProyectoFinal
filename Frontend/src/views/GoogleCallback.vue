@@ -26,13 +26,10 @@
         </div>
         <h3 class="mt-3">Completar Perfil</h3>
         <p class="text-muted">
-          {{ isNewUser ? 
-            'Has iniciado el registro con Google. Necesitamos que completes algunos datos adicionales para finalizar tu cuenta.' : 
-            'Has iniciado sesión con Google. Necesitamos que completes algunos datos adicionales para continuar.' 
-          }}
+          Has iniciado sesión con Google. Necesitamos que completes algunos datos adicionales para continuar.
         </p>
         <button @click="showCompleteProfileForm" class="btn btn-primary">
-          {{ isNewUser ? 'Completar Registro' : 'Completar Perfil' }}
+          Completar Perfil
         </button>
       </div>
 
@@ -53,12 +50,9 @@
         <div class="success-icon">
           <i class="bi bi-check-circle"></i>
         </div>
-        <h3 class="mt-3 text-success">{{ isNewUser ? '¡Registro Exitoso!' : '¡Bienvenido!' }}</h3>
+        <h3 class="mt-3 text-success">¡Bienvenido!</h3>
         <p class="text-muted">
-          {{ isNewUser ? 
-            'Tu cuenta ha sido creada y configurada correctamente. Serás redirigido al dashboard en unos segundos.' :
-            'Has iniciado sesión correctamente. Serás redirigido al dashboard en unos segundos.'
-          }}
+          Tu cuenta ha sido configurada correctamente. Serás redirigido al dashboard en unos segundos.
         </p>
         <div class="progress mt-3">
           <div class="progress-bar progress-bar-striped progress-bar-animated" 
@@ -92,10 +86,26 @@ export default {
       pendingApproval: false,
       profileComplete: false,
       redirectProgress: 0,
-      redirectInterval: null,
-      isNewUser: false // Para diferenciar entre usuario nuevo y existente
+      redirectInterval: null
     };
   },
+
+  async created() {
+    try {
+      const { token } = await AuthService.getCurrentUserGoogle();
+
+      if (token) {
+        localStorage.setItem("token", token);
+      }
+
+      // Si falta completar perfil
+      await this.handleCallback();
+    } catch (error) {
+      console.error("Error en GoogleCallback:", error);
+      this.$router.push("/login");
+    }
+  },
+
   async mounted() {
     await this.handleCallback();
   },
@@ -105,55 +115,44 @@ export default {
     }
   },
   methods: {
-    async handleCallback() {
-      try {
-        this.loading = true;
-        
-        // Esperar un momento para que el backend procese la sesión
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Verificar si el usuario está autenticado
-        const user = await AuthService.getCurrentUser();
-        
-        if (!user) {
-          // Si no existe el usuario, lo mando directo al login
-          this.$router.push('/login');
-          return;
-        }
 
-        // Verificar si el perfil está completo
-        const profileCheck = await AuthService.checkProfileCompletion();
-        
-        // Determinar si es usuario nuevo basándose en si tiene googleId y perfil incompleto
-        this.isNewUser = user.googleId && !profileCheck.isComplete;
-        
-        console.log('Usuario detectado:', {
-          email: user.email,
-          googleId: !!user.googleId,
-          isNewUser: this.isNewUser,
-          profileComplete: profileCheck.isComplete
-        });
-        
-        if (this.isNewUser) {
-          // Usuario nuevo con Google - mostrar completar perfil
-          this.needsProfileCompletion = true;
-        } else if (!profileCheck.isComplete) {
-          // Usuario existente pero perfil incompleto - error
-          this.error = 'Tu cuenta no está configurada completamente. Por favor, contacta al administrador.';
-        } else {
-          // Usuario existente con perfil completo - ir al dashboard
-          console.log('Login exitoso, redirigiendo al dashboard...');
-          this.profileComplete = true;
-          this.startRedirect();
-        }
-        
-      } catch (error) {
-        console.error('Error en callback de Google:', error);
-        this.error = error.message || 'Error al procesar la autenticación con Google';
-      } finally {
-        this.loading = false;
-      }
-    },
+  async handleCallback() {
+  try {
+    this.loading = true;
+    
+    // Esperar un momento para que el backend procese la sesión
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Verificar si el usuario está autenticado
+    const user = await AuthService.getCurrentUserGoogle();
+    
+    if (!user) {
+      // Si no existe el usuario, lo mando directo al login
+      this.$router.push('/login');
+      return;
+    }
+
+    // Verificar si el perfil está completo
+    const profileCheck = await AuthService.checkProfileCompletion();
+    
+    if (!profileCheck.isComplete) {
+      this.needsProfileCompletion = true;
+    } else if (user.rol === 'user' && !user.approved) {
+      this.pendingApproval = true;
+    } else {
+      this.profileComplete = true;
+      this.startRedirect();
+    }
+    
+  } catch (error) {
+    console.error('Error en callback de Google:', error);
+    this.error = error.message || 'Error al procesar la autenticación con Google';
+  } finally {
+    this.loading = false;
+  }
+},
+
+
 
     showCompleteProfileForm() {
       this.$refs.completeProfileModal.show();
@@ -168,12 +167,14 @@ export default {
         console.log('Verificación de perfil:', profileCheck);
         
         if (profileCheck.isComplete) {
-          console.log('Perfil completo, redirigiendo al dashboard...');
+          console.log('Perfil completo, redirigiendo al dashboard');
           this.needsProfileCompletion = false;
+          
+          // Ir directamente al dashboard sin esperar aprobación
           this.profileComplete = true;
           this.startRedirect();
         } else {
-          console.log('Perfil aún incompleto, manteniendo modal abierto');
+          console.log('Perfil aún incompleto');
         }
       } catch (error) {
         console.error('Error en handleProfileCompleted:', error);
