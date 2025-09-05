@@ -33,21 +33,6 @@ const projectSchema = new mongoose.Schema({
     enum: ['activo', 'pausado', 'finalizado'],
     default: 'activo'
   },
-  equipo: [{
-    usuario: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
-    },
-    rol: {
-      type: String,
-      required: true
-    },
-    fechaAsignacion: {
-      type: Date,
-      default: Date.now
-    }
-  }],
   fechaCreacion: {
     type: Date,
     default: Date.now

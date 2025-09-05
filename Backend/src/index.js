@@ -7,6 +7,7 @@ import sessionRouter from '../src/modules/session/session.routes.js'
 import projectRouter from '../src/modules/projects/project.routes.js'
 import userRouter from '../src/modules/users/user.routes.js'
 import skillRouter from '../src/modules/skills/skills.routes.js'
+import taskRouter from '../src/modules/task/task.routes.js'
 import passport from 'passport'
 import cookieParser from 'cookie-parser'
 import '../src/config/passport.config.js' 
@@ -60,7 +61,7 @@ app.use('/api/session', sessionRouter)
 app.use('/api/project', projectRouter)
 app.use('/api/user', userRouter)
 app.use('/api/skill', skillRouter)
-
+app.use('/api/task', taskRouter)
 
 mongoose.connect('mongodb+srv://micaoggero17:lScrBJKESna5DDYv@cluster0.qy9szah.mongodb.net/ProyectoFinal?retryWrites=true&w=majority&appName=Cluster0')
 

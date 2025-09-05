@@ -20,7 +20,7 @@ const taskSchema = new mongoose.Schema({
     enum: ['alta', 'media', 'baja'],
     required: true
   },
-  plazoEntrega: {
+  fechaEntrega: {
     type: Date,
     required: true
   },
@@ -42,7 +42,21 @@ const taskSchema = new mongoose.Schema({
   fechaCreacion: {
     type: Date,
     default: Date.now
-  }
+  },
+  historial: [{
+    campo: String,
+    valorAnterior: mongoose.Schema.Types.Mixed,
+    valorNuevo: mongoose.Schema.Types.Mixed,
+    cambiadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    fechaCambio: { type: Date, default: Date.now }
+  }],
+  tiempoEstimadoHoras: Number,
+  tiempoInvertidoHoras: { type: Number, default: 0 },
+  comentarios: [{
+    usuario: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    mensaje: String,
+    fecha: { type: Date, default: Date.now }
+  }]
 });
 
 const Task = mongoose.model('Task', taskSchema);

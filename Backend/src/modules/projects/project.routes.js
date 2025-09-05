@@ -1,100 +1,23 @@
-import { Router } from "express"
-import { auth, authAdmin, authToken } from "../../middlewares/auth.js"
-import Project from "../projects/project.model.js"
+// src/modules/projects/project.routes.js
+import { Router } from "express";
+import { auth, authAdmin, authToken } from "../../middlewares/auth.js";
+import * as projectController from "./project.controller.js";
 
-const router = Router()
+const router = Router();
 
 // Obtener proyectos (solo admins, solo los que crearon)
-router.get('/', authAdmin, authToken, async (req, res) => {
-  try {
-    const projects = await Project.find({ administrador: req.userId }); // filtra por admin creador
-    res.json(projects);
-  } catch (error) {
-    console.error('❌ Error al obtener proyectos:', error);
-    res.status(500).json({ error: 'Error al obtener proyectos' });
-  }
-});
+router.get("/", authToken, projectController.getProjects);
 
-// Obtener un proyecto específico por ID (sin populate)
-router.get('/:id', auth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const proyecto = await Project.findById(id);
-
-    if (!proyecto) {
-      return res.status(404).json({ error: 'Proyecto no encontrado' });
-    }
-
-    res.json(proyecto);
-  } catch (error) {
-    console.error('❌ Error al obtener proyecto:', error);
-    res.status(500).json({ error: 'Error al obtener proyecto' });
-  }
-});
-
+// Obtener un proyecto específico por ID
+router.get("/:id", authAdmin, projectController.getProjectById);
 
 // Crear un nuevo proyecto (solo admins)
-router.post('/', authAdmin, authToken, async (req, res) => {
-  try {
-    const { nombre, descripcion, fechaInicio, fechaFin, nivelDificultad, prioridad, estado, equipo } = req.body;
-
-    // El middleware authAdmin debe poner el id del usuario en req.userId
-    const administradorId = req.userId;
-
-    const nuevoProyecto = await Project.create({
-      nombre,
-      descripcion,
-      fechaInicio,
-      fechaFin,
-      nivelDificultad,
-      prioridad,
-      estado,
-      administrador: administradorId, // asigna el admin automáticamente
-    });
-
-    res.status(201).json({ message: 'Proyecto creado con éxito', proyecto: nuevoProyecto });
-  } catch (error) {
-    console.error('❌ Error al crear proyecto:', error);
-    res.status(500).json({ error: 'Error al crear proyecto' });
-  }
-});
+router.post("/", authAdmin, projectController.createProject);
 
 // Actualizar un proyecto por ID (solo admins)
-router.put('/:id', authAdmin, authToken, async (req, res) => {
-  try {
-    const { id } = req.params
-    const datosActualizados = req.body
-
-    const proyectoActualizado = await Project.findByIdAndUpdate(id, datosActualizados, { new: true })
-
-    if (!proyectoActualizado) {
-      return res.status(404).json({ error: 'Proyecto no encontrado' })
-    }
-
-    res.json({ message: 'Proyecto actualizado', proyecto: proyectoActualizado })
-  } catch (error) {
-    console.error('❌ Error al actualizar proyecto:', error)
-    res.status(500).json({ error: 'Error al actualizar proyecto' })
-  }
-})
+router.put("/:id", authAdmin, projectController.updateProject);
 
 // Eliminar un proyecto por ID (solo admins)
-router.delete('/:id', authAdmin, authToken, async (req, res) => {
-  try {
-    const { id } = req.params
+router.delete("/:id", authAdmin, projectController.deleteProject);
 
-    const proyectoEliminado = await Project.findByIdAndDelete(id)
-
-    if (!proyectoEliminado) {
-      return res.status(404).json({ error: 'Proyecto no encontrado' })
-    }
-
-    res.json({ message: 'Proyecto eliminado correctamente' })
-  } catch (error) {
-    console.error('❌ Error al eliminar proyecto:', error)
-    res.status(500).json({ error: 'Error al eliminar proyecto' })
-  }
-})
-
-export default router
+export default router;
