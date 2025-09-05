@@ -10,6 +10,7 @@ import skillRouter from '../src/modules/skills/skills.routes.js'
 import taskRouter from '../src/modules/task/task.routes.js'
 import passport from 'passport'
 import cookieParser from 'cookie-parser'
+import cors from 'cors'
 import '../src/config/passport.config.js' 
 
 dotenv.config()
@@ -34,6 +35,12 @@ app.use((req, res, next) => {
     next();
   }
 });
+
+app.use(cors({
+  origin: "http://localhost:8081",
+  credentials: true
+}));
+
 
 app.use(express.json())
 app.use(cookieParser())
