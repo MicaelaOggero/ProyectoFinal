@@ -1,10 +1,12 @@
+import e from "express";
 import {
   addTask,
   editTask,
   removeTask,
   getTasksByProject,
   getTasksByDeveloper,
-  getTasksByProjectAndDeveloper
+  getTasksByProjectAndDeveloper,
+  obtenerTareasOrdenadasPorProyecto
 } from "./task.service.js";
 
 export async function crearTask(req, res) {
@@ -81,3 +83,18 @@ export async function listarTasksPorProyectoYDev(req, res) {
     res.status(400).json({ error: error.message });
   }
 }
+
+export async function asignarAutomaticoController(req, res) {
+
+}
+
+export const obtenerTareasOrdenadasController = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const tareasOrdenadas = await obtenerTareasOrdenadasPorProyecto(projectId);
+    res.json({ tareas: tareasOrdenadas });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};

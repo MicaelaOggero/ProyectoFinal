@@ -70,7 +70,11 @@ app.use('/api/user', userRouter)
 app.use('/api/skill', skillRouter)
 app.use('/api/task', taskRouter)
 
-mongoose.connect('mongodb+srv://micaoggero17:lScrBJKESna5DDYv@cluster0.qy9szah.mongodb.net/ProyectoFinal?retryWrites=true&w=majority&appName=Cluster0')
+// mongoose.connect('mongodb+srv://micaoggero17:lScrBJKESna5DDYv@cluster0.qy9szah.mongodb.net/ProyectoFinal?retryWrites=true&w=majority&appName=Cluster0')
+
+mongoose.connect(process.env.MONGO)
+  .then(() => console.log("Conectado a MongoDB"))
+  .catch(err => console.error("Error conectando a MongoDB:", err));
 
 app.listen(process.env.PORT, () => console.log("servidor escuchando en el puerto " + process.env.PORT))
 

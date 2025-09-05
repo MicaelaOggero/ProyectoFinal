@@ -41,8 +41,12 @@ const userSchema = new mongoose.Schema({
   disponibilidadSemanal: {
     type: Number,
     required: function () { return this.rol === 'user' || !this.googleId;; },
-    default: 0
+    default: 0 //horas libres actuales
   }, //Horas hombre por semana
+  horasSemanalMax: {
+    type: Number,
+    default: 40 // ejemplo: 40 horas por semana
+  },
   preferencias: [{
     habilidad: String,
     puntuacionPromedio: { type: Number, min: 1, max: 5 },

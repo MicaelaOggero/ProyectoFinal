@@ -41,3 +41,25 @@ export async function findTasksByProjectAndDeveloper(projectId, developerId) {
   }
   return await Task.find(filtro);
 }
+
+// Listar tareas por proyecto sin asignar y estado pendiente 
+/**
+ * Obtiene todas las tareas sin asignar de un proyecto específico
+ * @param {String} projectId - ID del proyecto
+ * @param {Object} filtrosOpcionales - filtros adicionales opcionales
+ * @returns {Promise<Array>} - arreglo de tareas
+ */
+export const getTareasSinAsignar = async (projectId, filtrosOpcionales = {}) => {
+  if (!projectId) throw new Error("El projectId es obligatorio");
+
+  try {
+    const filtroBase = { desarrolladorAsignado: null, proyecto: projectId };
+    const filtroFinal = { ...filtroBase, ...filtrosOpcionales };
+
+    const tareas = await Task.find(filtroFinal);
+    return tareas;
+  } catch (error) {
+    console.error("Error obteniendo tareas sin asignar:", error);
+    throw error;
+  }
+};
