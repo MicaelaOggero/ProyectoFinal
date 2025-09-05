@@ -282,7 +282,11 @@ export default {
     
     formatDate(dateString) {
       if (!dateString) return 'N/A';
-      return new Date(dateString).toLocaleDateString('es-ES');
+      // Crear la fecha en zona horaria local para evitar problemas de UTC
+      const date = new Date(dateString + 'T00:00:00');
+      // Verificar que la fecha sea válida
+      if (isNaN(date.getTime())) return 'N/A';
+      return date.toLocaleDateString('es-ES');
     },
     
     formatCreationDate(dateString) {

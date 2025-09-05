@@ -206,7 +206,8 @@ export default {
   methods: {
     formatDate(dateString) {
       if (!dateString) return 'N/A';
-      const date = new Date(dateString);
+      // Crear la fecha en zona horaria local para evitar problemas de UTC
+      const date = new Date(dateString + 'T00:00:00');
       // Verificar que la fecha sea válida
       if (isNaN(date.getTime())) return 'N/A';
       return date.toLocaleDateString('es-ES');
