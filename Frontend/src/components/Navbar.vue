@@ -52,16 +52,37 @@ export default {
     }
   },
   async mounted() {
+    // En páginas de autenticación, no hacer nada
+    if (this.isAuthPage()) {
+      console.log('Navbar: Página de autenticación, no verificando sesión');
+      return;
+    }
+    
+    // Solo verificar sesión si no estamos en páginas de autenticación
     await this.checkUserSession();
   },
   watch: {
     // Observar cambios en la ruta para actualizar la sesión
     '$route'() {
-      this.checkUserSession();
+      if (this.isAuthPage()) {
+        // En páginas de autenticación, limpiar el usuario
+        this.currentUser = null;
+      } else {
+        // Solo verificar sesión si no estamos en páginas de autenticación
+        this.checkUserSession();
+      }
     }
   },
   methods: {
+    isAuthPage() {
+      // Páginas donde no necesitamos verificar la sesión
+      const authRoutes = ['/login', '/google-callback'];
+      // Verificar que la ruta esté disponible
+      return this.$route && this.$route.path && authRoutes.includes(this.$route.path);
+    },
     async checkUserSession() {
+      console.log('Navbar: Verificando sesión para ruta:', this.$route.path);
+      
       try {
         const user = await AuthService.getCurrentUser();
         this.currentUser = user;

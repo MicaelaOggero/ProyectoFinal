@@ -51,10 +51,14 @@
             <button type="button" class="btn-close" @click="closeModal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
-            <div class="alert alert-info mb-3">
-              <i class="bi bi-info-circle me-2"></i>
-              <strong>Información:</strong> Los campos marcados con * son obligatorios.
-            </div>
+                         <div class="alert alert-info mb-3">
+               <i class="bi bi-info-circle me-2"></i>
+               <strong>Información:</strong> Los campos marcados con * son obligatorios.
+               <span v-if="editablePerson.googleId" class="ms-2">
+                 <i class="bi bi-google text-danger"></i>
+                 <strong>Usuario de Google:</strong> DNI y habilidades son opcionales.
+               </span>
+             </div>
             <form @submit.prevent="savePerson">
               <div class="row">
                 <div class="col-md-6 mb-3">
@@ -73,19 +77,23 @@
                     {{ getFieldError('name') }}
                   </div>
                 </div>
-                <div class="col-md-6 mb-3">
-                  <label for="personDni" class="form-label">DNI *</label>
-                  <input 
-                    type="text" 
-                    class="form-control" 
-                    :class="{ 'is-invalid': hasFieldError('dni') }"
-                    id="personDni" 
-                    v-model="editablePerson.dni" 
-                    required
-                    placeholder="Ej: 43844509"
-                    maxlength="8"
-                    @input="validateDniInput"
-                  >
+                                 <div class="col-md-6 mb-3">
+                   <label for="personDni" class="form-label">
+                     DNI 
+                     <span v-if="!editablePerson.googleId" class="text-danger">*</span>
+                     <span v-else class="text-muted">(opcional)</span>
+                   </label>
+                                     <input 
+                     type="text" 
+                     class="form-control" 
+                     :class="{ 'is-invalid': hasFieldError('dni') }"
+                     id="personDni" 
+                     v-model="editablePerson.dni" 
+                     :required="!editablePerson.googleId"
+                     placeholder="Ej: 43844509"
+                     maxlength="8"
+                     @input="validateDniInput"
+                   >
                   <div class="invalid-feedback" v-if="hasFieldError('dni')">
                     {{ getFieldError('dni') }}
                   </div>
@@ -148,7 +156,11 @@
               </div>
               
               <hr>
-              <h5>Habilidades Técnicas *</h5>
+                             <h5>
+                 Habilidades Técnicas 
+                 <span v-if="!editablePerson.googleId" class="text-danger">*</span>
+                 <span v-else class="text-muted">(opcional)</span>
+               </h5>
               <div v-if="hasFieldError('skills')" class="alert alert-danger">
                 {{ getFieldError('skills') }}
               </div>
@@ -248,14 +260,20 @@ export default {
         isValid = false;
       }
 
-      // Validar DNI (solo números, 7 u 8 dígitos)
-      if (!this.editablePerson.dni || this.editablePerson.dni.toString().trim() === '') {
-        this.validationErrors.dni = 'El DNI es requerido';
-        isValid = false;
-      } else if (!/^\d{7,8}$/.test(this.editablePerson.dni.toString().trim())) {
+          // Validar DNI (solo números, 7 u 8 dígitos) - OPCIONAL para usuarios de Google
+    console.log('🔍 Validando DNI:', this.editablePerson.dni);
+    if (this.editablePerson.dni && this.editablePerson.dni.toString().trim() !== '') {
+      console.log('🔍 DNI tiene valor, validando formato...');
+      if (!/^\d{7,8}$/.test(this.editablePerson.dni.toString().trim())) {
+        console.log('🔍 ❌ DNI formato inválido');
         this.validationErrors.dni = 'El DNI debe contener solo números (7 u 8 dígitos)';
         isValid = false;
+      } else {
+        console.log('🔍 ✅ DNI formato válido');
       }
+    } else {
+      console.log('🔍 DNI está vacío o undefined (válido para usuarios de Google)');
+    }
 
       // Validar disponibilidad semanal
       if (!this.editablePerson.availability || this.editablePerson.availability <= 0) {
@@ -272,23 +290,20 @@ export default {
         isValid = false;
       }
 
-      // Validar habilidades
-      if (!this.editablePerson.skills || this.editablePerson.skills.length === 0) {
-        this.validationErrors.skills = 'Debe agregar al menos una habilidad';
-        isValid = false;
-      } else {
-        for (let i = 0; i < this.editablePerson.skills.length; i++) {
-          const skill = this.editablePerson.skills[i];
-          if (!skill.name || skill.name.trim() === '') {
-            this.validationErrors[`skill_${i}_name`] = 'Debe seleccionar una habilidad';
-            isValid = false;
-          }
-          if (!skill.level || skill.level.toString().trim() === '') {
-            this.validationErrors[`skill_${i}_level`] = 'Debe seleccionar un nivel para la habilidad';
-            isValid = false;
-          }
+          // Validar habilidades - OPCIONAL para usuarios de Google
+    if (this.editablePerson.skills && this.editablePerson.skills.length > 0) {
+      for (let i = 0; i < this.editablePerson.skills.length; i++) {
+        const skill = this.editablePerson.skills[i];
+        if (!skill.name || skill.name.trim() === '') {
+          this.validationErrors[`skill_${i}_name`] = 'Debe seleccionar una habilidad';
+          isValid = false;
+        }
+        if (!skill.level || skill.level.toString().trim() === '') {
+          this.validationErrors[`skill_${i}_level`] = 'Debe seleccionar un nivel para la habilidad';
+          isValid = false;
         }
       }
+    }
 
       return isValid;
     },
@@ -308,13 +323,15 @@ export default {
         input.value = numericValue;
       }
       
-      // Actualizar el modelo
+      // Actualizar el modelo - IMPORTANTE: usar el valor del input, no sobrescribir
       this.editablePerson.dni = input.value;
       
       // Limpiar error si ya es válido
       if (this.validationErrors.dni && /^\d{7,8}$/.test(input.value)) {
         delete this.validationErrors.dni;
       }
+      
+      console.log('🔍 DNI actualizado:', this.editablePerson.dni);
     },
 
     // Validación en tiempo real para nombre
@@ -352,9 +369,12 @@ export default {
     },
     loadUsers() {
       UserService.getUsers().then(response => {
+        console.log('Usuarios cargados:', response.data);
         this.people = response.data;
       }).catch(error => {
         console.error('Error loading users:', error);
+        const errorMessage = error.response?.data?.error || 'Error al cargar usuarios';
+        this.$toast?.error(errorMessage) || alert(errorMessage);
       });
     },
     loadSkills() {
@@ -378,34 +398,52 @@ export default {
     },
     openEditModal(person) {
       this.isEditMode = true;
+      console.log('Editando persona:', person);
+      
       // Mapear los campos correctamente desde el backend al frontend
       this.editablePerson = {
         _id: person._id,
-        name: person.nombre,
-        dni: person.dni,
-        role: person.rol,
-        availability: person.disponibilidadSemanal,
-        costPerHour: person.costoPorHora,
-        yearsExperience: person.aniosExperiencia,
+        name: person.nombre || '',
+        dni: person.dni || '',
+        role: person.rol || 'Desarrollador',
+        availability: person.disponibilidadSemanal || 40,
+        costPerHour: person.costoPorHora || 0,
+        yearsExperience: person.aniosExperiencia || 0,
         skills: (person.habilidades || []).map(skill => ({
-          name: skill.nombre,
-          level: skill.nivel
-        }))
+          name: skill.nombre || '',
+          level: skill.nivel || '1'
+        })),
+        googleId: person.googleId || null
       };
+      
+      console.log('🔍 USUARIO COMPLETO del backend:', person);
+      console.log('🔍 ¿Es usuario de Google?', !!person.googleId);
+      console.log('🔍 DNI cargado del backend:', person.dni);
+      console.log('🔍 DNI mapeado al frontend:', this.editablePerson.dni);
+      console.log('🔍 Campos disponibles en el backend:', Object.keys(person));
+      console.log('Datos mapeados para edición:', this.editablePerson);
       this.clearValidationErrors();
       this.modalInstance.show();
     },
     closeModal() {
       this.modalInstance.hide();
     },
-    savePerson() {
+    async savePerson() {
       // Limpiar errores previos
       this.clearValidationErrors();
       
+      console.log('🔍 === INICIO DE savePerson ===');
+      console.log('🔍 editablePerson.dni:', this.editablePerson.dni);
+      console.log('🔍 editablePerson.dni tipo:', typeof this.editablePerson.dni);
+      console.log('🔍 editablePerson.dni length:', this.editablePerson.dni?.toString().length);
+      
       // Validar formulario
       if (!this.validateForm()) {
+        console.log('🔍 ❌ Validación falló, no continuando');
         return; // No continuar si hay errores de validación
       }
+      
+      console.log('🔍 ✅ Validación pasó, continuando...');
 
       // Prevenir múltiples envíos
       if (this.isSubmitting) {
@@ -415,27 +453,51 @@ export default {
       this.isSubmitting = true;
 
       if (this.isEditMode) {
-        // Mapear los campos del frontend al backend
-        const userData = {
-          nombre: this.editablePerson.name,
-          apellido: this.editablePerson.name.split(' ')[1] || '',
-          habilidades: this.editablePerson.skills.map(skill => ({
+        // Mapear los campos del frontend al backend (solo campos con valor)
+        const userData = {};
+        
+        // Solo agregar DNI si tiene valor
+        if (this.editablePerson.dni && this.editablePerson.dni.toString().trim() !== '') {
+          userData.dni = this.editablePerson.dni;
+          console.log('🔍 ✅ DNI agregado al userData:', this.editablePerson.dni);
+        } else {
+          console.log('🔍 ❌ DNI NO agregado - está vacío o undefined');
+        }
+        
+        // Solo agregar habilidades si tiene al menos una
+        if (this.editablePerson.skills && this.editablePerson.skills.length > 0) {
+          userData.habilidades = this.editablePerson.skills.map(skill => ({
             nombre: skill.name,
             nivel: skill.level
-          })),
-          disponibilidadSemanal: this.editablePerson.availability,
-          aniosExperiencia: this.editablePerson.yearsExperience,
-          costoPorHora: this.editablePerson.costPerHour
-        };
+          }));
+        }
         
-        // Lógica de Actualización
-        UserService.updateUser(this.editablePerson._id, userData).then(() => {
+        // Campos numéricos con valores por defecto
+        userData.aniosExperiencia = parseInt(this.editablePerson.yearsExperience) || 0;
+        userData.disponibilidadSemanal = parseInt(this.editablePerson.availability) || 40;
+        userData.costoPorHora = parseFloat(this.editablePerson.costPerHour) || 0;
+        
+        console.log('🔍 DNI antes de enviar:', this.editablePerson.dni);
+        console.log('🔍 ¿Es usuario de Google?', !!this.editablePerson.googleId);
+        console.log('🔍 userData completo:', userData);
+        console.log('🔍 Campos que se envían:', Object.keys(userData));
+        console.log('🔍 userData.dni específicamente:', userData.dni);
+        console.log('🔍 userData.dni tipo:', typeof userData.dni);
+        console.log('Datos a enviar al backend:', userData);
+        
+        // Lógica de Actualización - Usar la misma lógica para ambos tipos de usuario
+        console.log('🔍 Actualizando usuario con UserService.updateUser (debería funcionar para ambos tipos)');
+        UserService.updateUser(this.editablePerson._id, userData).then((response) => {
+          console.log('✅ Usuario actualizado exitosamente:', response.data);
           this.loadUsers();
           this.closeModal();
           this.isSubmitting = false;
+          this.$toast?.success('Usuario actualizado correctamente') || alert('Usuario actualizado correctamente');
         }).catch(error => {
-          console.error('Error updating user:', error);
+          console.error('❌ Error actualizando usuario:', error);
           this.isSubmitting = false;
+          const errorMessage = error.response?.data?.error || 'Error al actualizar el usuario';
+          this.$toast?.error(errorMessage) || alert(errorMessage);
         });
       } else {
         // Lógica de Creación - NOTA: Falta implementar la creación de usuarios en el backend

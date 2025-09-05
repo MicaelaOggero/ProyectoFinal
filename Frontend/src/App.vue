@@ -22,16 +22,37 @@ export default {
     };
   },
   async created() {
+    // En páginas de autenticación, no hacer nada
+    if (this.isAuthPage()) {
+      console.log('App: Página de autenticación, no verificando sesión');
+      return;
+    }
+    
+    // Solo verificar autenticación si no estamos en páginas de autenticación
     await this.checkAuthStatus();
   },
   watch: {
     // Observar cambios en la ruta para actualizar el estado de autenticación
     '$route'() {
-      this.checkAuthStatus();
+      if (this.isAuthPage()) {
+        // En páginas de autenticación, no mostrar navbar
+        this.isAuthenticated = false;
+      } else {
+        // Solo verificar autenticación si no estamos en páginas de autenticación
+        this.checkAuthStatus();
+      }
     }
   },
   methods: {
+    isAuthPage() {
+      // Páginas donde no necesitamos verificar la autenticación
+      const authRoutes = ['/login', '/google-callback'];
+      // Verificar que la ruta esté disponible
+      return this.$route && this.$route.path && authRoutes.includes(this.$route.path);
+    },
     async checkAuthStatus() {
+      console.log('Verificando autenticación para ruta:', this.$route.path);
+      
       try {
         const user = await AuthService.getCurrentUser();
         this.isAuthenticated = !!user;

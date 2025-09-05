@@ -325,9 +325,9 @@ export default {
     async registerWithGoogle() {
       try {
         this.loading = true;
-        await AuthService.loginWithGoogle();
+        await AuthService.registerWithGoogle();
       } catch (error) {
-        this.error = 'Error al iniciar autenticación con Google';
+        this.error = 'Error al iniciar registro con Google';
         this.loading = false;
       }
     },
@@ -354,7 +354,7 @@ export default {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  /*background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);*/
   padding: 2rem;
 }
 
