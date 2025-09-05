@@ -1,4 +1,3 @@
-
 import { createRouter, createWebHistory } from 'vue-router';
 import DashboardView from '@/views/Dashboard.vue';
 import LoginView from '@/views/Login.vue';
@@ -77,41 +76,21 @@ const router = createRouter({
 });
 
 // Guard de navegación simplificado que funciona sin store
+// router/index.js
 router.beforeEach(async (to, from, next) => {
-  try {
-    // Verificar si la ruta requiere autenticación
-    if (to.meta.requiresAuth) {
-      const user = await AuthService.getCurrentUser();
-      if (!user) {
-        // No hay usuario autenticado, redirigir a login
-        next('/login');
-        return;
-      }
-      // Usuario autenticado, permitir acceso
-      next();
-      return;
-    }
+  // Sólo proteger si la ruta lo pide explícitamente
+  if (!to.meta?.requiresAuth) return next();
 
-    // Verificar si la ruta es solo para invitados (como login)
-    if (to.meta.requiresGuest) {
-      const user = await AuthService.getCurrentUser();
-      if (user) {
-        // Usuario ya está autenticado, redirigir al dashboard
-        next('/dashboard');
-        return;
-      }
-      // Usuario no autenticado, permitir acceso a login
-      next();
-      return;
-    }
+  // 1) Intento con login normal (token en localStorage)
+  const user = await AuthService.getCurrentUser();
+  if (user) return next();
 
-    // Para rutas sin meta específica (como google-callback), permitir acceso
-    next();
-  } catch (error) {
-    console.error('Error en guard de navegación:', error);
-    // En caso de error, redirigir a login
-    next('/login');
-  }
+  // 2) Intento con sesión Google (cookie httpOnly)
+  const g = await AuthService.getCurrentUserGoogle();
+  if (g && (g.user || g)) return next();
+
+  return next('/login');
 });
+
 
 export default router;

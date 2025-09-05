@@ -164,6 +164,13 @@
               <div v-if="hasFieldError('skills')" class="alert alert-danger">
                 {{ getFieldError('skills') }}
               </div>
+              
+              <!-- Debug: Mostrar habilidades cargadas -->
+              <div class="alert alert-info mb-3" v-if="isEditMode">
+                <strong>Debug - Habilidades cargadas:</strong> {{ editablePerson.skills.length }} habilidades
+                <br>
+                <small>{{ JSON.stringify(editablePerson.skills) }}</small>
+              </div>
               <div v-for="(skill, index) in editablePerson.skills" :key="index" class="row align-items-center mb-2">
                 <div class="col-md-6">
                   <select 
@@ -172,7 +179,7 @@
                     v-model="skill.name"
                   >
                     <option disabled value="">Seleccione una habilidad</option>
-                    <option v-for="opt in skillOptions" :key="opt">{{ opt }}</option>
+                    <option v-for="opt in skillOptions" :key="opt" :value="opt">{{ opt }}</option>
                   </select>
                   <div class="invalid-feedback" v-if="hasFieldError(`skill_${index}_name`)">
                     {{ getFieldError(`skill_${index}_name`) }}
@@ -409,10 +416,12 @@ export default {
         availability: person.disponibilidadSemanal || 40,
         costPerHour: person.costoPorHora || 0,
         yearsExperience: person.aniosExperiencia || 0,
-        skills: (person.habilidades || []).map(skill => ({
-          name: skill.nombre || '',
-          level: skill.nivel || '1'
-        })),
+        skills: (person.habilidades && person.habilidades.length > 0) 
+          ? person.habilidades.map(skill => ({
+              name: skill.nombre || '',
+              level: skill.nivel ? skill.nivel.toString() : '1'
+            }))
+          : [{ name: '', level: '1' }], // Si no hay habilidades, mostrar una vacía para editar
         googleId: person.googleId || null
       };
       
@@ -420,10 +429,22 @@ export default {
       console.log('🔍 ¿Es usuario de Google?', !!person.googleId);
       console.log('🔍 DNI cargado del backend:', person.dni);
       console.log('🔍 DNI mapeado al frontend:', this.editablePerson.dni);
+      console.log('🔍 Habilidades del backend:', person.habilidades);
+      console.log('🔍 Habilidades mapeadas al frontend:', this.editablePerson.skills);
+      console.log('🔍 Primera habilidad - name:', this.editablePerson.skills[0]?.name, 'level:', this.editablePerson.skills[0]?.level, 'tipo:', typeof this.editablePerson.skills[0]?.level);
+      console.log('🔍 Opciones de habilidades disponibles:', this.skillOptions);
+      console.log('🔍 ¿Coincide "Frontend" con las opciones?', this.skillOptions.includes('Frontend'));
+      console.log('🔍 ¿Coincide "React" con las opciones?', this.skillOptions.includes('React'));
       console.log('🔍 Campos disponibles en el backend:', Object.keys(person));
       console.log('Datos mapeados para edición:', this.editablePerson);
-      this.clearValidationErrors();
-      this.modalInstance.show();
+      
+      // Forzar reactividad de Vue
+      this.$nextTick(() => {
+        console.log('🔍 Después de $nextTick - editablePerson.skills:', this.editablePerson.skills);
+        console.log('🔍 Longitud del array skills:', this.editablePerson.skills.length);
+        this.clearValidationErrors();
+        this.modalInstance.show();
+      });
     },
     closeModal() {
       this.modalInstance.hide();
