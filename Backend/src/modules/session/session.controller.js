@@ -11,7 +11,6 @@ export const registerUser = async (req, res) => {
 };
 
 // Iniciar sesión de usuario
-// Controller
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;  // 🔥 extraer email y password
@@ -31,8 +30,6 @@ export const loginUser = async (req, res) => {
     res.status(error.status || 500).json({ error: error.message });
   }
 };
-
-
 
 // Cerrar sesión de usuario
 export const logoutUser = async (req, res) => {
@@ -54,6 +51,7 @@ export const resetPassword = async (req, res) => {
   }
 };
 
+// Obtener perfil de usuario
 export const getProfile = async (req, res) => {
   try {
     const profile = await sessionService.getProfile(req.user._id); // ✅ ahora sí
@@ -62,7 +60,6 @@ export const getProfile = async (req, res) => {
     res.status(error.status || 500).json({ error: error.message });
   }
 };
-
 
 // Actualizar perfil de usuario
 export const updateMe = async (req, res) => {
@@ -74,7 +71,22 @@ export const updateMe = async (req, res) => {
   }
 };
 
-// Google OAuth
+// Dashboard - Información del usuario logueado
+export async function dashboardController(req, res) {
+  try {
+    const user = req.user; // el middleware auth ya lo puso
+    if (!user) return res.status(401).json({ error: "No autorizado" });
+
+    const payload = await sessionService.getDashboardData(user);
+
+    res.json({ status: "ok", payload });
+  } catch (err) {
+    console.error("Error obteniendo dashboard:", err);
+    res.status(500).json({ error: "Error obteniendo dashboard" });
+  }
+}
+
+// Google OAuth - Iniciar login con Google
 export const googleAuth = (req, res, next) => {
   sessionService.googleAuth()(req, res, next);
 };
@@ -100,18 +112,3 @@ export const getGoogleSession = async (req, res) => {
     return res.status(500).json({ error: "Error obteniendo sesión Google" });
   }
 };
-
-
-export async function dashboardController(req, res) {
-  try {
-    const user = req.user; // el middleware auth ya lo puso
-    if (!user) return res.status(401).json({ error: "No autorizado" });
-
-    const payload = await sessionService.getDashboardData(user);
-
-    res.json({ status: "ok", payload });
-  } catch (err) {
-    console.error("Error obteniendo dashboard:", err);
-    res.status(500).json({ error: "Error obteniendo dashboard" });
-  }
-}

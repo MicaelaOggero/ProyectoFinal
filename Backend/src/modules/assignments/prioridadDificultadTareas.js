@@ -1,4 +1,4 @@
-// Módulo para asignar prioridades y dificultades a las tareas
+// Módulo para ordenar por prioridades y dificultades a las tareas
 const prioridadMap = { alta: 3, media: 2, baja: 1 };
 
 export const ordenarTareas = (tareas) => {

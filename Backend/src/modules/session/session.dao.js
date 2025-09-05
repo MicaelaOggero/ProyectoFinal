@@ -17,7 +17,6 @@ export async function getUserById(userId) {
 }
 
 // Crear nuevo usuario
-
 export const createUser = async (data) => {
   const newUser = new User(data);
   return await newUser.save();

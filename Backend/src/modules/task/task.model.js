@@ -20,10 +20,6 @@ const taskSchema = new mongoose.Schema({
     enum: ['alta', 'media', 'baja'],
     required: true
   },
-  fechaEntrega: {
-    type: Date,
-    required: true
-  },
   estado: {
     type: String,
     enum: ['pendiente', 'en curso', 'completada'],
@@ -56,7 +52,11 @@ const taskSchema = new mongoose.Schema({
     usuario: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     mensaje: String,
     fecha: { type: Date, default: Date.now }
-  }]
+  }],
+  fechaEstimadaFin: Date,
+  fechaEstimadaInicio: Date,
+  fechaRealFin: Date,
+  fechaRealInicio: Date
 });
 
 const Task = mongoose.model('Task', taskSchema);

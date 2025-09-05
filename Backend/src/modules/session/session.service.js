@@ -2,6 +2,7 @@ import * as sessionDao from "./session.dao.js";
 import { findUsersByRole } from "../users/user.dao.js";
 import { createHash, generateToken, isValidPassword } from "../../utils/utils.js";
 import { findByAdmin } from "../projects/project.dao.js";
+import passport from "passport";
 
 // Registrar un nuevo usuario
 export const registerUser = async (data) => {
@@ -13,14 +14,14 @@ export const registerUser = async (data) => {
 };
 
 // Iniciar sesión de usuario
-export const loginUser = async ( email, password ) => {
+export const loginUser = async (email, password) => {
   const user = await sessionDao.findByEmail(email);
   if (!user) throw { status: 404, message: "Usuario no encontrado" };
   if (!isValidPassword(user, password)) throw { status: 403, message: "Contraseña incorrecta" };
 
   const token = generateToken(user);
 
-  return {user, token};
+  return { user, token };
 };
 
 // Cerrar sesión de usuario
@@ -46,38 +47,11 @@ export const getProfile = async (userId) => {
   return user;
 };
 
-
 // Actualizar perfil de usuario
 export const updateMe = async (userId, data) => {
   if (!userId) throw { status: 401, message: "No autorizado" };
   return await sessionDao.updateUser(userId, data);
 };
-
-// Google OAuth (simplificado)
-import passport from "passport";
-export const googleAuth = () => passport.authenticate("google", { scope: ["profile", "email"] });
-
-
-export const googleCallback = (req, res, next) => {
-  passport.authenticate("google", { failureRedirect: "/login" }, (err, user) => {
-    if (err) return next(err);
-    if (!user) return res.redirect("/login");
-
-    // generamos token
-    const accessToken = generateToken(user);
-    res.cookie("cookieToken", accessToken, {
-      httpOnly: true,
-      secure: false, // true en producción con HTTPS
-      sameSite: "lax"
-    });
-    // opcional: guardar en cookie también si quieres seguridad extra
-    // res.cookie("cookieToken", accessToken, { httpOnly: true, sameSite: "lax" });
-
-    // redirige al frontend a la página intermedia
-    res.redirect("http://localhost:8081/google-callback");
-  })(req, res, next);
-};
-
 
 // Obtener datos del dashboard según el rol
 export async function getDashboardData(user) {
@@ -100,3 +74,25 @@ export async function getDashboardData(user) {
     throw err; // lo propaga al controller
   }
 }
+
+
+// Google OAuth - Iniciar login con Google
+export const googleAuth = () => passport.authenticate("google", { scope: ["profile", "email"] });
+
+export const googleCallback = (req, res, next) => {
+  passport.authenticate("google", { failureRedirect: "/login" }, (err, user) => {
+    if (err) return next(err);
+    if (!user) return res.redirect("/login");
+
+    // generamos token
+    const accessToken = generateToken(user);
+    res.cookie("cookieToken", accessToken, {
+      httpOnly: true,
+      secure: false, // true en producción con HTTPS
+      sameSite: "lax"
+    });
+
+    // redirige al frontend a la página intermedia
+    res.redirect("http://localhost:8081/google-callback");
+  })(req, res, next);
+};

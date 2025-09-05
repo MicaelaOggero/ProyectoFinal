@@ -47,11 +47,16 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 40 // ejemplo: 40 horas por semana
   },
-  preferencias: [{
-    habilidad: String,
-    puntuacionPromedio: { type: Number, min: 1, max: 5 },
-    vecesCalificado: { type: Number, default: 0 }
-  }],
+  preferencias: {
+  type: [
+    {
+      habilidad: String,
+      puntuacionPromedio: { type: Number, min: 1, max: 5 },
+      vecesCalificado: { type: Number, default: 0 }
+    }
+  ],
+  default: [] // <-- inicializa como arreglo vacío
+},
   costoPorHora: {
     type: Number,
     default: 0
