@@ -123,6 +123,18 @@
                   {{ getDeveloperName(task.desarrolladorAsignado) }}
                 </div>
               </div>
+              <div class="task-actions">
+                <button class="btn btn-sm btn-outline-info" @click="viewTask(task)" title="Ver detalles">
+                  <i class="bi bi-eye"></i>
+                </button>
+                <!-- Temporalmente deshabilitado por problema de CORS -->
+                <!-- <button class="btn btn-sm btn-outline-warning" @click="editTask(task)" title="Editar">
+                  <i class="bi bi-pencil"></i>
+                </button> -->
+                <button class="btn btn-sm btn-outline-danger" @click="deleteTask(task)" title="Eliminar">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -168,8 +180,8 @@
     <div v-if="showAddTaskModal" class="modal-overlay" @click="showAddTaskModal = false">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h5>Agregar Nueva Tarea</h5>
-          <button class="btn-close" @click="showAddTaskModal = false"></button>
+          <h5>{{ isEditing ? 'Editar Tarea' : 'Agregar Nueva Tarea' }}</h5>
+          <button class="btn-close" @click="closeModal"></button>
         </div>
         <div class="modal-body">
           <form @submit.prevent="createTask">
@@ -197,8 +209,8 @@
                      placeholder="JavaScript, React, Node.js">
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" @click="showAddTaskModal = false">Cancelar</button>
-              <button type="submit" class="btn btn-primary">Crear Tarea</button>
+              <button type="button" class="btn btn-secondary" @click="closeModal">Cancelar</button>
+              <button type="submit" class="btn btn-primary">{{ isEditing ? 'Actualizar Tarea' : 'Crear Tarea' }}</button>
             </div>
           </form>
         </div>
@@ -227,12 +239,15 @@ export default {
       projectTasks: [],
       activeTab: 'descripcion',
       showAddTaskModal: false,
+      isEditing: false,
       newTask: {
         descripcion: '',
         prioridad: 'media',
+        nivelDificultad: 3,
         plazoEntrega: '',
         habilidadesRequeridas: '',
-        proyecto: null
+        proyecto: null,
+        _id: null
       }
     };
   },
@@ -265,19 +280,98 @@ export default {
     
     async createTask() {
       try {
-        await TaskService.createTask(this.newTask);
+        const projectId = this.$route.params.id;
+        const taskData = {
+          descripcion: this.newTask.descripcion,
+          prioridad: this.newTask.prioridad,
+          nivelDificultad: this.newTask.nivelDificultad || 3,
+          estado: 'pendiente',
+          habilidadesRequeridas: this.newTask.habilidadesRequeridas ? [this.newTask.habilidadesRequeridas] : [],
+          fechaEstimadaFin: this.newTask.plazoEntrega || null,
+          proyecto: projectId
+        };
+        
+        if (this.isEditing) {
+          // Actualizar tarea existente
+          console.log('ProyectoDetalle - Actualizando tarea:', this.newTask._id);
+          await TaskService.updateTask(this.newTask._id, taskData);
+        } else {
+          // Crear nueva tarea
+          console.log('ProyectoDetalle - Creando tarea para proyecto:', projectId);
+          await TaskService.createTask(projectId, taskData);
+        }
+        
         this.showAddTaskModal = false;
+        this.isEditing = false;
         this.newTask = {
           descripcion: '',
           prioridad: 'media',
+          nivelDificultad: 3,
           plazoEntrega: '',
           habilidadesRequeridas: '',
-          proyecto: this.$route.params.id
+          proyecto: this.$route.params.id,
+          _id: null
         };
         await this.loadProjectTasks();
       } catch (error) {
-        console.error('Error creando tarea:', error);
+        console.error('Error guardando tarea:', error);
+        alert('Error al guardar la tarea: ' + (error.response?.data?.error || error.message));
       }
+    },
+    
+    // Ver detalles de tarea
+    viewTask(task) {
+      alert(`Detalles de la tarea:\n\nDescripción: ${task.descripcion}\nPrioridad: ${task.prioridad}\nEstado: ${task.estado}\nDesarrollador: ${task.desarrolladorAsignado ? this.getDeveloperName(task.desarrolladorAsignado) : 'Sin asignar'}`);
+    },
+    
+    // Editar tarea
+    editTask(task) {
+      // Pre-poblar el formulario con los datos de la tarea
+      this.newTask = {
+        descripcion: task.descripcion,
+        prioridad: task.prioridad,
+        nivelDificultad: task.nivelDificultad || 3,
+        plazoEntrega: task.fechaEstimadaFin ? this.formatDateForInput(task.fechaEstimadaFin) : '',
+        habilidadesRequeridas: task.habilidadesRequeridas ? task.habilidadesRequeridas.join(', ') : '',
+        proyecto: this.$route.params.id,
+        _id: task._id // Guardar el ID para la actualización
+      };
+      this.isEditing = true;
+      this.showAddTaskModal = true;
+    },
+    
+    // Eliminar tarea
+    async deleteTask(task) {
+      if (confirm('¿Está seguro de que desea eliminar esta tarea?')) {
+        try {
+          await TaskService.deleteTask(task._id);
+          await this.loadProjectTasks();
+        } catch (error) {
+          console.error('Error eliminando tarea:', error);
+          alert('Error al eliminar la tarea: ' + (error.response?.data?.error || error.message));
+        }
+      }
+    },
+    
+    // Cerrar modal y resetear formulario
+    closeModal() {
+      this.showAddTaskModal = false;
+      this.isEditing = false;
+      this.newTask = {
+        descripcion: '',
+        prioridad: 'media',
+        nivelDificultad: 3,
+        plazoEntrega: '',
+        habilidadesRequeridas: '',
+        proyecto: this.$route.params.id,
+        _id: null
+      };
+    },
+    
+    formatDateForInput(dateString) {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toISOString().split('T')[0];
     },
     
     formatDate(dateString) {
@@ -726,6 +820,20 @@ export default {
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
+}
+
+/* Botones de acción en tarjetas de tareas */
+.task-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.task-actions .btn {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
 }
 
 /* Botón Volver */

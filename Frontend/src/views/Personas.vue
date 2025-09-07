@@ -13,7 +13,6 @@
             <tr>
               <th scope="col">Nombre</th>
               <th scope="col">DNI</th>
-              <th scope="col">Rol</th>
               <th scope="col">Habilidades</th>
               <th scope="col">Años Exp.</th>
               <th scope="col">Disponibilidad (hs/sem)</th>
@@ -28,7 +27,6 @@
                 </a>
               </td>
               <td>{{ person.dni }}</td>
-              <td>{{ person.rol }}</td>
               <td>{{ displaySkills(person.habilidades) }}</td>
               <td>{{ person.aniosExperiencia || 'N/A' }}</td>
               <td>{{ person.disponibilidadSemanal }}</td>
@@ -100,16 +98,7 @@
                 </div>
               </div>
               <div class="row">
-                 <div class="col-md-6 mb-3">
-                  <label for="personRole" class="form-label">Rol</label>
-                  <select class="form-select" id="personRole" v-model="editablePerson.role">
-                    <option>Desarrollador</option>
-                    <option>Líder de Proyecto</option>
-                    <option>Tester</option>
-                    <option>Diseñador UX/UI</option>
-                    <option>Administrador</option>
-                  </select>
-                </div>
+                 
                 <div class="col-md-6 mb-3">
                   <label for="personAvailability" class="form-label">Disponibilidad Semanal (horas) *</label>
                   <input 

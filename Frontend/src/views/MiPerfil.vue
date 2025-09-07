@@ -9,7 +9,11 @@
         <h1>Mi Perfil</h1>
       </div>
       <div class="d-flex gap-2">
-        <button class="btn btn-primary" @click="editProfile">
+        <button 
+          class="btn btn-primary" 
+          @click="editProfile"
+          v-if="!user || (user.rol && user.rol.toLowerCase() !== 'admin')"
+        >
           <i class="bi bi-pencil me-2"></i>Editar Perfil
         </button>
       </div>
@@ -48,7 +52,7 @@
           </div>
           <div class="card-body">
             <div class="row">
-              <div class="col-md-6" v-if="user.rol !== 'admin'">
+              <div class="col-md-6" v-if="user && user.rol !== 'admin'">
                 <h5>Información Personal</h5>
                 <ul class="list-unstyled">
                   <li class="mb-2">
@@ -76,7 +80,7 @@
                   </li>
                 </ul>
               </div>
-              <div class="col-md-6" v-if="user.rol !== 'admin'">
+              <div class="col-md-6" v-if="user && user.rol !== 'admin'">
                 <h5>Información del Sistema</h5>
                 <ul class="list-unstyled">
                   <li class="mb-2">
@@ -119,7 +123,7 @@
         </div>
 
         <!-- Habilidades -->
-        <div v-if="user.rol !== 'admin'" class="card mb-4">
+        <div v-if="user && user.rol !== 'admin'" class="card mb-4">
           <div class="card-header bg-success text-white">
             <h4 class="mb-0">
               <i class="bi bi-tools me-2"></i>
@@ -157,7 +161,7 @@
         </div>
 
         <!-- Preferencias -->
-         <div v-if="user.preferencias && user.rol !== 'admin'" class="card mb-4">
+         <div v-if="user.preferencias && user && user.rol !== 'admin'" class="card mb-4">
           <div class="card-header bg-info text-white">
             <h4 class="mb-0">
               <i class="bi bi-heart me-2"></i>
@@ -179,7 +183,7 @@
            </div>
            <div class="card-body">
              <!-- Estadísticas para Usuarios Normales -->
-             <div v-if="user.rol !== 'admin'" class="row text-center">
+             <div v-if="user && user.rol !== 'admin'" class="row text-center">
                <div class="col-md-4 mb-3">
                  <h3 class="text-success">{{ user.habilidades ? user.habilidades.length : 0 }}</h3>
                  <p class="text-muted mb-0">Habilidades</p>
@@ -219,7 +223,7 @@
        <!-- Sidebar -->
       <div class="col-md-4">
         <!-- Estado de la Cuenta -->
-        <div v-if="user.rol !== 'admin'" class="card mb-4">
+        <div v-if="user && user.rol !== 'admin'" class="card mb-4">
           <div class="card-header bg-warning text-dark">
             <h5 class="mb-0">
               <i class="bi bi-info-circle me-2"></i>
@@ -270,7 +274,11 @@
           </div>
           <div class="card-body">
             <div class="d-grid gap-2">
-              <button class="btn btn-outline-primary btn-sm" @click="editProfile">
+              <button 
+                class="btn btn-outline-primary btn-sm" 
+                @click="editProfile"
+                v-if="!user || (user.rol && user.rol.toLowerCase() !== 'admin')"
+              >
                 <i class="bi bi-pencil me-1"></i>Editar Perfil
               </button>
               <button class="btn btn-outline-success btn-sm" @click="goToProjects">
@@ -309,12 +317,11 @@
                     class="form-control" 
                     id="editDni" 
                     v-model="editForm.dni"
-                    maxlength="8"
-                    pattern="[0-9]{8}"
+                    pattern="[0-9]*"
                     required
                     @input="validateDni"
                   >
-                  <div class="form-text">8 dígitos numéricos</div>
+                  <div class="form-text">Solo números</div>
                 </div>
                 <div class="col-md-6 mb-3">
                   <label for="editAniosExperiencia" class="form-label">Años de Experiencia</label>
@@ -607,10 +614,6 @@ export default {
     validateDni() {
       // Solo permitir números en el DNI
       this.editForm.dni = this.editForm.dni.replace(/\D/g, '');
-      // Limitar a 8 dígitos
-      if (this.editForm.dni.length > 8) {
-        this.editForm.dni = this.editForm.dni.slice(0, 8);
-      }
     },
     async saveProfile() {
       this.saving = true;
@@ -623,8 +626,8 @@ export default {
           throw new Error('El DNI es obligatorio');
         }
 
-        if (this.editForm.dni.length !== 8 || isNaN(this.editForm.dni)) {
-          throw new Error('El DNI debe tener 8 dígitos numéricos');
+        if (this.editForm.dni.length === 0 || isNaN(this.editForm.dni)) {
+          throw new Error('El DNI debe ser numérico');
         }
 
         if (this.editForm.habilidades.length === 0) {
