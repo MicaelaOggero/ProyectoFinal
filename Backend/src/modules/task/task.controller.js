@@ -12,8 +12,6 @@ import {
 export async function crearTask(req, res) {
   try {
     const { projectId } = req.params;
-
-    // unimos datos del body con el projectId de la URL
     const taskData = { ...req.body, proyecto: projectId };
 
     const task = await addTask(taskData);
@@ -98,3 +96,19 @@ export const obtenerTareasOrdenadasController = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+import { asignarTareasPorSemana } from "./task.service.js";
+
+export async function asignarAutomaticoPorSemanaController(req, res) {
+  try {
+    const { projectId } = req.params;
+
+    const result = await asignarTareasPorSemana(projectId);
+
+    res.json(result);
+  } catch (error) {
+    console.error("Error en asignación automática por semana:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+

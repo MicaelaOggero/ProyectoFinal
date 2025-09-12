@@ -12,5 +12,8 @@ cron.schedule('0 0 * * 1', async () => {
   console.log("Disponibilidad semanal reiniciada para todos los usuarios.");
 });
 
+// '* * * * *' cada minuto
+// '0 0 * * 1' cada lunes a la medianoche
+
 
 

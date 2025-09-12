@@ -19,12 +19,6 @@ router.get("/profile", auth, sessionController.getProfile);
 // Actualizar mi perfil del usuario logueado
 router.put("/me", auth, sessionController.updateMe);
 
-// Resetear mi password (debe estar logueado)
-router.patch("/reset-password", sessionController.resetPassword);
-
-// Dashboard (info del usuario logueado)
-router.get("/dashboard", auth, sessionController.dashboardController);
-
 // Google OAuth
 
 // Iniciar login con Google
@@ -37,5 +31,8 @@ router.get("/auth/google/callback", sessionController.googleCallback);
 router.get("/google-session", auth, sessionController.getGoogleSession);
 export default router;
 
-router.get("/dashboard", auth, sessionController.dashboardController);
+// Resetear mi password (debe estar logueado)
+router.patch("/reset-password", sessionController.resetPassword);
 
+// Dashboard (info del usuario logueado)
+router.get("/dashboard", auth, sessionController.dashboardController);

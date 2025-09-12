@@ -9,10 +9,10 @@ import {
   getTareasSinAsignar
 
 } from "./task.dao.js";
-
 import { ordenarTareas } from '../assignments/prioridadDificultadTareas.js';
 import Project from "../projects/project.model.js";
 import User from "../users/user.model.js";
+import { asignarTareasConCalendario } from "../assignments/filtroDisponibilidad.js";
 
 export async function addTask(taskData) {
   // 1. Verificar que el proyecto exista
@@ -101,3 +101,8 @@ export const obtenerTareasOrdenadasPorProyecto = async (projectId) => {
   console.log("Tareas ordenadas:", tareasOrdenadas);
   return tareasOrdenadas;
 };
+
+export async function asignarTareasPorSemana(projectId) {
+  return await asignarTareasConCalendario(projectId);
+}
+

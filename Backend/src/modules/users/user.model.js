@@ -1,5 +1,14 @@
 import mongoose from 'mongoose';
 
+
+const calendarioSchema = new mongoose.Schema(
+  {
+    fecha: { type: Date, required: true },
+    horasDisponibles: { type: Number, default: 8 }, // ej: 8h por día
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema({
   googleId: {
     type: String,
@@ -38,15 +47,6 @@ const userSchema = new mongoose.Schema({
     default: 0,
     required: function () { return this.rol === 'user' || !this.googleId;; }
   },
-  disponibilidadSemanal: {
-    type: Number,
-    required: function () { return this.rol === 'user' || !this.googleId;; },
-    default: 0 //horas libres actuales
-  }, //Horas hombre por semana
-  horasSemanalMax: {
-    type: Number,
-    default: 40 // ejemplo: 40 horas por semana
-  },
   preferencias: {
   type: [
     {
@@ -74,8 +74,15 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: function () { return !this.googleId; }
-  }
-});
+  },
+  // ⏱ Máxima capacidad semanal
+  horasSemanalMaxima: { type: Number, default: 40 },
+
+  calendario: {
+    type: [calendarioSchema], // array de días con disponibilidad
+    default: [],
+  },
+}, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
 export default User;

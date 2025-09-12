@@ -46,13 +46,13 @@ const taskSchema = new mongoose.Schema({
     cambiadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     fechaCambio: { type: Date, default: Date.now }
   }],
-  tiempoEstimadoHoras: Number,
   tiempoInvertidoHoras: { type: Number, default: 0 },
   comentarios: [{
     usuario: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     mensaje: String,
     fecha: { type: Date, default: Date.now }
   }],
+  tiempoEstimadoHoras: Number,
   fechaEstimadaFin: Date,
   fechaEstimadaInicio: Date,
   fechaRealFin: Date,

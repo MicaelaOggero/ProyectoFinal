@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authToken, authAdmin, auth } from "../../middlewares/auth.js";
 import * as userController from "./user.controller.js";
+import { registerUser } from "../session/session.service.js";
 
 
 const router = Router();
@@ -13,5 +14,35 @@ router.get("/:id", authAdmin, userController.getUserById);
 router.put("/:id", authAdmin, userController.updateUser);
 // Eliminar un usuario (solo admin)
 router.delete("/:id", authAdmin, userController.deleteUser);
+
+// Ruta para crear varios usuarios
+router.post("/bulk", async (req, res) => {
+  const usuarios = req.body; // esperamos un arreglo de objetos usuario
+  if (!Array.isArray(usuarios)) {
+    return res.status(400).json({ error: "Debe enviar un arreglo de usuarios" });
+  }
+
+  const resumen = [];
+
+  for (const usuarioData of usuarios) {
+    try {
+      const nuevoUsuario = await registerUser(usuarioData); // llama a tu función existente
+      resumen.push({
+        email: usuarioData.email,
+        estado: "ok",
+        id: nuevoUsuario._id
+      });
+    } catch (err) {
+      resumen.push({
+        email: usuarioData.email,
+        estado: "error",
+        mensaje: err.message
+      });
+    }
+  }
+
+  return res.json({ message: "Usuarios procesados", resumen });
+});
+
 
 export default router;

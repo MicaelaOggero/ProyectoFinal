@@ -17,16 +17,27 @@ export const registerUser = async (data) => {
 export const loginUser = async (email, password) => {
   const user = await sessionDao.findByEmail(email);
   if (!user) throw { status: 404, message: "Usuario no encontrado" };
-  if (!isValidPassword(user, password)) throw { status: 403, message: "Contraseña incorrecta" };
+
+  if (!user.password) {
+    throw { status: 400, message: "Este usuario no tiene contraseña (probablemente login con Google)" };
+  }
+
+  const validPassword = await isValidPassword(user, password);
+  if (!validPassword) throw { status: 403, message: "Contraseña incorrecta" };
 
   const token = generateToken(user);
-
   return { user, token };
 };
 
 // Cerrar sesión de usuario
 export const logoutUser = async (res) => {
-  res.clearCookie("cookieToken", { httpOnly: true, secure: false, sameSite: "strict" });
+  // Limpia la cookie
+  res.clearCookie("cookieToken", {
+    httpOnly: true,
+    secure: false, // true en producción con HTTPS
+    sameSite: "lax"
+  });
+  return true;
 };
 
 // Restablecer contraseña
