@@ -238,6 +238,9 @@ export default {
     async checkUserSession() {
       try {
         this.currentUser = await AuthService.checkSession();
+        console.log('🔍 Proyectos - Usuario actual:', this.currentUser);
+        console.log('🔍 Proyectos - Rol del usuario:', this.currentUser?.rol);
+        console.log('🔍 Proyectos - Es admin?', this.isUserAdmin);
       } catch (error) {
         console.error('Error verificando sesión:', error);
         this.currentUser = null;
@@ -251,7 +254,11 @@ export default {
 
       this.loading = true;
       try {
+        console.log('🔍 Proyectos - Cargando proyectos...');
         const response = await ProjectService.getProjects();
+        console.log('🔍 Proyectos - Respuesta del servicio:', response);
+        console.log('🔍 Proyectos - Proyectos recibidos:', response.data);
+        console.log('🔍 Proyectos - Cantidad de proyectos:', response.data.length);
         this.projects = response.data;
         this.clearAlert();
       } catch (error) {

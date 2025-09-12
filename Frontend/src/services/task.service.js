@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8080/api/task';
+const API_URL = process.env.VUE_APP_API_URL || 'http://localhost:8080/api';
 
 // Configurar axios para incluir cookies en todas las requests
 axios.defaults.withCredentials = true;
@@ -9,7 +9,10 @@ class TaskService {
   // Obtener tareas por proyecto
   async getTasksByProject(projectId) {
     try {
-      const response = await axios.get(`${API_URL}/proyecto/${projectId}`);
+      console.log('🔍 TaskService - getTasksByProject - projectId:', projectId);
+      console.log('🔍 TaskService - URL completa:', `${API_URL}/task/proyecto/${projectId}`);
+      const response = await axios.get(`${API_URL}/task/proyecto/${projectId}`);
+      console.log('🔍 TaskService - Respuesta del backend:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error en getTasksByProject:', error);
@@ -20,7 +23,10 @@ class TaskService {
   // Obtener tareas por desarrollador
   async getTasksByDeveloper(userId) {
     try {
-      const response = await axios.get(`${API_URL}/desarrollador/${userId}`);
+      console.log('🔍 TaskService - getTasksByDeveloper - userId:', userId);
+      console.log('🔍 TaskService - URL completa:', `${API_URL}/task/desarrollador/${userId}`);
+      const response = await axios.get(`${API_URL}/task/desarrollador/${userId}`);
+      console.log('🔍 TaskService - Respuesta del backend:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error en getTasksByDeveloper:', error);
@@ -32,7 +38,7 @@ class TaskService {
   async createTask(projectId, taskData) {
     try {
       console.log('TaskService.createTask - projectId:', projectId, 'taskData:', taskData);
-      const url = `${API_URL}/${projectId}`;
+      const url = `${API_URL}/task/${projectId}`;
       console.log('URL de la petición:', url);
       const response = await axios.post(url, taskData);
       return response.data;
@@ -46,7 +52,7 @@ class TaskService {
   async updateTask(taskId, taskData) {
     try {
       console.log('TaskService.updateTask - taskId:', taskId, 'taskData:', taskData);
-      const response = await axios.patch(`${API_URL}/${taskId}`, taskData);
+      const response = await axios.patch(`${API_URL}/task/${taskId}`, taskData);
       return response.data;
     } catch (error) {
       console.error('Error en updateTask:', error);
@@ -57,7 +63,7 @@ class TaskService {
   // Eliminar tarea
   async deleteTask(taskId) {
     try {
-      const response = await axios.delete(`${API_URL}/${taskId}`);
+      const response = await axios.delete(`${API_URL}/task/${taskId}`);
       return response.data;
     } catch (error) {
       console.error('Error en deleteTask:', error);
@@ -68,7 +74,7 @@ class TaskService {
   // Obtener tarea por ID
   async getTaskById(taskId) {
     try {
-      const response = await axios.get(`${API_URL}/${taskId}`);
+      const response = await axios.get(`${API_URL}/task/${taskId}`);
       return response.data;
     } catch (error) {
       console.error('Error en getTaskById:', error);

@@ -97,6 +97,54 @@
                   </div>
                 </div>
               </div>
+              
+              <!-- Campos de email y contraseña solo para creación -->
+              <div v-if="!isEditMode" class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="personEmail" class="form-label">Email *</label>
+                  <div class="input-group">
+                    <input 
+                      type="email" 
+                      class="form-control" 
+                      :class="{ 'is-invalid': hasFieldError('email') }"
+                      id="personEmail" 
+                      v-model="editablePerson.email" 
+                      required
+                      placeholder="Ej: juan@ejemplo.com"
+                      @input="validateEmailInput"
+                    >
+                    <button type="button" class="btn btn-outline-secondary" @click="generateEmail" title="Generar email automático">
+                      <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                  </div>
+                  <div class="invalid-feedback" v-if="hasFieldError('email')">
+                    {{ getFieldError('email') }}
+                  </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="personPassword" class="form-label">Contraseña *</label>
+                  <div class="input-group">
+                    <input 
+                      type="password" 
+                      class="form-control" 
+                      :class="{ 'is-invalid': hasFieldError('password') }"
+                      id="personPassword" 
+                      v-model="editablePerson.password" 
+                      required
+                      placeholder="Mínimo 6 caracteres"
+                      minlength="6"
+                      @input="validatePasswordInput"
+                    >
+                    <button type="button" class="btn btn-outline-secondary" @click="generatePassword" title="Generar contraseña automática">
+                      <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                  </div>
+                  <div class="invalid-feedback" v-if="hasFieldError('password')">
+                    {{ getFieldError('password') }}
+                  </div>
+                </div>
+              </div>
+              
               <div class="row">
                  
                 <div class="col-md-6 mb-3">
@@ -256,6 +304,26 @@ export default {
         isValid = false;
       }
 
+      // Validar email (solo para creación)
+      if (!this.isEditMode) {
+        if (!this.editablePerson.email || this.editablePerson.email.trim() === '') {
+          this.validationErrors.email = 'El email es requerido';
+          isValid = false;
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.editablePerson.email.trim())) {
+          this.validationErrors.email = 'El formato del email no es válido';
+          isValid = false;
+        }
+
+        // Validar contraseña (solo para creación)
+        if (!this.editablePerson.password || this.editablePerson.password.trim() === '') {
+          this.validationErrors.password = 'La contraseña es requerida';
+          isValid = false;
+        } else if (this.editablePerson.password.length < 6) {
+          this.validationErrors.password = 'La contraseña debe tener al menos 6 caracteres';
+          isValid = false;
+        }
+      }
+
           // Validar DNI (solo números, 7 u 8 dígitos) - OPCIONAL para usuarios de Google
     console.log('🔍 Validando DNI:', this.editablePerson.dni);
     if (this.editablePerson.dni && this.editablePerson.dni.toString().trim() !== '') {
@@ -347,6 +415,57 @@ export default {
       }
     },
 
+    // Validación en tiempo real para email
+    validateEmailInput(event) {
+      const input = event.target;
+      const value = input.value;
+      
+      this.editablePerson.email = value;
+      
+      // Limpiar error si ya es válido
+      if (this.validationErrors.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        delete this.validationErrors.email;
+      }
+    },
+
+    // Validación en tiempo real para contraseña
+    validatePasswordInput(event) {
+      const input = event.target;
+      const value = input.value;
+      
+      this.editablePerson.password = value;
+      
+      // Limpiar error si ya es válido
+      if (this.validationErrors.password && value.length >= 6) {
+        delete this.validationErrors.password;
+      }
+    },
+
+    // Generar email automático
+    generateEmail() {
+      if (this.editablePerson.name) {
+        const emailBase = this.editablePerson.name.toLowerCase().replace(/\s+/g, '');
+        const timestamp = Date.now();
+        this.editablePerson.email = `${emailBase}${timestamp}@temp.com`;
+        // Limpiar error si existe
+        if (this.validationErrors.email) {
+          delete this.validationErrors.email;
+        }
+      } else {
+        alert('Primero ingresa el nombre de la persona');
+      }
+    },
+
+    // Generar contraseña automática
+    generatePassword() {
+      const timestamp = Date.now();
+      this.editablePerson.password = `temp${timestamp}`;
+      // Limpiar error si existe
+      if (this.validationErrors.password) {
+        delete this.validationErrors.password;
+      }
+    },
+
     clearValidationErrors() {
       this.validationErrors = {};
     },
@@ -386,7 +505,7 @@ export default {
     openCreateModal() {
       this.isEditMode = false;
       this.editablePerson = {
-        name: '', dni: '', role: 'Desarrollador', availability: 40, costPerHour: 20,
+        name: '', dni: '', email: '', password: '', role: 'Desarrollador', availability: 40, costPerHour: 20,
         skills: [{ name: '', level: '1' }]
       };
       this.clearValidationErrors();
@@ -510,10 +629,55 @@ export default {
           this.$toast?.error(errorMessage) || alert(errorMessage);
         });
       } else {
-        // Lógica de Creación - NOTA: Falta implementar la creación de usuarios en el backend
-        // ya que requiere email y password, que no están en este formulario.
-        console.error('La creación de usuarios no está implementada en este formulario.');
-        this.isSubmitting = false;
+        // Lógica de Creación
+        console.log('🔍 === CREANDO NUEVA PERSONA ===');
+        console.log('🔍 editablePerson completo:', this.editablePerson);
+        
+        // Preparar datos para el registro usando el endpoint de sesión
+        const userData = {
+          nombre: this.editablePerson.name,
+          email: this.editablePerson.email,
+          password: this.editablePerson.password,
+          dni: this.editablePerson.dni || null,
+          aniosExperiencia: parseInt(this.editablePerson.yearsExperience) || 0,
+          disponibilidadSemanal: parseInt(this.editablePerson.availability) || 40,
+          costoPorHora: parseFloat(this.editablePerson.costPerHour) || 0,
+          habilidades: this.editablePerson.skills && this.editablePerson.skills.length > 0 
+            ? this.editablePerson.skills.map(skill => ({
+                nombre: skill.name,
+                nivel: parseInt(skill.level)
+              }))
+            : []
+        };
+        
+        console.log('🔍 Datos a enviar para registro:', userData);
+        
+        // Usar el endpoint de registro existente
+        fetch(`${process.env.VUE_APP_API_URL || 'http://localhost:8080/api'}/session/register`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify(userData)
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.error) {
+            throw new Error(data.error);
+          }
+          console.log('✅ Persona creada exitosamente:', data);
+          this.loadUsers();
+          this.closeModal();
+          this.isSubmitting = false;
+          this.$toast?.success('Persona creada correctamente') || alert('Persona creada correctamente');
+        })
+        .catch(error => {
+          console.error('❌ Error creando persona:', error);
+          this.isSubmitting = false;
+          const errorMessage = error.message || 'Error al crear la persona';
+          this.$toast?.error(errorMessage) || alert(errorMessage);
+        });
       }
     },
     deletePerson(personId) {

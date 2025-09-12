@@ -100,42 +100,77 @@
             </button>
           </div>
           
-          <div v-else class="tasks-grid">
-            <div v-for="task in projectTasks" :key="task._id" class="task-card">
-              <div class="task-header">
-                <h5 class="task-title">{{ task.descripcion }}</h5>
-                <span class="task-priority" :class="getTaskPriorityClass(task.prioridad)">
-                  {{ getTaskPriorityText(task.prioridad) }}
-                </span>
-              </div>
-              <div class="task-body">
-                <div class="task-info">
-                  <span class="task-status" :class="getTaskStatusClass(task.estado)">
-                    {{ getTaskStatusText(task.estado) }}
-                  </span>
-                  <span class="task-deadline">
-                    <i class="bi bi-calendar-event me-1"></i>
-                    {{ formatDate(task.plazoEntrega) }}
-                  </span>
-                </div>
-                <div class="task-assignee" v-if="task.desarrolladorAsignado">
-                  <i class="bi bi-person me-1"></i>
-                  {{ getDeveloperName(task.desarrolladorAsignado) }}
-                </div>
-              </div>
-              <div class="task-actions">
-                <button class="btn btn-sm btn-outline-info" @click="viewTask(task)" title="Ver detalles">
-                  <i class="bi bi-eye"></i>
-                </button>
-                <!-- Temporalmente deshabilitado por problema de CORS -->
-                <!-- <button class="btn btn-sm btn-outline-warning" @click="editTask(task)" title="Editar">
-                  <i class="bi bi-pencil"></i>
-                </button> -->
-                <button class="btn btn-sm btn-outline-danger" @click="deleteTask(task)" title="Eliminar">
-                  <i class="bi bi-trash"></i>
-                </button>
-              </div>
-            </div>
+          <div v-else class="tasks-table-container">
+            <table class="table table-striped table-hover tasks-table">
+              <thead class="table-dark">
+                <tr>
+                  <th>Descripción</th>
+                  <th>Asignada a</th>
+                  <th>Estado</th>
+                  <th>Prioridad</th>
+                  <th>Dificultad</th>
+                  <th>Plazo</th>
+                  <th>Habilidades</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="task in projectTasks" :key="task._id">
+                  <td>
+                    <div class="task-description">
+                      {{ task.descripcion }}
+                    </div>
+                  </td>
+                  <td>
+                    <span v-if="task.desarrolladorAsignado" class="task-assignee">
+                      <i class="bi bi-person me-1"></i>
+                      {{ getDeveloperName(task.desarrolladorAsignado) }}
+                    </span>
+                    <span v-else class="text-muted">Sin asignar</span>
+                  </td>
+                  <td>
+                    <span class="badge" :class="getTaskStatusClass(task.estado)">
+                      {{ getTaskStatusText(task.estado) }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge" :class="getTaskPriorityClass(task.prioridad)">
+                      {{ getTaskPriorityText(task.prioridad) }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="difficulty-badge">
+                      {{ task.nivelDificultad || 3 }}/5
+                    </span>
+                  </td>
+                  <td>
+                    <span class="task-deadline">
+                      <i class="bi bi-calendar-event me-1"></i>
+                      {{ formatDate(task.fechaEstimadaFin) }}
+                    </span>
+                  </td>
+                  <td>
+                    <span v-if="task.habilidadesRequeridas && task.habilidadesRequeridas.length > 0" class="skills-badge">
+                      {{ task.habilidadesRequeridas.join(', ') }}
+                    </span>
+                    <span v-else class="text-muted">-</span>
+                  </td>
+                  <td>
+                    <div class="task-actions">
+                      <button class="btn btn-sm btn-outline-info me-1" @click="viewTask(task)" title="Ver detalles">
+                        <i class="bi bi-eye"></i>
+                      </button>
+                      <button class="btn btn-sm btn-outline-warning me-1" @click="editTask(task)" title="Editar">
+                        <i class="bi bi-pencil"></i>
+                      </button>
+                      <button class="btn btn-sm btn-outline-danger" @click="deleteTask(task)" title="Eliminar">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -259,7 +294,9 @@ export default {
     async loadProject() {
       try {
         const projectId = this.$route.params.id;
+        console.log('🔍 ProyectoDetalle - Cargando proyecto con ID:', projectId);
         const response = await ProjectService.getProjectById(projectId);
+        console.log('🔍 ProyectoDetalle - Proyecto recibido:', response.data);
         this.project = response.data;
         this.newTask.proyecto = projectId;
       } catch (error) {
@@ -270,7 +307,10 @@ export default {
     async loadProjectTasks() {
       try {
         const projectId = this.$route.params.id;
+        console.log('🔍 ProyectoDetalle - Cargando tareas para proyecto:', projectId);
         const tasks = await TaskService.getTasksByProject(projectId);
+        console.log('🔍 ProyectoDetalle - Tareas recibidas del backend:', tasks);
+        console.log('🔍 ProyectoDetalle - Cantidad de tareas:', tasks.length);
         this.projectTasks = tasks;
       } catch (error) {
         console.error('Error cargando tareas:', error);
@@ -292,9 +332,17 @@ export default {
         };
         
         if (this.isEditing) {
-          // Actualizar tarea existente
-          console.log('ProyectoDetalle - Actualizando tarea:', this.newTask._id);
-          await TaskService.updateTask(this.newTask._id, taskData);
+          // Actualizar tarea existente - NO incluir el campo proyecto
+          const updateData = {
+            descripcion: this.newTask.descripcion,
+            prioridad: this.newTask.prioridad,
+            nivelDificultad: this.newTask.nivelDificultad || 3,
+            estado: 'pendiente',
+            habilidadesRequeridas: this.newTask.habilidadesRequeridas ? [this.newTask.habilidadesRequeridas] : [],
+            fechaEstimadaFin: this.newTask.plazoEntrega || null
+          };
+          console.log('ProyectoDetalle - Actualizando tarea:', this.newTask._id, updateData);
+          await TaskService.updateTask(this.newTask._id, updateData);
         } else {
           // Crear nueva tarea
           console.log('ProyectoDetalle - Creando tarea para proyecto:', projectId);
@@ -639,83 +687,125 @@ export default {
   color: #6c757d;
 }
 
-.tasks-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.5rem;
-}
-
-.task-card {
+.tasks-table-container {
   background: white;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  border-left: 4px solid #007bff;
-}
-
-.task-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1rem;
-}
-
-.task-title {
-  margin: 0;
-  font-size: 1.1rem;
-  color: #495057;
-}
-
-.task-priority {
-  padding: 0.25rem 0.75rem;
-  border-radius: 1rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.task-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.task-info {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-}
-
-.task-status {
-  padding: 0.25rem 0.75rem;
   border-radius: 0.5rem;
-  font-size: 0.875rem;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.tasks-table {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.tasks-table th {
+  background-color: #343a40 !important;
+  color: white;
   font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+  padding: 1rem 0.75rem;
+  border: none;
 }
 
-.status-completed {
-  background: #d4edda;
-  color: #155724;
+.tasks-table td {
+  padding: 1rem 0.75rem;
+  vertical-align: middle;
+  border-top: 1px solid #dee2e6;
 }
 
-.status-in-progress {
-  background: #fff3cd;
-  color: #856404;
+.tasks-table tbody tr:hover {
+  background-color: #f8f9fa;
 }
 
-.status-pending {
-  background: #e2e3e5;
-  color: #495057;
-}
-
-.task-deadline {
-  color: #6c757d;
-  font-size: 0.875rem;
+.task-description {
+  max-width: 200px;
+  word-wrap: break-word;
+  line-height: 1.4;
 }
 
 .task-assignee {
   color: #007bff;
   font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.task-deadline {
+  color: #6c757d;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.difficulty-badge {
+  background-color: #e9ecef;
+  color: #495057;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.skills-badge {
+  background-color: #f8f9fa;
+  color: #495057;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+  max-width: 150px;
+  display: inline-block;
+  word-wrap: break-word;
+}
+
+.task-actions {
+  display: flex;
+  gap: 0.25rem;
+  justify-content: center;
+}
+
+.task-actions .btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  border-radius: 0.25rem;
+}
+
+/* Badges para estado y prioridad */
+.badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+}
+
+.status-completed {
+  background-color: #d4edda !important;
+  color: #155724 !important;
+}
+
+.status-in-progress {
+  background-color: #fff3cd !important;
+  color: #856404 !important;
+}
+
+.status-pending {
+  background-color: #e2e3e5 !important;
+  color: #495057 !important;
+}
+
+.priority-high {
+  background-color: #f8d7da !important;
+  color: #721c24 !important;
+}
+
+.priority-medium {
+  background-color: #fff3cd !important;
+  color: #856404 !important;
+}
+
+.priority-low {
+  background-color: #d4edda !important;
+  color: #155724 !important;
 }
 
 /* Tab Equipo */
@@ -822,19 +912,6 @@ export default {
   gap: 1rem;
 }
 
-/* Botones de acción en tarjetas de tareas */
-.task-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e9ecef;
-}
-
-.task-actions .btn {
-  padding: 0.375rem 0.75rem;
-  font-size: 0.875rem;
-}
 
 /* Botón Volver */
 .back-button {

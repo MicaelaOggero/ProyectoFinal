@@ -2,19 +2,25 @@
   <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mt-3 mb-4">
       <h1>Gestión de Tareas</h1>
-      <button class="btn btn-primary" @click="openCreateModal">
-        <i class="bi bi-plus-circle me-1"></i>Crear Nueva Tarea
-      </button>
+      <div class="d-flex gap-2">
+        <button v-if="isUserAdmin" class="btn btn-success" @click="runAutoAssignment" :disabled="isAssigning">
+          <i class="bi bi-robot me-1" :class="{ 'spinning': isAssigning }"></i>
+          {{ isAssigning ? 'Asignando...' : 'Asignación Automática' }}
+        </button>
+        <button class="btn btn-primary" @click="openCreateModal">
+          <i class="bi bi-plus-circle me-1"></i>Crear Nueva Tarea
+        </button>
+      </div>
     </div>
 
     <!-- Filtros -->
     <div class="row mb-4">
       <div class="col-md-4">
         <label for="projectFilter" class="form-label">Filtrar por Proyecto</label>
-        <select class="form-select" id="projectFilter" v-model="selectedProject" @change="loadTasks">
+        <select class="form-select" id="projectFilter" v-model="selectedProject" @change="onProjectChange">
           <option value="">Todos los proyectos</option>
           <option v-for="project in projects" :key="project._id" :value="project._id">
-            {{ project.nombre }}
+            {{ project.name }}
           </option>
         </select>
       </div>
@@ -35,6 +41,31 @@
           <option value="media">Media</option>
           <option value="baja">Baja</option>
         </select>
+      </div>
+    </div>
+
+    <!-- Resultados de Asignación Automática (Solo Admin) -->
+    <div v-if="isUserAdmin && assignmentResults.length > 0" class="card mb-4">
+      <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="bi bi-robot me-2"></i>Resultados de Asignación Automática</h5>
+      </div>
+      <div class="card-body">
+        <div v-for="result in assignmentResults" :key="result.taskId" class="assignment-item mb-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="assignment-info">
+              <strong>{{ result.taskDescription }}</strong>
+              <span class="text-muted d-block">→ Asignada a: {{ result.assignedTo }}</span>
+            </div>
+            <div class="assignment-score">
+              <span class="badge bg-success">{{ result.score }}% compatibilidad</span>
+            </div>
+          </div>
+        </div>
+        <div class="text-end">
+          <button class="btn btn-outline-success btn-sm" @click="clearAssignmentResults">
+            <i class="bi bi-x-circle me-1"></i>Cerrar
+          </button>
+        </div>
       </div>
     </div>
 
@@ -102,14 +133,13 @@
                     <button class="btn btn-sm btn-outline-info" @click="viewTask(task)" title="Ver detalles">
                       <i class="bi bi-eye"></i>
                     </button>
-                    <!-- Temporalmente deshabilitado por problema de CORS -->
-                    <!-- <button 
+                    <button 
                       class="btn btn-sm btn-outline-warning" 
                       @click="editTask(task)" 
                       title="Editar"
                     >
                       <i class="bi bi-pencil"></i>
-                    </button> -->
+                    </button>
                     <button 
                       class="btn btn-sm btn-outline-danger" 
                       @click="deleteTask(task)" 
@@ -154,7 +184,7 @@
                   <select class="form-select" id="taskProject" v-model="taskForm.proyecto" required>
                     <option value="">Seleccionar proyecto</option>
                     <option v-for="project in projects" :key="project._id" :value="project._id">
-                      {{ project.nombre }}
+                      {{ project.name }}
                     </option>
                   </select>
                 </div>
@@ -390,8 +420,17 @@ export default {
       skillInput: '',
       
       // Tarea seleccionada para ver detalles
-      selectedTask: null
+      selectedTask: null,
+      
+      // Asignación automática
+      assignmentResults: [],
+      isAssigning: false
     };
+  },
+  computed: {
+    isUserAdmin() {
+      return this.user && this.user.rol === 'admin';
+    }
   },
   async mounted() {
     this.taskModalInstance = new Modal(document.getElementById('taskModal'));
@@ -399,6 +438,8 @@ export default {
     
     // Cargar usuario actual
     this.user = await AuthService.getCurrentUser();
+    console.log('🔍 Tareas - Usuario cargado:', this.user);
+    console.log('🔍 Tareas - Es admin?', this.isUserAdmin);
     
     // Cargar datos iniciales
     await this.loadProjects();
@@ -411,6 +452,9 @@ export default {
       try {
         const response = await ProjectService.getProjects();
         this.projects = response.data || [];
+        console.log('🔍 Proyectos cargados desde el backend:', this.projects);
+        console.log('🔍 Primer proyecto:', this.projects[0]);
+        console.log('🔍 Campos del primer proyecto:', this.projects[0] ? Object.keys(this.projects[0]) : 'No hay proyectos');
       } catch (error) {
         console.error('Error cargando proyectos:', error);
         this.projects = [];
@@ -432,24 +476,42 @@ export default {
     async loadTasks() {
       this.loading = true;
       try {
+        // Asegurar que los proyectos estén cargados
+        if (this.projects.length === 0) {
+          console.log('🔍 Cargando proyectos primero...');
+          await this.loadProjects();
+        }
+        
+        console.log('🔍 Proyectos disponibles:', this.projects.length);
+        console.log('🔍 Proyecto seleccionado:', this.selectedProject);
+        
         if (this.selectedProject) {
           // Cargar tareas de un proyecto específico
+          console.log('🔍 Cargando tareas SOLO para proyecto:', this.selectedProject);
           const tasks = await TaskService.getTasksByProject(this.selectedProject);
+          console.log('🔍 Tareas cargadas para proyecto específico:', tasks);
           this.tasks = tasks || [];
         } else {
           // Cargar todas las tareas (de todos los proyectos)
+          console.log('🔍 Cargando tareas de TODOS los proyectos');
           this.tasks = [];
           for (const project of this.projects) {
             try {
+              console.log(`🔍 Cargando tareas del proyecto: ${project.nombre} (${project._id})`);
               const tasks = await TaskService.getTasksByProject(project._id);
               if (tasks && tasks.length > 0) {
+                console.log(`🔍 Encontradas ${tasks.length} tareas para ${project.nombre}`);
                 this.tasks = this.tasks.concat(tasks);
+              } else {
+                console.log(`🔍 No hay tareas para ${project.nombre}`);
               }
             } catch (error) {
               console.error(`Error cargando tareas del proyecto ${project._id}:`, error);
             }
           }
         }
+        
+        console.log('🔍 Total de tareas cargadas:', this.tasks.length);
         this.filterTasks();
       } catch (error) {
         console.error('Error cargando tareas:', error);
@@ -457,6 +519,12 @@ export default {
       } finally {
         this.loading = false;
       }
+    },
+    
+    // Manejar cambio de proyecto
+    onProjectChange() {
+      console.log('🔍 Proyecto seleccionado:', this.selectedProject);
+      this.loadTasks();
     },
     
     // Filtrar tareas
@@ -534,9 +602,19 @@ export default {
         console.log('taskData creado:', taskData);
         
         if (this.isEditing) {
-          // Actualizar tarea existente
-          console.log('Actualizando tarea:', this.taskForm._id, taskData);
-          await TaskService.updateTask(this.taskForm._id, taskData);
+          // Actualizar tarea existente - NO incluir el campo proyecto
+          const updateData = {
+            descripcion: this.taskForm.descripcion,
+            habilidadesRequeridas: this.taskForm.habilidadesRequeridas,
+            nivelDificultad: parseInt(this.taskForm.nivelDificultad),
+            prioridad: this.taskForm.prioridad,
+            estado: this.taskForm.estado,
+            desarrolladorAsignado: this.taskForm.desarrolladorAsignado || null,
+            tiempoEstimadoHoras: this.taskForm.tiempoEstimadoHoras || null,
+            fechaEstimadaFin: this.taskForm.fechaEstimadaFin || null
+          };
+          console.log('Actualizando tarea:', this.taskForm._id, updateData);
+          await TaskService.updateTask(this.taskForm._id, updateData);
         } else {
           // Crear nueva tarea
           // Extraer el projectId ANTES de crear taskData
@@ -631,8 +709,22 @@ export default {
     
     // Utilidades
     getProjectName(projectId) {
+      if (!projectId) {
+        console.log('🔍 getProjectName: projectId es null/undefined');
+        return 'Sin proyecto';
+      }
+      
       const project = this.projects.find(p => p._id === projectId);
-      return project ? project.nombre : 'Proyecto no encontrado';
+      console.log('🔍 getProjectName:', {
+        projectId,
+        projectsCount: this.projects.length,
+        projectFound: !!project,
+        projectName: project?.name,
+        projectObject: project,
+        allProjects: this.projects
+      });
+      
+      return project ? project.name : 'Proyecto no encontrado';
     },
     
     getStatusClass(status) {
@@ -681,6 +773,159 @@ export default {
       if (!dateString) return '';
       const date = new Date(dateString);
       return date.toISOString().split('T')[0];
+    },
+
+    // Métodos de asignación automática
+    async runAutoAssignment() {
+      console.log('🔍 Tareas - Iniciando asignación automática...');
+      console.log('🔍 Tareas - Usuario actual:', this.user);
+      console.log('🔍 Tareas - Es admin?', this.isUserAdmin);
+      
+      this.isAssigning = true;
+      this.assignmentResults = [];
+      
+      try {
+        console.log('🔍 Tareas - Proyectos disponibles:', this.projects.length);
+        console.log('🔍 Tareas - Usuarios disponibles:', this.users.length);
+        
+        // Obtener todas las tareas sin asignar
+        const allTasks = [];
+        for (const project of this.projects) {
+          console.log('🔍 Tareas - Cargando tareas del proyecto:', project.name);
+          const projectTasks = await TaskService.getTasksByProject(project._id);
+          console.log('🔍 Tareas - Respuesta del servicio:', projectTasks);
+          
+          // Verificar que projectTasks existe y es un array
+          if (projectTasks && Array.isArray(projectTasks)) {
+            const unassignedTasks = projectTasks.filter(task => !task.desarrolladorAsignado);
+            allTasks.push(...unassignedTasks);
+            console.log('🔍 Tareas - Tareas sin asignar en este proyecto:', unassignedTasks.length);
+          } else {
+            console.log('🔍 Tareas - No hay tareas en este proyecto o formato incorrecto:', projectTasks);
+          }
+        }
+
+        console.log('🔍 Tareas - Total tareas sin asignar:', allTasks.length);
+
+        // Ejecutar algoritmo de asignación automática
+        const assignments = this.calculateAutoAssignments(allTasks, this.users);
+        
+        // Aplicar las asignaciones reales a la base de datos
+        if (assignments.length > 0) {
+          await this.applyAssignments(assignments);
+        }
+        
+        // Mostrar resultados
+        this.assignmentResults = assignments;
+        
+        console.log('🔍 Tareas - Asignaciones calculadas:', assignments);
+        console.log('🔍 Tareas - Resultados mostrados:', this.assignmentResults.length);
+      } catch (error) {
+        console.error('Error ejecutando asignación automática:', error);
+        alert('Error ejecutando asignación automática: ' + error.message);
+      } finally {
+        this.isAssigning = false;
+      }
+    },
+
+    calculateAutoAssignments(tasks, users) {
+      const assignments = [];
+      
+      for (const task of tasks) {
+        let bestMatch = null;
+        let bestScore = 0;
+        
+        for (const user of users) {
+          if (user.rol === 'admin') continue; // No asignar a admins
+          
+          const score = this.calculateCompatibilityScore(task, user);
+          
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = user;
+          }
+        }
+        
+        if (bestMatch && bestScore > 30) { // Solo asignar si hay al menos 30% de compatibilidad
+          assignments.push({
+            taskId: task._id,
+            taskDescription: task.descripcion,
+            assignedTo: bestMatch.nombre,
+            score: Math.round(bestScore)
+          });
+        }
+      }
+      
+      return assignments;
+    },
+
+    calculateCompatibilityScore(task, user) {
+      let score = 0;
+      
+      // Verificar disponibilidad (40% del score)
+      const userAvailability = user.disponibilidadSemanal || 0;
+      if (userAvailability > 0) {
+        score += 40;
+      }
+      
+      // Verificar habilidades (60% del score)
+      const taskSkills = task.habilidadesRequeridas || [];
+      const userSkills = user.habilidades || [];
+      
+      if (taskSkills.length > 0 && userSkills.length > 0) {
+        const matchingSkills = taskSkills.filter(skill => 
+          userSkills.some(userSkill => 
+            userSkill.nombre && skill && 
+            userSkill.nombre.toLowerCase().includes(skill.toLowerCase())
+          )
+        );
+        
+        const skillMatchPercentage = (matchingSkills.length / taskSkills.length) * 60;
+        score += skillMatchPercentage;
+      } else if (taskSkills.length === 0) {
+        // Si la tarea no requiere habilidades específicas, dar puntaje base
+        score += 30;
+      }
+      
+      return Math.min(score, 100); // Máximo 100%
+    },
+
+    clearAssignmentResults() {
+      this.assignmentResults = [];
+    },
+
+    async applyAssignments(assignments) {
+      console.log('🔍 Tareas - Aplicando asignaciones a la base de datos...');
+      console.log('🔍 Tareas - Asignaciones a aplicar:', assignments);
+      
+      for (const assignment of assignments) {
+        try {
+          // Buscar el usuario asignado para obtener su ID
+          const assignedUser = this.users.find(user => user.nombre === assignment.assignedTo);
+          console.log('🔍 Tareas - Usuario encontrado:', assignedUser);
+          
+          if (assignedUser) {
+            console.log('🔍 Tareas - Asignando tarea', assignment.taskId, 'a', assignedUser.nombre, 'ID:', assignedUser._id);
+            
+            // Actualizar la tarea con el desarrollador asignado
+            const updateResult = await TaskService.updateTask(assignment.taskId, {
+              desarrolladorAsignado: assignedUser._id
+            });
+            
+            console.log('✅ Tareas - Tarea asignada exitosamente:', updateResult);
+          } else {
+            console.warn('⚠️ Tareas - Usuario no encontrado:', assignment.assignedTo);
+            console.log('🔍 Tareas - Usuarios disponibles:', this.users.map(u => ({ nombre: u.nombre, _id: u._id })));
+          }
+        } catch (error) {
+          console.error('❌ Tareas - Error asignando tarea:', assignment.taskId, error);
+          alert('Error asignando tarea: ' + error.message);
+        }
+      }
+      
+      // Recargar las tareas para mostrar los cambios
+      await this.loadTasks();
+      console.log('🔄 Tareas - Tareas recargadas después de asignaciones');
     }
   }
 }
@@ -827,5 +1072,31 @@ export default {
 .modal-body p {
   margin-bottom: 0.75rem;
   line-height: 1.5;
+}
+
+/* Estilos para asignación automática */
+.assignment-item {
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  border-left: 4px solid #28a745;
+}
+
+.assignment-info strong {
+  color: #495057;
+  font-size: 1.1rem;
+}
+
+.assignment-score .badge {
+  font-size: 0.9rem;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>
