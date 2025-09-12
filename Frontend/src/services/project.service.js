@@ -1,7 +1,7 @@
 
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8080/api/project'; // Assuming the backend is running on port 8080
+const API_URL = process.env.VUE_APP_API_URL || 'http://localhost:8080/api';
 
 // Configurar axios para incluir cookies en todas las requests
 axios.defaults.withCredentials = true;
@@ -77,9 +77,14 @@ class ProjectService {
 
   async getProjects() {
     try {
-      const response = await axios.get(API_URL);
+      console.log('🔍 ProjectService - getProjects - API_URL:', API_URL);
+      console.log('🔍 ProjectService - URL completa:', `${API_URL}/project`);
+      const response = await axios.get(`${API_URL}/project`);
+      console.log('🔍 ProjectService - Respuesta del backend:', response.data);
+      console.log('🔍 ProjectService - Cantidad de proyectos:', response.data.length);
       // Mapear todos los proyectos del formato backend al frontend
       const mappedProjects = response.data.map(project => this._mapToFrontend(project));
+      console.log('🔍 ProjectService - Proyectos mapeados:', mappedProjects);
       return { data: mappedProjects };
     } catch (error) {
       console.error('Error en getProjects:', error);
@@ -89,7 +94,10 @@ class ProjectService {
 
   async getProjectById(id) {
     try {
-      const response = await axios.get(`${API_URL}/${id}`);
+      console.log('🔍 ProjectService - getProjectById - ID:', id);
+      console.log('🔍 ProjectService - URL completa:', `${API_URL}/project/${id}`);
+      const response = await axios.get(`${API_URL}/project/${id}`);
+      console.log('🔍 ProjectService - Proyecto recibido:', response.data);
       return { data: this._mapToFrontend(response.data) };
     } catch (error) {
       console.error('Error en getProjectById:', error);
@@ -100,7 +108,7 @@ class ProjectService {
   async createProject(project) {
     try {
       const backendProject = this._mapToBackend(project);
-      const response = await axios.post(API_URL, backendProject);
+      const response = await axios.post(`${API_URL}/project`, backendProject);
       return response;
     } catch (error) {
       console.error('Error en createProject:', error);
@@ -111,7 +119,7 @@ class ProjectService {
   async updateProject(id, project) {
     try {
       const backendProject = this._mapToBackend(project);
-      const response = await axios.put(API_URL + `/${id}`, backendProject);
+      const response = await axios.put(`${API_URL}/project/${id}`, backendProject);
       return response;
     } catch (error) {
       console.error('Error en updateProject:', error);
@@ -121,7 +129,7 @@ class ProjectService {
 
   async deleteProject(id) {
     try {
-      const response = await axios.delete(API_URL + `/${id}`);
+      const response = await axios.delete(`${API_URL}/project/${id}`);
       return response;
     } catch (error) {
       console.error('Error en deleteProject:', error);

@@ -206,7 +206,8 @@ export default {
   methods: {
     formatDate(dateString) {
       if (!dateString) return 'N/A';
-      const date = new Date(dateString);
+      // Crear la fecha en zona horaria local para evitar problemas de UTC
+      const date = new Date(dateString + 'T00:00:00');
       // Verificar que la fecha sea válida
       if (isNaN(date.getTime())) return 'N/A';
       return date.toLocaleDateString('es-ES');
@@ -237,6 +238,9 @@ export default {
     async checkUserSession() {
       try {
         this.currentUser = await AuthService.checkSession();
+        console.log('🔍 Proyectos - Usuario actual:', this.currentUser);
+        console.log('🔍 Proyectos - Rol del usuario:', this.currentUser?.rol);
+        console.log('🔍 Proyectos - Es admin?', this.isUserAdmin);
       } catch (error) {
         console.error('Error verificando sesión:', error);
         this.currentUser = null;
@@ -250,7 +254,11 @@ export default {
 
       this.loading = true;
       try {
+        console.log('🔍 Proyectos - Cargando proyectos...');
         const response = await ProjectService.getProjects();
+        console.log('🔍 Proyectos - Respuesta del servicio:', response);
+        console.log('🔍 Proyectos - Proyectos recibidos:', response.data);
+        console.log('🔍 Proyectos - Cantidad de proyectos:', response.data.length);
         this.projects = response.data;
         this.clearAlert();
       } catch (error) {
