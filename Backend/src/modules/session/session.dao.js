@@ -1,4 +1,5 @@
 import User from "../users/user.model.js";
+import {generarCalendarioAnual} from "../session/session.service.js"
 
 // Buscar usuario por email
 export const findByEmail = async (email) => User.findOne({ email });
@@ -17,10 +18,19 @@ export async function getUserById(userId) {
 }
 
 // Crear nuevo usuario
-export const createUser = async (data) => {
-  const newUser = new User(data);
-  return await newUser.save();
-}
+
+export async function createUser(data) {
+  // agregar calendario automáticamente
+  const calendario = generarCalendarioAnual();
+
+  const nuevoUsuario = new User({
+    ...data,
+    calendario
+  });
+
+  await nuevoUsuario.save();
+  return nuevoUsuario;
+};
 
 // Actualizar contraseña de usuario
 export const updatePassword = async (id, password) =>

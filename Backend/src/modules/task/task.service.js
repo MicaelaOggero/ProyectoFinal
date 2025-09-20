@@ -6,13 +6,13 @@ import {
   findTasksByProject,
   findTasksByDeveloper,
   findTasksByProjectAndDeveloper,
-  getTareasSinAsignar
-
+  getTareasSinAsignar,
+  obtenerTodasTareasDAO
 } from "./task.dao.js";
-import { ordenarTareas } from '../assignments/prioridadDificultadTareas.js';
+import { ordenarTareas } from '../../utils/ordenarTareas.js';
 import Project from "../projects/project.model.js";
 import User from "../users/user.model.js";
-import { asignarTareasConCalendario } from "../assignments/filtroDisponibilidad.js";
+import { asignarTareasConCalendario } from "../criteria/index.js";
 
 export async function addTask(taskData) {
   // 1. Verificar que el proyecto exista
@@ -68,6 +68,12 @@ export async function editTask(taskId, taskData, usuarioId) {
   return tarea;
 }
 
+export async function obtenerTodasTareasService() {
+  const tareas = await obtenerTodasTareasDAO();
+  // Podés agregar lógica extra si querés
+  return tareas;
+}
+
 export async function getTaskById(taskId) {
   const tarea = await getTaskByIdDAO(taskId);
 
@@ -102,7 +108,7 @@ export const obtenerTareasOrdenadasPorProyecto = async (projectId) => {
   return tareasOrdenadas;
 };
 
-export async function asignarTareasPorSemana(projectId) {
+export async function asignarTareasBasico(projectId) {
   return await asignarTareasConCalendario(projectId);
 }
 

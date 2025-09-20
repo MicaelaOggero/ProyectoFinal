@@ -63,3 +63,7 @@ export const getTareasSinAsignar = async (projectId, filtrosOpcionales = {}) => 
     throw error;
   }
 };
+
+export async function obtenerTodasTareasDAO() {
+  return Task.find();
+}

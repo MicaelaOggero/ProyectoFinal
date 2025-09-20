@@ -13,6 +13,7 @@ export const registerUser = async (data) => {
   return await sessionDao.createUser(data);
 };
 
+
 // Iniciar sesión de usuario
 export const loginUser = async (email, password) => {
   const user = await sessionDao.findByEmail(email);
@@ -107,3 +108,21 @@ export const googleCallback = (req, res, next) => {
     res.redirect("http://localhost:8081/google-callback");
   })(req, res, next);
 };
+
+// Función auxiliar para generar calendario de un año completo
+export function generarCalendarioAnual() {
+  const calendario = [];
+  const inicio = new Date();
+  inicio.setHours(0, 0, 0, 0);
+  const fin = new Date(inicio);
+  fin.setFullYear(fin.getFullYear() + 1); // un año de calendario
+
+  for (let d = new Date(inicio); d <= fin; d.setDate(d.getDate() + 1)) {
+    const dia = d.getDay();
+    if (dia >= 1 && dia <= 5) { // lunes a viernes
+      calendario.push({ fecha: new Date(d), horasDisponibles: 8 });
+    }
+  }
+
+  return calendario;
+}

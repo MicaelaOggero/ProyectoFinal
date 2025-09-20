@@ -10,6 +10,7 @@ export const registerUser = async (req, res) => {
   }
 };
 
+
 // Iniciar sesión de usuario
 export const loginUser = async (req, res) => {
   try {

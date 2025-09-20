@@ -6,7 +6,9 @@ import {
   getTasksByProject,
   getTasksByDeveloper,
   getTasksByProjectAndDeveloper,
-  obtenerTareasOrdenadasPorProyecto
+  obtenerTareasOrdenadasPorProyecto,
+  obtenerTodasTareasService,
+  asignarTareasBasico
 } from "./task.service.js";
 
 export async function crearTask(req, res) {
@@ -31,6 +33,16 @@ export async function actualizarTask(req, res) {
     res.json(tareaActualizada);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+}
+
+export async function listarTasks(req, res) {
+  //obtener todas las tareas de la base de datos
+  try {
+    const tareas = await obtenerTodasTareasService();
+    res.status(200).json(tareas);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 }
 
@@ -82,10 +94,6 @@ export async function listarTasksPorProyectoYDev(req, res) {
   }
 }
 
-export async function asignarAutomaticoController(req, res) {
-
-}
-
 export const obtenerTareasOrdenadasController = async (req, res) => {
   try {
     const { projectId } = req.params;
@@ -97,13 +105,11 @@ export const obtenerTareasOrdenadasController = async (req, res) => {
   }
 };
 
-import { asignarTareasPorSemana } from "./task.service.js";
-
-export async function asignarAutomaticoPorSemanaController(req, res) {
+export async function asignarAutomaticoBasico(req, res) {
   try {
     const { projectId } = req.params;
 
-    const result = await asignarTareasPorSemana(projectId);
+    const result = await asignarTareasBasico(projectId);
 
     res.json(result);
   } catch (error) {

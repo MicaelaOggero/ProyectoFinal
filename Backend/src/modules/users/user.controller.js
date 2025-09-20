@@ -1,4 +1,6 @@
 import * as userService from "./user.service.js";
+import User from "../users/user.model.js";
+import Task from "../task/task.model.js";
 
 // Obtener todos los usuarios con rol 'user'
 export const getUsers = async (req, res) => {
@@ -46,3 +48,61 @@ export const deleteUser = async (req, res) => {
     res.status(500).json({ error: "Error al eliminar usuario" });
   }
 };
+
+// Mostrar calendario de un desarrollador
+
+export async function obtenerCalendario(req, res) {
+  try {
+    const { userId } = req.params;
+    const { month } = req.query; // ej: "2025-09"
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    // Si no tiene calendario en BD, inicializarlo vacío
+    if (!user.calendario) {
+      user.calendario = [];
+      await user.save();
+    }
+
+    // Si no mandaron el parámetro month devolvemos todo
+    if (!month) {
+      return res.json({ calendario: user.calendario });
+    }
+
+    // Filtrar por mes
+    const [year, monthNumber] = month.split("-");
+    const calendarioFiltrado = user.calendario.filter(entry => {
+      const fecha = new Date(entry.fecha);
+      return (
+        fecha.getUTCFullYear() === parseInt(year) &&
+        fecha.getUTCMonth() + 1 === parseInt(monthNumber)
+      );
+    });
+
+    res.json({ calendario: calendarioFiltrado });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// Función auxiliar para generar calendario de un año completo
+export async function generarCalendarioAnual() {
+  const calendario = [];
+  const inicio = new Date();
+  inicio.setHours(0,0,0,0);
+  const fin = new Date(inicio);
+  fin.setFullYear(fin.getFullYear() + 1); // un año de calendario
+
+  for (let d = new Date(inicio); d <= fin; d.setDate(d.getDate() + 1)) {
+    const dia = d.getDay();
+    if (dia >= 1 && dia <= 5) { // lunes a viernes
+      calendario.push({ fecha: new Date(d), horasDisponibles: 8 });
+    }
+  }
+
+  return calendario;
+}

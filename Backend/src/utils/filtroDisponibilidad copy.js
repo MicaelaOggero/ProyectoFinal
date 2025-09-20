@@ -1,8 +1,9 @@
 // 📌 asignarConCalendario.js
-import Task from "../task/task.model.js";
-import User from "../users/user.model.js";
-import { ordenarTareas } from "../assignments/prioridadDificultadTareas.js";
-import { tieneHabilidadesSuficientes } from "../../utils/filtros.js";
+import Task from "../modules/task/task.model.js";
+import User from "../modules/users/user.model.js";
+import { ordenarTareas } from "./ordenarTareas.js";
+import { tieneHabilidadesSuficientes } from "./filtroHabilidades.js";
+import Asignacion from "../modules/assignment/assignment.model.js";
 
 // 👉 generar rango de fechas de inicio a fin (solo días hábiles)
 function generarRangoDias(fechaInicio, fechaFin) {
@@ -20,10 +21,10 @@ function generarRangoDias(fechaInicio, fechaFin) {
 
 export async function asignarTareasConCalendario(projectId) {
   // 🔹 obtener todas las tareas del proyecto
-  let tareas = await Task.find({ 
-    proyecto: projectId, 
-    desarrolladorAsignado: null, 
-    estado: "pendiente" 
+  let tareas = await Task.find({
+    proyecto: projectId,
+    desarrolladorAsignado: null,
+    estado: "pendiente"
   }).populate("proyecto");
 
   if (!tareas.length) {
@@ -52,7 +53,7 @@ export async function asignarTareasConCalendario(projectId) {
       let horasDisponiblesTotales = 0;
       for (const dia of diasDisponibles) {
         const diaISO = dia.toISOString().split("T")[0];
-        let registroDia = dev.calendario.find(d => 
+        let registroDia = dev.calendario.find(d =>
           d.fecha.toISOString().split("T")[0] === diaISO
         );
 
@@ -80,14 +81,14 @@ export async function asignarTareasConCalendario(projectId) {
     // 📌 elegir al dev con mayor disponibilidad total en el rango
     const mejorDev = candidatos.reduce((a, b) => {
       const horasA = diasDisponibles.reduce((acc, dia) => {
-        const registro = a.calendario.find(d => 
+        const registro = a.calendario.find(d =>
           d.fecha.toISOString().split("T")[0] === dia.toISOString().split("T")[0]
         );
         return acc + (registro ? registro.horasDisponibles : 8);
       }, 0);
 
       const horasB = diasDisponibles.reduce((acc, dia) => {
-        const registro = b.calendario.find(d => 
+        const registro = b.calendario.find(d =>
           d.fecha.toISOString().split("T")[0] === dia.toISOString().split("T")[0]
         );
         return acc + (registro ? registro.horasDisponibles : 8);
@@ -108,7 +109,7 @@ export async function asignarTareasConCalendario(projectId) {
 
       // buscar o inicializar el día en el calendario del dev
       const diaISO = dia.toISOString().split("T")[0];
-      let registroDia = mejorDev.calendario.find(d => 
+      let registroDia = mejorDev.calendario.find(d =>
         d.fecha.toISOString().split("T")[0] === diaISO
       );
 
@@ -124,13 +125,23 @@ export async function asignarTareasConCalendario(projectId) {
         horasRestantes -= horasAsignadas;
 
         diasAsignados.push({
-          inicio: new Date(dia),
+          fecha: new Date(dia),
           horasAsignadas
         });
       }
     }
 
     await mejorDev.save();
+
+    // después de asignar tarea a mejorDev
+    await Asignacion.create({
+      tarea: tarea._id,
+      desarrollador: mejorDev._id,
+      dias: diasAsignados,
+      horasTotales: tarea.tiempoEstimadoHoras,
+      proyecto: tarea.proyecto._id
+    });
+
 
     resumen.push({
       tarea: tarea.descripcion,

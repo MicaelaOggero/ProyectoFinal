@@ -8,6 +8,7 @@ import projectRouter from '../src/modules/projects/project.routes.js'
 import userRouter from '../src/modules/users/user.routes.js'
 import skillRouter from '../src/modules/skills/skills.routes.js'
 import taskRouter from '../src/modules/task/task.routes.js'
+import assignmentRouter from '../src/modules/assignment/assignment.routes.js'
 import passport from 'passport'
 import cookieParser from 'cookie-parser'
 import cors from 'cors'
@@ -72,6 +73,7 @@ app.use('/api/project', projectRouter)
 app.use('/api/user', userRouter)
 app.use('/api/skill', skillRouter)
 app.use('/api/task', taskRouter)
+app.use('/api/assignment', assignmentRouter)
 
 // Conectar a la base de datos
 conectarDB()
