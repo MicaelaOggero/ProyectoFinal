@@ -61,12 +61,12 @@
 
                          <div class="row">
                <div class="col-md-6 mb-3">
-                 <label for="disponibilidadSemanal" class="form-label">Disponibilidad Semanal (horas)</label>
+                 <label for="horasSemanalMaxima" class="form-label">Horas Semanales Máximas</label>
                  <input 
                    type="number" 
                    class="form-control" 
-                   id="disponibilidadSemanal" 
-                   v-model="userData.disponibilidadSemanal" 
+                   id="horasSemanalMaxima" 
+                   v-model="userData.horasSemanalMaxima" 
                    min="0"
                    max="168"
                    placeholder="40"
@@ -171,7 +171,7 @@ export default {
          dni: '',
          rol: 'user', // Siempre será 'user'
          aniosExperiencia: 0,
-         disponibilidadSemanal: 40,
+         horasSemanalMaxima: 40,
          costoPorHora: 0,
          preferencias: '',
          habilidades: []
@@ -199,7 +199,7 @@ export default {
          dni: '',
          rol: 'user', // Siempre será 'user'
          aniosExperiencia: 0,
-         disponibilidadSemanal: 40,
+         horasSemanalMaxima: 40,
          costoPorHora: 0,
          preferencias: '',
          habilidades: []

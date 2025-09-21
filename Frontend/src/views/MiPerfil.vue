@@ -68,7 +68,7 @@
                   </li>
                   <li class="mb-2">
                     <i class="bi bi-clock me-2 text-muted"></i>
-                    <strong>Disponibilidad:</strong> {{ user.disponibilidadSemanal || 'No especificada' }} hs/semana
+                    <strong>Disponibilidad:</strong> {{ user.horasSemanalMaxima || 'No especificada' }} hs/semana
                   </li>
                   <li class="mb-2">
                     <i class="bi bi-currency-dollar me-2 text-muted"></i>
@@ -160,6 +160,50 @@
           </div>
         </div>
 
+        <!-- Calendario de Disponibilidad -->
+        <div v-if="user && user.rol !== 'admin'" class="card mb-4">
+          <div class="card-header bg-warning text-dark">
+            <h4 class="mb-0">
+              <i class="bi bi-calendar3 me-2"></i>
+              Calendario de Disponibilidad
+            </h4>
+          </div>
+          <div class="card-body">
+            <div v-if="calendarLoading" class="text-center py-4">
+              <div class="spinner-border text-warning" role="status">
+                <span class="visually-hidden">Cargando calendario...</span>
+              </div>
+              <p class="mt-2">Cargando calendario...</p>
+            </div>
+            <CalendarAvailability 
+              v-else
+              :user-calendar="userCalendar"
+              :user-id="user._id"
+              @update-availability="handleUpdateAvailability"
+              @remove-availability="handleRemoveAvailability"
+            />
+            
+            <!-- Información sobre el calendario -->
+            <div class="mt-3">
+              <div class="alert alert-info" role="alert">
+                <h6 class="alert-heading">
+                  <i class="bi bi-info-circle me-2"></i>
+                  ¿Cómo funciona el Calendario de Disponibilidad?
+                </h6>
+                <p class="mb-2">
+                  <strong>Verde:</strong> Días con disponibilidad configurada<br>
+                  <strong>Amarillo:</strong> Días sin disponibilidad<br>
+                  <strong>Azul:</strong> Día actual
+                </p>
+                <p class="mb-0">
+                  Haz clic en cualquier día para establecer tus horas disponibles. 
+                  Esto ayuda a los administradores a asignarte tareas según tu disponibilidad real.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Preferencias -->
          <div v-if="user.preferencias && user && user.rol !== 'admin'" class="card mb-4">
           <div class="card-header bg-info text-white">
@@ -189,7 +233,7 @@
                  <p class="text-muted mb-0">Habilidades</p>
                </div>
                <div class="col-md-4 mb-3">
-                 <h3 class="text-info">{{ user.disponibilidadSemanal || 'N/A' }}</h3>
+                 <h3 class="text-info">{{ user.horasSemanalMaxima || 'N/A' }}</h3>
                  <p class="text-muted mb-0">Horas/Semana</p>
                </div>
                <div class="col-md-4 mb-3">
@@ -335,12 +379,12 @@
                   >
                 </div>
                 <div class="col-md-6 mb-3">
-                  <label for="editDisponibilidadSemanal" class="form-label">Disponibilidad Semanal (horas)</label>
+                  <label for="editHorasSemanalMaxima" class="form-label">Horas Semanales Máximas</label>
                   <input 
                     type="number" 
                     class="form-control" 
-                    id="editDisponibilidadSemanal" 
-                    v-model="editForm.disponibilidadSemanal"
+                    id="editHorasSemanalMaxima" 
+                    v-model="editForm.horasSemanalMaxima"
                     min="1"
                     max="168"
                   >
@@ -449,9 +493,14 @@
 import { Modal } from 'bootstrap';
 import AuthService from '@/services/auth.service.js';
 import ProjectService from '@/services/project.service.js';
+import UserService from '@/services/user.service.js';
+import CalendarAvailability from '@/components/CalendarAvailability.vue';
 
 export default {
   name: 'MiPerfilView',
+  components: {
+    CalendarAvailability
+  },
   data() {
     return {
       user: null,
@@ -461,7 +510,7 @@ export default {
       editForm: {
         dni: '',
         aniosExperiencia: null,
-        disponibilidadSemanal: null,
+        horasSemanalMaxima: null,
         costoPorHora: null,
         habilidades: [],
         preferencias: ''
@@ -474,7 +523,9 @@ export default {
         proyectosActivos: 0,
         proyectosPendientes: 0,
         proyectosFinalizados: 0
-      }
+      },
+      userCalendar: [],
+      calendarLoading: false
     };
   },
   async mounted() {
@@ -487,7 +538,7 @@ export default {
       this.editForm = {
         dni: '',
         aniosExperiencia: 0,
-        disponibilidadSemanal: 40,
+        horasSemanalMaxima: 40,
         costoPorHora: 0,
         habilidades: [{ nombre: '', nivel: '' }],
         preferencias: ''
@@ -509,6 +560,9 @@ export default {
           // Si es administrador, cargar estadísticas de proyectos
           if (this.user.rol === 'admin') {
             await this.loadProjectStats();
+          } else {
+            // Si es usuario normal, cargar su calendario de disponibilidad
+            await this.loadUserCalendar();
           }
         } else {
           this.error = 'No se pudo cargar tu perfil. Por favor, inicia sesión nuevamente.';
@@ -582,7 +636,7 @@ export default {
       this.editForm = {
         dni: this.user.dni || '',
         aniosExperiencia: this.user.aniosExperiencia || 0,
-        disponibilidadSemanal: this.user.disponibilidadSemanal || 40,
+        horasSemanalMaxima: this.user.horasSemanalMaxima || 40,
         costoPorHora: this.user.costoPorHora || 0,
         habilidades: this.user.habilidades ? [...this.user.habilidades] : [{ nombre: '', nivel: '' }],
         preferencias: this.user.preferencias || ''
@@ -669,6 +723,67 @@ export default {
     },
     goToTasks() {
       this.$router.push('/tareas');
+    },
+    
+    async loadUserCalendar() {
+      this.calendarLoading = true;
+      try {
+        console.log('🔍 MiPerfil - Cargando calendario del usuario:', this.user._id);
+        const response = await UserService.getUserCalendar(this.user._id);
+        this.userCalendar = response.data || [];
+        console.log('🔍 MiPerfil - Calendario cargado:', this.userCalendar);
+      } catch (error) {
+        console.error('Error loading user calendar:', error);
+        this.userCalendar = [];
+      } finally {
+        this.calendarLoading = false;
+      }
+    },
+    
+    async handleUpdateAvailability(availabilityData) {
+      try {
+        console.log('🔍 MiPerfil - Actualizando disponibilidad:', availabilityData);
+        
+        // Buscar si ya existe una entrada para esta fecha
+        const existingIndex = this.userCalendar.findIndex(entry => entry.fecha === availabilityData.fecha);
+        
+        if (existingIndex >= 0) {
+          // Actualizar entrada existente
+          this.userCalendar[existingIndex] = availabilityData;
+        } else {
+          // Agregar nueva entrada
+          this.userCalendar.push(availabilityData);
+        }
+        
+        // Enviar actualización al backend
+        await UserService.updateUserCalendar(this.user._id, this.userCalendar);
+        
+        console.log('🔍 MiPerfil - Disponibilidad actualizada correctamente');
+      } catch (error) {
+        console.error('Error updating availability:', error);
+        // Revertir cambios en caso de error
+        await this.loadUserCalendar();
+        throw error;
+      }
+    },
+    
+    async handleRemoveAvailability(date) {
+      try {
+        console.log('🔍 MiPerfil - Eliminando disponibilidad para:', date);
+        
+        // Remover del array local
+        this.userCalendar = this.userCalendar.filter(entry => entry.fecha !== date);
+        
+        // Enviar actualización al backend
+        await UserService.updateUserCalendar(this.user._id, this.userCalendar);
+        
+        console.log('🔍 MiPerfil - Disponibilidad eliminada correctamente');
+      } catch (error) {
+        console.error('Error removing availability:', error);
+        // Revertir cambios en caso de error
+        await this.loadUserCalendar();
+        throw error;
+      }
     }
   }
 }

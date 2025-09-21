@@ -8,6 +8,7 @@ import PersonasView from '@/views/Personas.vue';
 import PerfilUsuarioView from '@/views/PerfilUsuario.vue';
 import MiPerfilView from '@/views/MiPerfil.vue';
 import GoogleCallbackView from '@/views/GoogleCallback.vue';
+import AssignmentSummaryView from '@/views/AssignmentSummaryView.vue';
 import AuthService from '@/services/auth.service.js';
 
 const routes = [
@@ -66,6 +67,12 @@ const routes = [
     path: '/perfil/:id',
     name: 'PerfilUsuario',
     component: PerfilUsuarioView,
+    meta: { requiresAuth: true }  // Requiere autenticación
+  },
+  {
+    path: '/asignacion-resumen',
+    name: 'AssignmentSummary',
+    component: AssignmentSummaryView,
     meta: { requiresAuth: true }  // Requiere autenticación
   }
 ];
