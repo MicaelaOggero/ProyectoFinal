@@ -293,7 +293,7 @@ export default {
         this.userCount = users.filter(u => u.rol === 'user').length;
 
         // Calcular horas totales
-        this.totalHours = users.reduce((total, user) => total + (user.disponibilidadSemanal || 0), 0);
+        this.totalHours = users.reduce((total, user) => total + (user.horasSemanalMaxima || 0), 0);
 
         // Por ahora, establecer un valor por defecto para tareas completadas
         this.completedTasks = Math.floor(Math.random() * 50) + 20; // Simulado
@@ -320,28 +320,37 @@ export default {
           tareas: this.myTasks
         });
 
-        // Obtener proyectos desde las tareas del usuario
-        const projectIds = [...new Set(this.myTasks.map(task => task.proyecto))];
-        console.log('🔍 Dashboard - IDs de proyectos de las tareas:', projectIds);
-        
-        // Cargar proyectos individualmente
-        this.myProjects = [];
-        for (const projectId of projectIds) {
-          try {
-            const projectResponse = await ProjectService.getProjectById(projectId);
-            if (projectResponse && projectResponse.data) {
-              this.myProjects.push(projectResponse.data);
-              console.log('🔍 Dashboard - Proyecto cargado:', projectResponse.data.name);
-            }
-          } catch (error) {
-            console.warn('🔍 Dashboard - Error cargando proyecto:', projectId, error);
+        // Para usuarios normales, las tareas ya vienen con el proyecto populado desde el backend
+        // Extraer proyectos únicos de las tareas (ya vienen con la información completa)
+        const uniqueProjects = new Map();
+        this.myTasks.forEach(task => {
+          console.log('🔍 Dashboard - Procesando tarea:', task.descripcion, 'Proyecto:', task.proyecto);
+          if (task.proyecto && task.proyecto._id) {
+            // Mapear el proyecto populado al formato que espera el frontend
+            const mappedProject = {
+              _id: task.proyecto._id,
+              name: task.proyecto.nombre, // El backend envía 'nombre', lo mapeamos a 'name'
+              nombre: task.proyecto.nombre, // Mantener también el original
+              description: '', // Los proyectos populados solo vienen con nombre
+              startDate: '',
+              endDate: '',
+              difficulty: 'Media',
+              priority: 'Media',
+              status: 'Activo'
+            };
+            uniqueProjects.set(task.proyecto._id, mappedProject);
+            console.log('🔍 Dashboard - Proyecto agregado al mapa:', mappedProject);
+          } else {
+            console.log('🔍 Dashboard - Tarea sin proyecto válido:', task);
           }
-        }
+        });
+        
+        this.myProjects = Array.from(uniqueProjects.values());
         
         console.log('🔍 Dashboard - Proyectos del usuario cargados:', this.myProjects.length);
 
         // Disponibilidad del usuario
-        this.myAvailability = this.currentUser.disponibilidadSemanal || 0;
+        this.myAvailability = this.currentUser.horasSemanalMaxima || 0;
 
         console.log('🔍 Dashboard - Datos del usuario cargados:', {
           myProjects: this.myProjects.length,
@@ -377,15 +386,49 @@ export default {
       return date.toLocaleDateString('es-ES');
     },
     getProjectName(projectId) {
-      // Buscar en los proyectos del usuario primero
+      console.log('🔍 Dashboard - getProjectName llamado con:', projectId, 'Tipo:', typeof projectId);
+      
+      if (!projectId) {
+        console.log('🔍 Dashboard - getProjectName: projectId es null/undefined');
+        return 'Sin proyecto';
+      }
+      
+      // Si projectId es un objeto (proyecto populado), usar directamente
+      if (typeof projectId === 'object' && projectId._id) {
+        console.log('🔍 Dashboard - getProjectName: proyecto populado encontrado:', projectId);
+        console.log('🔍 Dashboard - Campos del proyecto populado:', Object.keys(projectId));
+        // El backend envía el campo como 'nombre', no 'name'
+        const projectName = projectId.nombre || projectId.name || 'Proyecto sin nombre';
+        console.log('🔍 Dashboard - Nombre del proyecto populado:', projectName);
+        return projectName;
+      }
+      
+      // Si projectId es un string (ID), buscar en la lista de proyectos
       const project = this.myProjects.find(p => p._id === projectId);
+      console.log('🔍 Dashboard - getProjectName - búsqueda en myProjects:', {
+        projectId,
+        myProjectsCount: this.myProjects.length,
+        projectFound: !!project,
+        projectName: project?.name || project?.nombre
+      });
+      
       if (project) {
-        return project.name;
+        const projectName = project.name || project.nombre || 'Proyecto sin nombre';
+        console.log('🔍 Dashboard - Nombre del proyecto encontrado:', projectName);
+        return projectName;
       }
       
       // Si no se encuentra, buscar en allProjects (para admins)
       const allProject = this.allProjects.find(p => p._id === projectId);
-      return allProject ? allProject.name : 'Proyecto no encontrado';
+      if (allProject) {
+        const projectName = allProject.name || allProject.nombre || 'Proyecto sin nombre';
+        console.log('🔍 Dashboard - Proyecto encontrado en allProjects:', projectName);
+        return projectName;
+      }
+      
+      // Si no se encuentra el proyecto, mostrar el ID como fallback
+      console.log('🔍 Dashboard - Proyecto no encontrado, usando fallback');
+      return `Proyecto (${projectId.substring(0, 8)}...)`;
     },
     getProjectStatusClass(status) {
       if (status === 'Activo') return 'bg-success';
