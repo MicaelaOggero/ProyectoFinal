@@ -75,8 +75,10 @@ export const getAsignacionesPorProyectoService = async (proyectoId) => {
     throw new Error("No se encontraron asignaciones para este proyecto");
   }
 
+  const asignacionesValidas = asignaciones.filter(a => a.tarea && a.desarrollador);
+
   // Podés formatear la respuesta si no querés mandar todo crudo
-  return asignaciones.map(asig => ({
+  return asignacionesValidas.map(asig => ({
     tarea: {
       id: asig.tarea._id,
       descripcion: asig.tarea.descripcion,
