@@ -1,13 +1,13 @@
 <template>
   <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mt-3 mb-4">
-      <h1>Gestión de Tareas</h1>
+      <h1>{{ isUserAdmin ? 'Gestión de Tareas' : 'Mis Tareas Asignadas' }}</h1>
       <div class="d-flex gap-2">
         <button v-if="isUserAdmin" class="btn btn-success" @click="runAutoAssignment" :disabled="isAssigning">
           <i class="bi bi-robot me-1" :class="{ 'spinning': isAssigning }"></i>
           {{ isAssigning ? 'Asignando...' : 'Asignación Automática' }}
         </button>
-        <button class="btn btn-primary" @click="openCreateModal">
+        <button v-if="isUserAdmin" class="btn btn-primary" @click="openCreateModal">
           <i class="bi bi-plus-circle me-1"></i>Crear Nueva Tarea
         </button>
       </div>
@@ -15,10 +15,19 @@
 
     <!-- Filtros -->
     <div class="row mb-4">
-      <div class="col-md-4">
+      <div v-if="isUserAdmin" class="col-md-4">
         <label for="projectFilter" class="form-label">Filtrar por Proyecto</label>
         <select class="form-select" id="projectFilter" v-model="selectedProject" @change="onProjectChange">
           <option value="">Todos los proyectos</option>
+          <option v-for="project in projects" :key="project._id" :value="project._id">
+            {{ project.name }}
+          </option>
+        </select>
+      </div>
+      <div v-else class="col-md-4">
+        <label for="projectFilter" class="form-label">Proyectos de Mis Tareas</label>
+        <select class="form-select" id="projectFilter" v-model="selectedProject" @change="onProjectChange">
+          <option value="">Todos mis proyectos</option>
           <option v-for="project in projects" :key="project._id" :value="project._id">
             {{ project.name }}
           </option>
@@ -47,21 +56,47 @@
     <!-- Resultados de Asignación Automática (Solo Admin) -->
     <div v-if="isUserAdmin && assignmentResults.length > 0" class="card mb-4">
       <div class="card-header bg-success text-white">
-        <h5 class="mb-0"><i class="bi bi-robot me-2"></i>Resultados de Asignación Automática</h5>
+        <h5 class="mb-0"><i class="bi bi-robot me-2"></i>Resultados de Asignación Automática con Calendario</h5>
       </div>
       <div class="card-body">
-        <div v-for="result in assignmentResults" :key="result.taskId" class="assignment-item mb-3">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="assignment-info">
-              <strong>{{ result.taskDescription }}</strong>
-              <span class="text-muted d-block">→ Asignada a: {{ result.assignedTo }}</span>
+        <div v-for="result in assignmentResults" :key="result.tareaId || result.taskId" class="assignment-item mb-3">
+          <div class="d-flex justify-content-between align-items-start">
+            <div class="assignment-info flex-grow-1">
+              <strong>{{ result.tarea }}</strong>
+              <div v-if="result.asignado" class="mt-2">
+                <span class="text-success d-block">
+                  <i class="bi bi-check-circle me-1"></i>Asignada a: {{ result.asignado }}
+                </span>
+                <span v-if="result.horasAsignadasTotales > 0" class="text-muted small d-block">
+                  <i class="bi bi-clock me-1"></i>{{ result.horasAsignadasTotales }} horas asignadas
+                </span>
+                <div v-if="result.dias && result.dias.length > 0" class="mt-1">
+                  <small class="text-info">
+                    <i class="bi bi-calendar me-1"></i>
+                    Días asignados: {{ result.dias.length }} días
+                  </small>
+                </div>
+              </div>
+              <div v-else-if="result.motivo" class="mt-2">
+                <span class="text-warning d-block">
+                  <i class="bi bi-exclamation-triangle me-1"></i>{{ result.motivo }}
+                </span>
+              </div>
             </div>
-            <div class="assignment-score">
-              <span class="badge bg-success">{{ result.score }}% compatibilidad</span>
+            <div class="assignment-status">
+              <span v-if="result.asignado" class="badge bg-success">
+                <i class="bi bi-check-circle me-1"></i>Asignada
+              </span>
+              <span v-else class="badge bg-warning text-dark">
+                <i class="bi bi-exclamation-triangle me-1"></i>Sin asignar
+              </span>
             </div>
           </div>
         </div>
-        <div class="text-end">
+        <div class="text-end mt-3">
+          <button class="btn btn-info btn-sm me-2" @click="viewDetailedSummary" v-if="assignmentResults.length > 0">
+            <i class="bi bi-eye me-1"></i>Ver Resumen Detallado
+          </button>
           <button class="btn btn-outline-success btn-sm" @click="clearAssignmentResults">
             <i class="bi bi-x-circle me-1"></i>Cerrar
           </button>
@@ -134,6 +169,7 @@
                       <i class="bi bi-eye"></i>
                     </button>
                     <button 
+                      v-if="isUserAdmin"
                       class="btn btn-sm btn-outline-warning" 
                       @click="editTask(task)" 
                       title="Editar"
@@ -141,6 +177,7 @@
                       <i class="bi bi-pencil"></i>
                     </button>
                     <button 
+                      v-if="isUserAdmin"
                       class="btn btn-sm btn-outline-danger" 
                       @click="deleteTask(task)" 
                       title="Eliminar"
@@ -193,6 +230,27 @@
               <div class="row">
                 <div class="col-md-6 mb-3">
                   <label for="taskSkills" class="form-label">Habilidades Requeridas *</label>
+                  
+                  <!-- Lista de habilidades disponibles -->
+                  <div v-if="availableSkills.length > 0" class="mb-3">
+                    <small class="text-muted">Habilidades disponibles:</small>
+                    <div class="d-flex flex-wrap gap-1 mt-1">
+                      <button 
+                        type="button" 
+                        class="btn btn-sm btn-outline-primary"
+                        v-for="skill in availableSkills" 
+                        :key="skill._id || skill"
+                        @click="addSkillFromList(skill.nombre || skill)"
+                        :disabled="taskForm.habilidadesRequeridas.includes(skill.nombre || skill)"
+                        :title="taskForm.habilidadesRequeridas.includes(skill.nombre || skill) ? 'Ya seleccionada' : 'Agregar habilidad'"
+                      >
+                        <i class="bi bi-plus-circle me-1"></i>
+                        {{ skill.nombre || skill }}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <!-- Input manual como alternativa -->
                   <div class="input-group">
                     <input 
                       type="text" 
@@ -200,26 +258,31 @@
                       id="taskSkills" 
                       v-model="skillInput"
                       @keyup.enter="addSkill"
-                      placeholder="Escribir habilidad y presionar Enter"
+                      placeholder="O escribir habilidad personalizada y presionar Enter"
                     >
                     <button type="button" class="btn btn-outline-secondary" @click="addSkill">
                       <i class="bi bi-plus"></i>
                     </button>
                   </div>
+                  
+                  <!-- Habilidades seleccionadas -->
                   <div class="mt-2">
-                    <span 
-                      v-for="(skill, index) in taskForm.habilidadesRequeridas" 
-                      :key="index" 
-                      class="badge bg-primary me-1 mb-1"
-                    >
-                      {{ skill }}
-                      <button 
-                        type="button" 
-                        class="btn-close btn-close-white ms-1" 
-                        @click="removeSkill(index)"
-                        style="font-size: 0.7em;"
-                      ></button>
-                    </span>
+                    <small class="text-muted">Habilidades seleccionadas:</small>
+                    <div class="mt-1">
+                      <span 
+                        v-for="(skill, index) in taskForm.habilidadesRequeridas" 
+                        :key="index" 
+                        class="badge bg-primary me-1 mb-1"
+                      >
+                        {{ skill }}
+                        <button 
+                          type="button" 
+                          class="btn-close btn-close-white ms-1" 
+                          @click="removeSkill(index)"
+                          style="font-size: 0.7em;"
+                        ></button>
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div class="col-md-6 mb-3">
@@ -277,13 +340,62 @@
                   >
                 </div>
                 <div class="col-md-6 mb-3">
-                  <label for="taskDeadline" class="form-label">Fecha Límite</label>
+                  <label for="taskTimeSpent" class="form-label">Tiempo Invertido (horas)</label>
+                  <input 
+                    type="number" 
+                    class="form-control" 
+                    id="taskTimeSpent" 
+                    v-model="taskForm.tiempoInvertidoHoras"
+                    min="0"
+                    step="0.5"
+                  >
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="taskEstimatedStart" class="form-label">Fecha Estimada de Inicio</label>
                   <input 
                     type="date" 
                     class="form-control" 
-                    id="taskDeadline" 
+                    id="taskEstimatedStart" 
+                    v-model="taskForm.fechaEstimadaInicio"
+                  >
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="taskEstimatedEnd" class="form-label">Fecha Estimada de Fin</label>
+                  <input 
+                    type="date" 
+                    class="form-control" 
+                    id="taskEstimatedEnd" 
                     v-model="taskForm.fechaEstimadaFin"
                   >
+                </div>
+              </div>
+
+              <!-- Las fechas reales se toman automáticamente según el estado de la tarea -->
+              <div v-if="taskForm.estado === 'en curso' || taskForm.estado === 'completada'" class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Fecha Real de Inicio</label>
+                  <input 
+                    type="date" 
+                    class="form-control" 
+                    v-model="taskForm.fechaRealInicio"
+                    readonly
+                    style="background-color: #f8f9fa;"
+                  >
+                  <small class="form-text text-muted">Se establece automáticamente al cambiar a "En Curso"</small>
+                </div>
+                <div class="col-md-6 mb-3" v-if="taskForm.estado === 'completada'">
+                  <label class="form-label">Fecha Real de Fin</label>
+                  <input 
+                    type="date" 
+                    class="form-control" 
+                    v-model="taskForm.fechaRealFin"
+                    readonly
+                    style="background-color: #f8f9fa;"
+                  >
+                  <small class="form-text text-muted">Se establece automáticamente al cambiar a "Completada"</small>
                 </div>
               </div>
 
@@ -354,8 +466,20 @@
                 <p v-if="selectedTask.tiempoEstimadoHoras">
                   <strong>Tiempo Estimado:</strong> {{ selectedTask.tiempoEstimadoHoras }} horas
                 </p>
+                <p v-if="selectedTask.tiempoInvertidoHoras">
+                  <strong>Tiempo Invertido:</strong> {{ selectedTask.tiempoInvertidoHoras }} horas
+                </p>
+                <p v-if="selectedTask.fechaEstimadaInicio">
+                  <strong>Fecha Estimada Inicio:</strong> {{ formatDate(selectedTask.fechaEstimadaInicio) }}
+                </p>
                 <p v-if="selectedTask.fechaEstimadaFin">
-                  <strong>Fecha Límite:</strong> {{ formatDate(selectedTask.fechaEstimadaFin) }}
+                  <strong>Fecha Estimada Fin:</strong> {{ formatDate(selectedTask.fechaEstimadaFin) }}
+                </p>
+                <p v-if="selectedTask.fechaRealInicio">
+                  <strong>Fecha Real Inicio:</strong> {{ formatDate(selectedTask.fechaRealInicio) }}
+                </p>
+                <p v-if="selectedTask.fechaRealFin">
+                  <strong>Fecha Real Fin:</strong> {{ formatDate(selectedTask.fechaRealFin) }}
                 </p>
                 <p v-if="selectedTask.fechaCreacion">
                   <strong>Creada:</strong> {{ formatDate(selectedTask.fechaCreacion) }}
@@ -376,6 +500,8 @@ import TaskService from '../services/task.service.js';
 import ProjectService from '../services/project.service.js';
 import UserService from '../services/user.service.js';
 import AuthService from '../services/auth.service.js';
+import AssignmentService from '../services/assignment.service.js';
+import SkillsService from '../services/skills.service.js';
 
 export default {
   name: 'TareasView',
@@ -413,11 +539,18 @@ export default {
         proyecto: '',
         desarrolladorAsignado: '',
         tiempoEstimadoHoras: null,
-        fechaEstimadaFin: ''
+        fechaEstimadaFin: '',
+        fechaEstimadaInicio: '',
+        tiempoInvertidoHoras: 0,
+        fechaRealInicio: '',
+        fechaRealFin: ''
       },
       
       // Input para habilidades
       skillInput: '',
+      
+      // Habilidades disponibles
+      availableSkills: [],
       
       // Tarea seleccionada para ver detalles
       selectedTask: null,
@@ -432,6 +565,22 @@ export default {
       return this.user && this.user.rol === 'admin';
     }
   },
+  watch: {
+    // Watcher para establecer fechas automáticamente cuando cambia el estado
+    'taskForm.estado'(newEstado, oldEstado) {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Si cambia a "en curso" y no tiene fecha real de inicio, establecerla
+      if (newEstado === 'en curso' && oldEstado !== 'en curso' && !this.taskForm.fechaRealInicio) {
+        this.taskForm.fechaRealInicio = today;
+      }
+      
+      // Si cambia a "completada" y no tiene fecha real de fin, establecerla
+      if (newEstado === 'completada' && oldEstado !== 'completada' && !this.taskForm.fechaRealFin) {
+        this.taskForm.fechaRealFin = today;
+      }
+    }
+  },
   async mounted() {
     this.taskModalInstance = new Modal(document.getElementById('taskModal'));
     this.viewModalInstance = new Modal(document.getElementById('viewTaskModal'));
@@ -444,6 +593,7 @@ export default {
     // Cargar datos iniciales
     await this.loadProjects();
     await this.loadUsers();
+    await this.loadSkills();
     await this.loadTasks();
   },
   methods: {
@@ -472,43 +622,91 @@ export default {
       }
     },
     
+    // Cargar habilidades
+    async loadSkills() {
+      try {
+        const response = await SkillsService.getSkills();
+        this.availableSkills = response.data || [];
+        console.log('🔍 Habilidades cargadas desde el backend:', this.availableSkills);
+      } catch (error) {
+        console.error('Error cargando habilidades:', error);
+        this.availableSkills = [];
+      }
+    },
+    
     // Cargar tareas
     async loadTasks() {
       this.loading = true;
       try {
-        // Asegurar que los proyectos estén cargados
-        if (this.projects.length === 0) {
-          console.log('🔍 Cargando proyectos primero...');
-          await this.loadProjects();
-        }
+        console.log('🔍 Usuario es admin?', this.isUserAdmin);
         
-        console.log('🔍 Proyectos disponibles:', this.projects.length);
-        console.log('🔍 Proyecto seleccionado:', this.selectedProject);
-        
-        if (this.selectedProject) {
-          // Cargar tareas de un proyecto específico
-          console.log('🔍 Cargando tareas SOLO para proyecto:', this.selectedProject);
-          const tasks = await TaskService.getTasksByProject(this.selectedProject);
-          console.log('🔍 Tareas cargadas para proyecto específico:', tasks);
-          this.tasks = tasks || [];
-        } else {
-          // Cargar todas las tareas (de todos los proyectos)
-          console.log('🔍 Cargando tareas de TODOS los proyectos');
-          this.tasks = [];
-          for (const project of this.projects) {
-            try {
-              console.log(`🔍 Cargando tareas del proyecto: ${project.nombre} (${project._id})`);
-              const tasks = await TaskService.getTasksByProject(project._id);
-              if (tasks && tasks.length > 0) {
-                console.log(`🔍 Encontradas ${tasks.length} tareas para ${project.nombre}`);
-                this.tasks = this.tasks.concat(tasks);
-              } else {
-                console.log(`🔍 No hay tareas para ${project.nombre}`);
+        if (this.isUserAdmin) {
+          // Lógica para administradores: cargar todos los proyectos y tareas
+          if (this.projects.length === 0) {
+            console.log('🔍 Cargando proyectos primero...');
+            await this.loadProjects();
+          }
+          
+          console.log('🔍 Proyectos disponibles:', this.projects.length);
+          console.log('🔍 Proyecto seleccionado:', this.selectedProject);
+          
+          if (this.selectedProject) {
+            // Cargar tareas de un proyecto específico
+            console.log('🔍 Cargando tareas SOLO para proyecto:', this.selectedProject);
+            const tasks = await TaskService.getTasksByProject(this.selectedProject);
+            console.log('🔍 Tareas cargadas para proyecto específico:', tasks);
+            this.tasks = tasks || [];
+          } else {
+            // Cargar todas las tareas (de todos los proyectos)
+            console.log('🔍 Cargando tareas de TODOS los proyectos');
+            this.tasks = [];
+            for (const project of this.projects) {
+              try {
+                console.log(`🔍 Cargando tareas del proyecto: ${project.name} (${project._id})`);
+                const tasks = await TaskService.getTasksByProject(project._id);
+                if (tasks && tasks.length > 0) {
+                  console.log(`🔍 Encontradas ${tasks.length} tareas para ${project.name}`);
+                  this.tasks = this.tasks.concat(tasks);
+                } else {
+                  console.log(`🔍 No hay tareas para ${project.name}`);
+                }
+              } catch (error) {
+                console.error(`Error cargando tareas del proyecto ${project._id}:`, error);
               }
-            } catch (error) {
-              console.error(`Error cargando tareas del proyecto ${project._id}:`, error);
             }
           }
+        } else {
+          // Lógica para usuarios normales: cargar solo sus tareas asignadas
+          console.log('🔍 Cargando tareas del usuario actual:', this.user._id);
+          const userTasks = await TaskService.getTasksByDeveloper(this.user._id);
+          console.log('🔍 Tareas del usuario cargadas:', userTasks);
+          console.log('🔍 Primera tarea completa:', userTasks && userTasks[0] ? userTasks[0] : 'No hay tareas');
+          console.log('🔍 Campo proyecto de la primera tarea:', userTasks && userTasks[0] ? userTasks[0].proyecto : 'No hay tareas');
+          this.tasks = userTasks || [];
+          
+          // Para usuarios normales, las tareas ya vienen con el proyecto populado desde el backend
+          // Extraer proyectos únicos de las tareas (ya vienen con la información completa)
+          const uniqueProjects = new Map();
+          this.tasks.forEach(task => {
+            console.log('🔍 Procesando tarea:', task.descripcion, 'Proyecto:', task.proyecto);
+            if (task.proyecto && task.proyecto._id) {
+              // Mapear el proyecto populado al formato que espera el frontend
+              const mappedProject = {
+                _id: task.proyecto._id,
+                name: task.proyecto.nombre, // El backend envía 'nombre', lo mapeamos a 'name'
+                nombre: task.proyecto.nombre // Mantener también el original
+              };
+              uniqueProjects.set(task.proyecto._id, mappedProject);
+              console.log('🔍 Proyecto agregado al mapa:', mappedProject);
+            } else {
+              console.log('🔍 Tarea sin proyecto válido:', task);
+            }
+          });
+          
+          this.projects = Array.from(uniqueProjects.values());
+          console.log('🔍 Proyectos extraídos de las tareas del usuario:', this.projects.length);
+          console.log('🔍 Proyectos finales:', this.projects);
+          console.log('🔍 Proyectos mapeados:', this.projects.map(p => ({ id: p._id, name: p.name || p.nombre })));
         }
         
         console.log('🔍 Total de tareas cargadas:', this.tasks.length);
@@ -524,7 +722,14 @@ export default {
     // Manejar cambio de proyecto
     onProjectChange() {
       console.log('🔍 Proyecto seleccionado:', this.selectedProject);
-      this.loadTasks();
+      if (this.isUserAdmin) {
+        // Solo los admins pueden filtrar por proyecto específico
+        this.loadTasks();
+      } else {
+        // Para usuarios normales, no aplicar filtro de proyecto (ya que solo ven sus tareas)
+        console.log('🔍 Usuario no admin - ignorando filtro de proyecto');
+        this.filterTasks();
+      }
     },
     
     // Filtrar tareas
@@ -532,7 +737,16 @@ export default {
       this.filteredTasks = this.tasks.filter(task => {
         const statusMatch = !this.selectedStatus || task.estado === this.selectedStatus;
         const priorityMatch = !this.selectedPriority || task.prioridad === this.selectedPriority;
-        return statusMatch && priorityMatch;
+        
+        // Para usuarios no admin, también aplicar filtro de proyecto si está seleccionado
+        let projectMatch = true;
+        if (!this.isUserAdmin && this.selectedProject) {
+          // Manejar tanto proyecto populado como ID
+          const taskProjectId = typeof task.proyecto === 'object' ? task.proyecto._id : task.proyecto;
+          projectMatch = taskProjectId === this.selectedProject;
+        }
+        
+        return statusMatch && priorityMatch && projectMatch;
       });
     },
     
@@ -546,6 +760,22 @@ export default {
     // Abrir modal de edición
     editTask(task) {
       this.isEditing = true;
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Establecer fechas reales automáticamente según el estado actual
+      let fechaRealInicio = task.fechaRealInicio ? this.formatDateForInput(task.fechaRealInicio) : '';
+      let fechaRealFin = task.fechaRealFin ? this.formatDateForInput(task.fechaRealFin) : '';
+      
+      // Si está en curso o completada y no tiene fecha real de inicio, establecerla
+      if ((task.estado === 'en curso' || task.estado === 'completada') && !fechaRealInicio) {
+        fechaRealInicio = today;
+      }
+      
+      // Si está completada y no tiene fecha real de fin, establecerla
+      if (task.estado === 'completada' && !fechaRealFin) {
+        fechaRealFin = today;
+      }
+      
       this.taskForm = {
         _id: task._id, // Guardar el ID de la tarea
         descripcion: task.descripcion || '',
@@ -556,7 +786,11 @@ export default {
         proyecto: task.proyecto || '',
         desarrolladorAsignado: task.desarrolladorAsignado || '',
         tiempoEstimadoHoras: task.tiempoEstimadoHoras || null,
-        fechaEstimadaFin: task.fechaEstimadaFin ? this.formatDateForInput(task.fechaEstimadaFin) : ''
+        fechaEstimadaFin: task.fechaEstimadaFin ? this.formatDateForInput(task.fechaEstimadaFin) : '',
+        fechaEstimadaInicio: task.fechaEstimadaInicio ? this.formatDateForInput(task.fechaEstimadaInicio) : '',
+        tiempoInvertidoHoras: task.tiempoInvertidoHoras || 0,
+        fechaRealInicio: fechaRealInicio,
+        fechaRealFin: fechaRealFin
       };
       this.taskModalInstance.show();
     },
@@ -611,7 +845,11 @@ export default {
             estado: this.taskForm.estado,
             desarrolladorAsignado: this.taskForm.desarrolladorAsignado || null,
             tiempoEstimadoHoras: this.taskForm.tiempoEstimadoHoras || null,
-            fechaEstimadaFin: this.taskForm.fechaEstimadaFin || null
+            fechaEstimadaFin: this.taskForm.fechaEstimadaFin || null,
+            fechaEstimadaInicio: this.taskForm.fechaEstimadaInicio || null,
+            tiempoInvertidoHoras: this.taskForm.tiempoInvertidoHoras || 0,
+            fechaRealInicio: this.taskForm.fechaRealInicio || null,
+            fechaRealFin: this.taskForm.fechaRealFin || null
           };
           console.log('Actualizando tarea:', this.taskForm._id, updateData);
           await TaskService.updateTask(this.taskForm._id, updateData);
@@ -631,7 +869,11 @@ export default {
             estado: this.taskForm.estado,
             desarrolladorAsignado: this.taskForm.desarrolladorAsignado || null,
             tiempoEstimadoHoras: this.taskForm.tiempoEstimadoHoras || null,
-            fechaEstimadaFin: this.taskForm.fechaEstimadaFin || null
+            fechaEstimadaFin: this.taskForm.fechaEstimadaFin || null,
+            fechaEstimadaInicio: this.taskForm.fechaEstimadaInicio || null,
+            tiempoInvertidoHoras: this.taskForm.tiempoInvertidoHoras || 0,
+            fechaRealInicio: this.taskForm.fechaRealInicio || null,
+            fechaRealFin: this.taskForm.fechaRealFin || null
           };
           
           console.log('Creando tarea para proyecto:', projectId);
@@ -673,6 +915,13 @@ export default {
       }
     },
     
+    // Agregar habilidad desde la lista disponible
+    addSkillFromList(skill) {
+      if (!this.taskForm.habilidadesRequeridas.includes(skill)) {
+        this.taskForm.habilidadesRequeridas.push(skill);
+      }
+    },
+    
     // Remover habilidad
     removeSkill(index) {
       this.taskForm.habilidadesRequeridas.splice(index, 1);
@@ -701,7 +950,11 @@ export default {
         proyecto: '',
         desarrolladorAsignado: '',
         tiempoEstimadoHoras: null,
-        fechaEstimadaFin: ''
+        fechaEstimadaFin: '',
+        fechaEstimadaInicio: '',
+        tiempoInvertidoHoras: 0,
+        fechaRealInicio: '',
+        fechaRealFin: ''
       };
       this.skillInput = '';
       this.errorMessage = '';
@@ -709,22 +962,46 @@ export default {
     
     // Utilidades
     getProjectName(projectId) {
+      console.log('🔍 getProjectName llamado con:', projectId, 'Tipo:', typeof projectId);
+      
       if (!projectId) {
         console.log('🔍 getProjectName: projectId es null/undefined');
         return 'Sin proyecto';
       }
       
+      // Si projectId es un objeto (proyecto populado), usar directamente
+      if (typeof projectId === 'object' && projectId._id) {
+        console.log('🔍 getProjectName: proyecto populado encontrado:', projectId);
+        console.log('🔍 Campos del proyecto populado:', Object.keys(projectId));
+        // El backend envía el campo como 'nombre', no 'name'
+        const projectName = projectId.nombre || projectId.name || 'Proyecto sin nombre';
+        console.log('🔍 Nombre del proyecto populado (nombre):', projectId.nombre);
+        console.log('🔍 Nombre del proyecto populado (name):', projectId.name);
+        console.log('🔍 Nombre final del proyecto populado:', projectName);
+        return projectName;
+      }
+      
+      // Si projectId es un string (ID), buscar en la lista de proyectos
       const project = this.projects.find(p => p._id === projectId);
-      console.log('🔍 getProjectName:', {
+      console.log('🔍 getProjectName - búsqueda en projects:', {
         projectId,
         projectsCount: this.projects.length,
         projectFound: !!project,
-        projectName: project?.name,
+        projectName: project?.name || project?.nombre,
         projectObject: project,
-        allProjects: this.projects
+        allProjects: this.projects,
+        isUserAdmin: this.isUserAdmin
       });
       
-      return project ? project.name : 'Proyecto no encontrado';
+      if (project) {
+        const projectName = project.nombre || project.name || 'Proyecto sin nombre';
+        console.log('🔍 Nombre del proyecto encontrado:', projectName);
+        return projectName;
+      }
+      
+      // Si no se encuentra el proyecto, mostrar el ID como fallback
+      console.log('🔍 Proyecto no encontrado, usando fallback');
+      return `Proyecto (${projectId.substring(0, 8)}...)`;
     },
     
     getStatusClass(status) {
@@ -777,7 +1054,7 @@ export default {
 
     // Métodos de asignación automática
     async runAutoAssignment() {
-      console.log('🔍 Tareas - Iniciando asignación automática...');
+      console.log('🔍 Tareas - Iniciando asignación automática con calendario...');
       console.log('🔍 Tareas - Usuario actual:', this.user);
       console.log('🔍 Tareas - Es admin?', this.isUserAdmin);
       
@@ -786,40 +1063,57 @@ export default {
       
       try {
         console.log('🔍 Tareas - Proyectos disponibles:', this.projects.length);
-        console.log('🔍 Tareas - Usuarios disponibles:', this.users.length);
         
-        // Obtener todas las tareas sin asignar
-        const allTasks = [];
+        // Ejecutar asignación para cada proyecto usando el nuevo servicio
         for (const project of this.projects) {
-          console.log('🔍 Tareas - Cargando tareas del proyecto:', project.name);
-          const projectTasks = await TaskService.getTasksByProject(project._id);
-          console.log('🔍 Tareas - Respuesta del servicio:', projectTasks);
+          console.log('🔍 Tareas - Procesando proyecto:', project.name, 'ID:', project._id);
           
-          // Verificar que projectTasks existe y es un array
-          if (projectTasks && Array.isArray(projectTasks)) {
-            const unassignedTasks = projectTasks.filter(task => !task.desarrolladorAsignado);
-            allTasks.push(...unassignedTasks);
-            console.log('🔍 Tareas - Tareas sin asignar en este proyecto:', unassignedTasks.length);
-          } else {
-            console.log('🔍 Tareas - No hay tareas en este proyecto o formato incorrecto:', projectTasks);
+          try {
+            // Llamar al endpoint del backend para asignación automática usando el nuevo servicio
+            const resultado = await AssignmentService.runAutomaticAssignment(project._id);
+            
+            console.log('🔍 Tareas - Resultado asignación proyecto desde backend:', resultado);
+            console.log('🔍 Tareas - Tipo de resultado:', typeof resultado);
+            console.log('🔍 Tareas - resultado.resumen:', resultado.resumen);
+            console.log('🔍 Tareas - resultado.resumen.length:', resultado.resumen?.length);
+            console.log('🔍 Tareas - resultado.message:', resultado.message);
+            
+            // Agregar resultados del proyecto
+            if (resultado.resumen && resultado.resumen.length > 0) {
+              console.log('🔍 Tareas - Agregando resultados al array...');
+              this.assignmentResults.push(...resultado.resumen);
+              console.log('🔍 Tareas - assignmentResults después de agregar:', this.assignmentResults);
+            } else {
+              console.log('🔍 Tareas - No hay resultados para agregar para este proyecto');
+            }
+          } catch (error) {
+            console.error('Error en asignación automática para proyecto', project.name, ':', error);
+            // Continuar con el siguiente proyecto aunque uno falle
           }
         }
 
-        console.log('🔍 Tareas - Total tareas sin asignar:', allTasks.length);
-
-        // Ejecutar algoritmo de asignación automática
-        const assignments = this.calculateAutoAssignments(allTasks, this.users);
+        console.log('🔍 Tareas - Total asignaciones calculadas:', this.assignmentResults.length);
         
-        // Aplicar las asignaciones reales a la base de datos
-        if (assignments.length > 0) {
-          await this.applyAssignments(assignments);
+        // Guardar los datos de asignación en localStorage para la vista detallada
+        const assignmentData = {
+          message: "Asignación automática con calendario diario completada",
+          resumen: this.assignmentResults,
+          fechaGeneracion: new Date().toISOString(),
+          proyecto: this.projects[0] // Asumimos que se ejecuta para un proyecto específico
+        };
+        console.log('🔍 Guardando datos de asignación en localStorage:', assignmentData);
+        localStorage.setItem('lastAssignmentData', JSON.stringify(assignmentData));
+        
+        // Recargar las tareas para mostrar los cambios
+        await this.loadTasks();
+        
+        // Mostrar mensaje de éxito
+        if (this.assignmentResults.length > 0) {
+          console.log('✅ Tareas - Asignación automática completada exitosamente');
+        } else {
+          console.log('ℹ️ Tareas - No se encontraron tareas para asignar');
         }
         
-        // Mostrar resultados
-        this.assignmentResults = assignments;
-        
-        console.log('🔍 Tareas - Asignaciones calculadas:', assignments);
-        console.log('🔍 Tareas - Resultados mostrados:', this.assignmentResults.length);
       } catch (error) {
         console.error('Error ejecutando asignación automática:', error);
         alert('Error ejecutando asignación automática: ' + error.message);
@@ -828,104 +1122,13 @@ export default {
       }
     },
 
-    calculateAutoAssignments(tasks, users) {
-      const assignments = [];
-      
-      for (const task of tasks) {
-        let bestMatch = null;
-        let bestScore = 0;
-        
-        for (const user of users) {
-          if (user.rol === 'admin') continue; // No asignar a admins
-          
-          const score = this.calculateCompatibilityScore(task, user);
-          
-          if (score > bestScore) {
-            bestScore = score;
-            bestMatch = user;
-          }
-        }
-        
-        if (bestMatch && bestScore > 30) { // Solo asignar si hay al menos 30% de compatibilidad
-          assignments.push({
-            taskId: task._id,
-            taskDescription: task.descripcion,
-            assignedTo: bestMatch.nombre,
-            score: Math.round(bestScore)
-          });
-        }
-      }
-      
-      return assignments;
-    },
-
-    calculateCompatibilityScore(task, user) {
-      let score = 0;
-      
-      // Verificar disponibilidad (40% del score)
-      const userAvailability = user.disponibilidadSemanal || 0;
-      if (userAvailability > 0) {
-        score += 40;
-      }
-      
-      // Verificar habilidades (60% del score)
-      const taskSkills = task.habilidadesRequeridas || [];
-      const userSkills = user.habilidades || [];
-      
-      if (taskSkills.length > 0 && userSkills.length > 0) {
-        const matchingSkills = taskSkills.filter(skill => 
-          userSkills.some(userSkill => 
-            userSkill.nombre && skill && 
-            userSkill.nombre.toLowerCase().includes(skill.toLowerCase())
-          )
-        );
-        
-        const skillMatchPercentage = (matchingSkills.length / taskSkills.length) * 60;
-        score += skillMatchPercentage;
-      } else if (taskSkills.length === 0) {
-        // Si la tarea no requiere habilidades específicas, dar puntaje base
-        score += 30;
-      }
-      
-      return Math.min(score, 100); // Máximo 100%
-    },
-
     clearAssignmentResults() {
       this.assignmentResults = [];
     },
 
-    async applyAssignments(assignments) {
-      console.log('🔍 Tareas - Aplicando asignaciones a la base de datos...');
-      console.log('🔍 Tareas - Asignaciones a aplicar:', assignments);
-      
-      for (const assignment of assignments) {
-        try {
-          // Buscar el usuario asignado para obtener su ID
-          const assignedUser = this.users.find(user => user.nombre === assignment.assignedTo);
-          console.log('🔍 Tareas - Usuario encontrado:', assignedUser);
-          
-          if (assignedUser) {
-            console.log('🔍 Tareas - Asignando tarea', assignment.taskId, 'a', assignedUser.nombre, 'ID:', assignedUser._id);
-            
-            // Actualizar la tarea con el desarrollador asignado
-            const updateResult = await TaskService.updateTask(assignment.taskId, {
-              desarrolladorAsignado: assignedUser._id
-            });
-            
-            console.log('✅ Tareas - Tarea asignada exitosamente:', updateResult);
-          } else {
-            console.warn('⚠️ Tareas - Usuario no encontrado:', assignment.assignedTo);
-            console.log('🔍 Tareas - Usuarios disponibles:', this.users.map(u => ({ nombre: u.nombre, _id: u._id })));
-          }
-        } catch (error) {
-          console.error('❌ Tareas - Error asignando tarea:', assignment.taskId, error);
-          alert('Error asignando tarea: ' + error.message);
-        }
-      }
-      
-      // Recargar las tareas para mostrar los cambios
-      await this.loadTasks();
-      console.log('🔄 Tareas - Tareas recargadas después de asignaciones');
+    viewDetailedSummary() {
+      // Navegar a la vista de resumen detallado
+      this.$router.push('/asignacion-resumen');
     }
   }
 }
@@ -1080,15 +1283,46 @@ export default {
   border-radius: 0.5rem;
   padding: 1rem;
   border-left: 4px solid #28a745;
+  transition: all 0.3s ease;
+}
+
+.assignment-item:hover {
+  background: #e9ecef;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .assignment-info strong {
   color: #495057;
   font-size: 1.1rem;
+  line-height: 1.4;
 }
 
-.assignment-score .badge {
+.assignment-info .text-success {
+  color: #198754 !important;
+  font-weight: 500;
+}
+
+.assignment-info .text-warning {
+  color: #fd7e14 !important;
+  font-weight: 500;
+}
+
+.assignment-info .text-muted {
+  color: #6c757d !important;
+}
+
+.assignment-info .text-info {
+  color: #0dcaf0 !important;
+}
+
+.assignment-status .badge {
   font-size: 0.9rem;
+  padding: 0.5em 0.75em;
+}
+
+.assignment-info small {
+  font-size: 0.8rem;
 }
 
 .spinning {

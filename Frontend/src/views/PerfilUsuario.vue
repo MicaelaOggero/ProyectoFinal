@@ -47,7 +47,7 @@
                   </li>
                   <li><strong>Email:</strong> {{ user.email }}</li>
                   <li><strong>Años de Experiencia:</strong> {{ user.aniosExperiencia || 'No especificado' }}</li>
-                  <li><strong>Disponibilidad:</strong> {{ user.disponibilidadSemanal }} hs/semana</li>
+                  <li><strong>Disponibilidad:</strong> {{ user.horasSemanalMaxima }} hs/semana</li>
                   <li><strong>Costo por Hora:</strong> ${{ user.costoPorHora }}</li>
                 </ul>
               </div>
@@ -132,7 +132,7 @@
                 <p class="text-muted mb-0">Habilidades</p>
               </div>
               <div class="mb-3">
-                <h3 class="text-success">{{ user.disponibilidadSemanal }}</h3>
+                <h3 class="text-success">{{ user.horasSemanalMaxima }}</h3>
                 <p class="text-muted mb-0">Horas/Semana</p>
               </div>
               <div class="mb-3">
@@ -212,12 +212,12 @@
                   >
                 </div>
                 <div class="col-md-6 mb-3">
-                  <label for="editDisponibilidadSemanal" class="form-label">Disponibilidad Semanal (horas)</label>
+                  <label for="editHorasSemanalMaxima" class="form-label">Horas Semanales Máximas</label>
                   <input 
                     type="number" 
                     class="form-control" 
-                    id="editDisponibilidadSemanal" 
-                    v-model="editForm.disponibilidadSemanal"
+                    id="editHorasSemanalMaxima" 
+                    v-model="editForm.horasSemanalMaxima"
                     min="1"
                     max="168"
                   >
@@ -339,7 +339,7 @@ export default {
       editForm: {
         dni: '',
         aniosExperiencia: null,
-        disponibilidadSemanal: null,
+        horasSemanalMaxima: null,
         costoPorHora: null,
         habilidades: [],
         preferencias: ''
@@ -433,7 +433,7 @@ export default {
       this.editForm = {
         dni: this.user.dni || '',
         aniosExperiencia: this.user.aniosExperiencia || null,
-        disponibilidadSemanal: this.user.disponibilidadSemanal || null,
+        horasSemanalMaxima: this.user.horasSemanalMaxima || null,
         costoPorHora: this.user.costoPorHora || null,
         habilidades: this.user.habilidades ? [...this.user.habilidades] : [{ nombre: '', nivel: '' }],
         preferencias: this.user.preferencias || ''
@@ -490,7 +490,7 @@ export default {
         const userData = {
           dni: this.editForm.dni,
           aniosExperiencia: this.editForm.aniosExperiencia,
-          disponibilidadSemanal: this.editForm.disponibilidadSemanal,
+          horasSemanalMaxima: this.editForm.horasSemanalMaxima,
           costoPorHora: this.editForm.costoPorHora,
           habilidades: validSkills,
           preferencias: this.editForm.preferencias

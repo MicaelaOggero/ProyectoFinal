@@ -25,6 +25,12 @@
           Personas
         </router-link>
       </li>
+      <li>
+        <router-link to="/asignacion-resumen" class="nav-link link-dark" active-class="active">
+          <i class="bi bi-clipboard-data me-2"></i>
+          Resumen Asignación
+        </router-link>
+      </li>
     </ul>
     <hr>
   </div>

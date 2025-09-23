@@ -81,6 +81,27 @@ class TaskService {
       throw error;
     }
   }
+
+  // Asignación automática de tareas por semana (usando el endpoint del backend)
+  async asignarAutomaticoPorSemana(projectId) {
+    try {
+      console.log('🔍 TaskService - Llamando al endpoint de asignación automática para proyecto:', projectId);
+      console.log('🔍 TaskService - URL completa:', `${API_URL}/task/asignar-automatico/${projectId}`);
+      
+      const response = await axios.post(`${API_URL}/task/asignar-automatico/${projectId}`);
+      
+      console.log('🔍 TaskService - Respuesta completa del backend:', response);
+      console.log('🔍 TaskService - response.data:', response.data);
+      console.log('🔍 TaskService - response.status:', response.status);
+      console.log('🔍 TaskService - Tipo de response.data:', typeof response.data);
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error en asignarAutomaticoPorSemana:', error);
+      console.error('Error response:', error.response);
+      throw error;
+    }
+  }
 }
 
 export default new TaskService(); 

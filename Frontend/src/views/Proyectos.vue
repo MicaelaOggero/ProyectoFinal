@@ -2,7 +2,7 @@
   <div class="container-fluid">
     <!-- Encabezado de página -->
     <div class="d-flex justify-content-between align-items-center mt-3 mb-4">
-      <h1>Gestión de Proyectos</h1>
+      <h1>{{ isUserAdmin ? 'Proyectos' : 'Mis Proyectos' }}</h1>
       <div class="d-flex align-items-center gap-3">
         <button v-if="currentUser && isUserAdmin" class="btn btn-primary" @click="openCreateModal">
           Crear Nuevo Proyecto
@@ -35,8 +35,13 @@
         </div>
         
         <div v-else-if="projects.length === 0" class="text-center py-5">
-          <h5>No hay proyectos disponibles</h5>
-          <p class="text-muted">{{ isUserAdmin ? 'Crea tu primer proyecto usando el botón "Crear Nuevo Proyecto"' : 'No tienes permisos para crear proyectos. Contacta a un administrador.' }}</p>
+          <h5>{{ isUserAdmin ? 'No hay proyectos disponibles' : 'No tienes proyectos asignados' }}</h5>
+          <p class="text-muted">
+            {{ isUserAdmin 
+              ? 'Crea tu primer proyecto usando el botón "Crear Nuevo Proyecto"' 
+              : 'Los proyectos aparecerán aquí cuando te asignen tareas. Contacta a un administrador si crees que deberías tener proyectos asignados.' 
+            }}
+          </p>
         </div>
         
         <table v-else class="table table-hover">
@@ -164,6 +169,7 @@
 import { Modal } from 'bootstrap';
 import ProjectService from '@/services/project.service.js';
 import AuthService from '@/services/auth.service.js';
+import TaskService from '@/services/task.service.js';
 import LoginModal from '@/components/LoginModal.vue';
 
 export default {
@@ -255,11 +261,56 @@ export default {
       this.loading = true;
       try {
         console.log('🔍 Proyectos - Cargando proyectos...');
-        const response = await ProjectService.getProjects();
-        console.log('🔍 Proyectos - Respuesta del servicio:', response);
-        console.log('🔍 Proyectos - Proyectos recibidos:', response.data);
-        console.log('🔍 Proyectos - Cantidad de proyectos:', response.data.length);
-        this.projects = response.data;
+        console.log('🔍 Proyectos - Usuario es admin?', this.isUserAdmin);
+
+        if (this.isUserAdmin) {
+          // Para administradores: cargar todos los proyectos
+          const response = await ProjectService.getProjects();
+          console.log('🔍 Proyectos - Respuesta del servicio:', response);
+          console.log('🔍 Proyectos - Proyectos recibidos:', response.data);
+          console.log('🔍 Proyectos - Cantidad de proyectos:', response.data.length);
+          this.projects = response.data;
+        } else {
+          // Para usuarios normales: cargar solo sus proyectos desde las tareas asignadas
+          console.log('🔍 Proyectos - Cargando proyectos del usuario:', this.currentUser._id);
+          
+          // Cargar tareas del usuario actual
+          const userTasks = await TaskService.getTasksByDeveloper(this.currentUser._id);
+          console.log('🔍 Proyectos - Tareas del usuario cargadas:', userTasks);
+
+          // Para usuarios normales, las tareas ya vienen con el proyecto populado desde el backend
+          // Extraer proyectos únicos de las tareas (ya vienen con la información completa)
+          const uniqueProjects = new Map();
+          if (userTasks) {
+            userTasks.forEach(task => {
+              console.log('🔍 Proyectos - Procesando tarea:', task.descripcion, 'Proyecto:', task.proyecto);
+              if (task.proyecto && task.proyecto._id) {
+                // Mapear el proyecto populado al formato que espera el frontend
+                const mappedProject = {
+                  _id: task.proyecto._id,
+                  name: task.proyecto.nombre, // El backend envía 'nombre', lo mapeamos a 'name'
+                  nombre: task.proyecto.nombre, // Mantener también el original
+                  description: task.proyecto.descripcion || '', // Agregar descripción si está disponible
+                  startDate: task.proyecto.fechaInicio || '',
+                  endDate: task.proyecto.fechaFin || '',
+                  difficulty: task.proyecto.dificultad || 'Media',
+                  priority: task.proyecto.prioridad || 'Media',
+                  status: task.proyecto.estado || 'Activo',
+                  fechaCreacion: task.proyecto.fechaCreacion || new Date().toISOString()
+                };
+                uniqueProjects.set(task.proyecto._id, mappedProject);
+                console.log('🔍 Proyectos - Proyecto agregado al mapa:', mappedProject);
+              } else {
+                console.log('🔍 Proyectos - Tarea sin proyecto válido:', task);
+              }
+            });
+          }
+          
+          this.projects = Array.from(uniqueProjects.values());
+          console.log('🔍 Proyectos - Proyectos del usuario cargados:', this.projects.length);
+          console.log('🔍 Proyectos - Proyectos finales:', this.projects);
+        }
+        
         this.clearAlert();
       } catch (error) {
         console.error('Error loading projects:', error);

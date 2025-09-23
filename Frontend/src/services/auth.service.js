@@ -67,7 +67,7 @@ class AuthService {
         dni: profileData.dni,
         rol: profileData.rol || 'user',
         aniosExperiencia: profileData.aniosExperiencia || 0,
-        disponibilidadSemanal: profileData.disponibilidadSemanal || 40,
+        horasSemanalMaxima: profileData.horasSemanalMaxima || 40,
         costoPorHora: profileData.costoPorHora || 0,
         preferencias: profileData.preferencias || '',
         habilidades: profileData.habilidades || []

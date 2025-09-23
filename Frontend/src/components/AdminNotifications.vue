@@ -73,7 +73,7 @@
                       <h6>Información Profesional</h6>
                       <ul class="list-unstyled">
                         <li><strong>Años de Experiencia:</strong> {{ user.aniosExperiencia }}</li>
-                        <li><strong>Disponibilidad:</strong> {{ user.disponibilidadSemanal }}h/semana</li>
+                        <li><strong>Disponibilidad:</strong> {{ user.horasSemanalMaxima }}h/semana</li>
                         <li><strong>Costo por Hora:</strong> ${{ user.costoPorHora }}</li>
                       </ul>
                     </div>
@@ -155,7 +155,7 @@ export default {
             dni: '12345678',
             rol: 'user',
             aniosExperiencia: 3,
-            disponibilidadSemanal: 40,
+            horasSemanalMaxima: 40,
             costoPorHora: 25,
             habilidades: [
               { nombre: 'JavaScript', nivel: 4 },
@@ -173,7 +173,7 @@ export default {
             dni: '87654321',
             rol: 'user',
             aniosExperiencia: 5,
-            disponibilidadSemanal: 30,
+            horasSemanalMaxima: 30,
             costoPorHora: 35,
             habilidades: [
               { nombre: 'Python', nivel: 5 },

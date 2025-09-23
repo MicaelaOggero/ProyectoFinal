@@ -24,6 +24,24 @@ class UserService {
   getUserById(id) {
     return axios.get(`${API_URL}/user/${id}`);
   }
+
+  // Funciones para manejar el calendario de disponibilidad
+  getUserCalendar(userId, month = null) {
+    const params = month ? { month } : {};
+    return axios.get(`${API_URL}/user/${userId}/calendario`, { params });
+  }
+
+  updateUserCalendar(userId, calendarData) {
+    return axios.put(`${API_URL}/user/${userId}/calendario`, { calendario: calendarData });
+  }
+
+  addCalendarEntry(userId, entry) {
+    return axios.post(`${API_URL}/user/${userId}/calendario`, entry);
+  }
+
+  removeCalendarEntry(userId, date) {
+    return axios.delete(`${API_URL}/user/${userId}/calendario/${date}`);
+  }
 }
 
 export default new UserService();

@@ -2,7 +2,11 @@
   <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mt-3 mb-4">
       <h1>Gestión de Personas</h1>
-      <button class="btn btn-primary" @click="openCreateModal">Añadir Nueva Persona</button>
+      <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-primary" @click="openCreateModal">
+          Añadir Nueva Persona
+        </button>
+      </div>
     </div>
 
     <!-- Tabla de Personas -->
@@ -29,7 +33,7 @@
               <td>{{ person.dni }}</td>
               <td>{{ displaySkills(person.habilidades) }}</td>
               <td>{{ person.aniosExperiencia || 'N/A' }}</td>
-              <td>{{ person.disponibilidadSemanal }}</td>
+              <td>{{ person.horasSemanalMaxima }}</td>
               <td>
                 <button class="btn btn-sm btn-secondary" @click="openEditModal(person)">Editar</button>
                 <button class="btn btn-sm btn-danger ms-2" @click="deletePerson(person._id)">Eliminar</button>
@@ -203,11 +207,7 @@
               </div>
               
               <!-- Debug: Mostrar habilidades cargadas -->
-              <div class="alert alert-info mb-3" v-if="isEditMode">
-                <strong>Debug - Habilidades cargadas:</strong> {{ editablePerson.skills.length }} habilidades
-                <br>
-                <small>{{ JSON.stringify(editablePerson.skills) }}</small>
-              </div>
+              
               <div v-for="(skill, index) in editablePerson.skills" :key="index" class="row align-items-center mb-2">
                 <div class="col-md-6">
                   <select 
@@ -521,7 +521,7 @@ export default {
         name: person.nombre || '',
         dni: person.dni || '',
         role: person.rol || 'Desarrollador',
-        availability: person.disponibilidadSemanal || 40,
+        availability: person.horasSemanalMaxima || 40,
         costPerHour: person.costoPorHora || 0,
         yearsExperience: person.aniosExperiencia || 0,
         skills: (person.habilidades && person.habilidades.length > 0) 
@@ -603,7 +603,7 @@ export default {
         
         // Campos numéricos con valores por defecto
         userData.aniosExperiencia = parseInt(this.editablePerson.yearsExperience) || 0;
-        userData.disponibilidadSemanal = parseInt(this.editablePerson.availability) || 40;
+        userData.horasSemanalMaxima = parseInt(this.editablePerson.availability) || 40;
         userData.costoPorHora = parseFloat(this.editablePerson.costPerHour) || 0;
         
         console.log('🔍 DNI antes de enviar:', this.editablePerson.dni);
@@ -640,7 +640,7 @@ export default {
           password: this.editablePerson.password,
           dni: this.editablePerson.dni || null,
           aniosExperiencia: parseInt(this.editablePerson.yearsExperience) || 0,
-          disponibilidadSemanal: parseInt(this.editablePerson.availability) || 40,
+          horasSemanalMaxima: parseInt(this.editablePerson.availability) || 40,
           costoPorHora: parseFloat(this.editablePerson.costPerHour) || 0,
           habilidades: this.editablePerson.skills && this.editablePerson.skills.length > 0 
             ? this.editablePerson.skills.map(skill => ({
