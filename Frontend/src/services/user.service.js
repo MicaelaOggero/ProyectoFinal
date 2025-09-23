@@ -26,20 +26,21 @@ class UserService {
   }
 
   // Funciones para manejar el calendario de disponibilidad
+  getUserCalendar(userId, month = null) {
+    const params = month ? { month } : {};
+    return axios.get(`${API_URL}/user/${userId}/calendario`, { params });
+  }
+
   updateUserCalendar(userId, calendarData) {
-    return axios.put(`${API_URL}/user/${userId}/calendar`, { calendario: calendarData });
+    return axios.put(`${API_URL}/user/${userId}/calendario`, { calendario: calendarData });
   }
 
   addCalendarEntry(userId, entry) {
-    return axios.post(`${API_URL}/user/${userId}/calendar`, entry);
+    return axios.post(`${API_URL}/user/${userId}/calendario`, entry);
   }
 
   removeCalendarEntry(userId, date) {
-    return axios.delete(`${API_URL}/user/${userId}/calendar/${date}`);
-  }
-
-  getUserCalendar(userId) {
-    return axios.get(`${API_URL}/user/${userId}/calendar`);
+    return axios.delete(`${API_URL}/user/${userId}/calendario/${date}`);
   }
 }
 

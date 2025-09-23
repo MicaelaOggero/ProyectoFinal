@@ -331,6 +331,13 @@
               <button class="btn btn-outline-info btn-sm" @click="goToTasks">
                 <i class="bi bi-list-task me-1"></i>Ver Mis Tareas
               </button>
+              <button 
+                class="btn btn-outline-warning btn-sm" 
+                @click="goToAssignmentSummary"
+                v-if="user && user.rol === 'admin'"
+              >
+                <i class="bi bi-clipboard-data me-1"></i>Resumen Asignación
+              </button>
             </div>
           </div>
         </div>
@@ -724,13 +731,16 @@ export default {
     goToTasks() {
       this.$router.push('/tareas');
     },
+    goToAssignmentSummary() {
+      this.$router.push('/asignacion-resumen');
+    },
     
     async loadUserCalendar() {
       this.calendarLoading = true;
       try {
         console.log('🔍 MiPerfil - Cargando calendario del usuario:', this.user._id);
         const response = await UserService.getUserCalendar(this.user._id);
-        this.userCalendar = response.data || [];
+        this.userCalendar = response.data.calendario || [];
         console.log('🔍 MiPerfil - Calendario cargado:', this.userCalendar);
       } catch (error) {
         console.error('Error loading user calendar:', error);

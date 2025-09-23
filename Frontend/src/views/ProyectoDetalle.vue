@@ -179,31 +179,37 @@
       <div v-if="activeTab === 'equipo'" class="tab-pane active">
         <div class="team-content">
           <div class="team-header">
-            <h3>Equipo del Proyecto</h3>
-            <button class="btn btn-success btn-sm" @click="showAddTeamModal = true">
-              <i class="bi bi-person-plus me-1"></i>
-              Agregar Miembro
-            </button>
+            <h3>Equipo de Trabajo</h3>
+            <div class="team-info">
+              <small class="text-muted">
+                <i class="bi bi-info-circle me-1"></i>
+                Equipo extraído automáticamente de las tareas asignadas
+              </small>
+            </div>
           </div>
           
-          <div v-if="!project?.team || project.team.length === 0" class="no-team">
+          <div v-if="projectTeam.length === 0" class="no-team">
             <i class="bi bi-people fs-1 text-muted"></i>
-            <p>No hay miembros asignados a este proyecto.</p>
-            <button class="btn btn-primary" @click="showAddTeamModal = true">
-              Asignar Primer Miembro
-            </button>
+            <p>No hay desarrolladores asignados a tareas en este proyecto.</p>
+            <p class="text-muted small">El equipo aparecerá automáticamente cuando se asignen tareas a los desarrolladores.</p>
           </div>
           
           <div v-else class="team-grid">
-            <div v-for="member in project.team" :key="member.usuario._id" class="team-member-card">
+            <div v-for="member in projectTeam" :key="member.usuario._id" class="team-member-card">
               <div class="member-avatar">
                 <i class="bi bi-person-circle fs-1"></i>
               </div>
               <div class="member-info">
-                <h6 class="member-name">{{ member.usuario.nombre }} {{ member.usuario.apellido }}</h6>
+                <h6 class="member-name">{{ member.usuario.nombre }}</h6>
                 <span class="member-role">{{ member.rol }}</span>
                 <span class="member-email">{{ member.usuario.email }}</span>
-                <small class="member-date">Asignado: {{ formatDate(member.fechaAsignacion) }}</small>
+                <div class="member-stats">
+                  <span class="tasks-count">
+                    <i class="bi bi-clipboard-check me-1"></i>
+                    {{ member.tareasAsignadas }} {{ member.tareasAsignadas === 1 ? 'tarea' : 'tareas' }}
+                  </span>
+                  <small class="member-date">Asignado: {{ formatDate(member.fechaAsignacion) }}</small>
+                </div>
               </div>
             </div>
           </div>
@@ -285,6 +291,45 @@ export default {
         _id: null
       }
     };
+  },
+  computed: {
+    // Equipo de trabajo extraído de las tareas asignadas
+    projectTeam() {
+      const teamMap = new Map();
+      
+      this.projectTasks.forEach(task => {
+        if (task.desarrolladorAsignado) {
+          let developer;
+          
+          // Si el desarrollador es un objeto populado
+          if (typeof task.desarrolladorAsignado === 'object' && task.desarrolladorAsignado._id) {
+            developer = task.desarrolladorAsignado;
+          } else {
+            // Si es solo un ID, crear un objeto básico
+            developer = {
+              _id: task.desarrolladorAsignado,
+              nombre: 'Desarrollador',
+              email: 'email@ejemplo.com'
+            };
+          }
+          
+          // Agregar al mapa si no existe
+          if (!teamMap.has(developer._id)) {
+            teamMap.set(developer._id, {
+              usuario: developer,
+              rol: 'Desarrollador',
+              fechaAsignacion: new Date().toISOString(),
+              tareasAsignadas: 1
+            });
+          } else {
+            // Incrementar contador de tareas
+            teamMap.get(developer._id).tareasAsignadas++;
+          }
+        }
+      });
+      
+      return Array.from(teamMap.values());
+    }
   },
   async mounted() {
     await this.loadProject();
@@ -485,9 +530,19 @@ export default {
       return 'Pendiente';
     },
     
-    getDeveloperName(developerId) {
-      // Por ahora retornamos el ID, pero podríamos buscar en una lista de usuarios
-      return developerId || 'Sin asignar';
+    getDeveloperName(developer) {
+      // Si no hay desarrollador asignado
+      if (!developer) {
+        return 'Sin asignar';
+      }
+      
+      // Si el desarrollador es un objeto populado (viene del backend)
+      if (typeof developer === 'object' && developer._id) {
+        return developer.nombre || developer.email || 'Desarrollador';
+      }
+      
+      // Si es solo un ID (string)
+      return developer || 'Sin asignar';
     }
   }
 }
@@ -812,8 +867,13 @@ export default {
 .team-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 2rem;
+}
+
+.team-info {
+  text-align: right;
+  max-width: 300px;
 }
 
 .no-team {
@@ -867,6 +927,25 @@ export default {
 .member-date {
   color: #adb5bd;
   font-size: 0.75rem;
+}
+
+.member-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.tasks-count {
+  background: #e9ecef;
+  color: #495057;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
 }
 
 /* Modal */

@@ -230,6 +230,27 @@
               <div class="row">
                 <div class="col-md-6 mb-3">
                   <label for="taskSkills" class="form-label">Habilidades Requeridas *</label>
+                  
+                  <!-- Lista de habilidades disponibles -->
+                  <div v-if="availableSkills.length > 0" class="mb-3">
+                    <small class="text-muted">Habilidades disponibles:</small>
+                    <div class="d-flex flex-wrap gap-1 mt-1">
+                      <button 
+                        type="button" 
+                        class="btn btn-sm btn-outline-primary"
+                        v-for="skill in availableSkills" 
+                        :key="skill._id || skill"
+                        @click="addSkillFromList(skill.nombre || skill)"
+                        :disabled="taskForm.habilidadesRequeridas.includes(skill.nombre || skill)"
+                        :title="taskForm.habilidadesRequeridas.includes(skill.nombre || skill) ? 'Ya seleccionada' : 'Agregar habilidad'"
+                      >
+                        <i class="bi bi-plus-circle me-1"></i>
+                        {{ skill.nombre || skill }}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <!-- Input manual como alternativa -->
                   <div class="input-group">
                     <input 
                       type="text" 
@@ -237,26 +258,31 @@
                       id="taskSkills" 
                       v-model="skillInput"
                       @keyup.enter="addSkill"
-                      placeholder="Escribir habilidad y presionar Enter"
+                      placeholder="O escribir habilidad personalizada y presionar Enter"
                     >
                     <button type="button" class="btn btn-outline-secondary" @click="addSkill">
                       <i class="bi bi-plus"></i>
                     </button>
                   </div>
+                  
+                  <!-- Habilidades seleccionadas -->
                   <div class="mt-2">
-                    <span 
-                      v-for="(skill, index) in taskForm.habilidadesRequeridas" 
-                      :key="index" 
-                      class="badge bg-primary me-1 mb-1"
-                    >
-                      {{ skill }}
-                      <button 
-                        type="button" 
-                        class="btn-close btn-close-white ms-1" 
-                        @click="removeSkill(index)"
-                        style="font-size: 0.7em;"
-                      ></button>
-                    </span>
+                    <small class="text-muted">Habilidades seleccionadas:</small>
+                    <div class="mt-1">
+                      <span 
+                        v-for="(skill, index) in taskForm.habilidadesRequeridas" 
+                        :key="index" 
+                        class="badge bg-primary me-1 mb-1"
+                      >
+                        {{ skill }}
+                        <button 
+                          type="button" 
+                          class="btn-close btn-close-white ms-1" 
+                          @click="removeSkill(index)"
+                          style="font-size: 0.7em;"
+                        ></button>
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div class="col-md-6 mb-3">
@@ -347,24 +373,29 @@
                 </div>
               </div>
 
-              <div class="row">
+              <!-- Las fechas reales se toman automáticamente según el estado de la tarea -->
+              <div v-if="taskForm.estado === 'en curso' || taskForm.estado === 'completada'" class="row">
                 <div class="col-md-6 mb-3">
-                  <label for="taskRealStart" class="form-label">Fecha Real de Inicio</label>
+                  <label class="form-label">Fecha Real de Inicio</label>
                   <input 
                     type="date" 
                     class="form-control" 
-                    id="taskRealStart" 
                     v-model="taskForm.fechaRealInicio"
+                    readonly
+                    style="background-color: #f8f9fa;"
                   >
+                  <small class="form-text text-muted">Se establece automáticamente al cambiar a "En Curso"</small>
                 </div>
-                <div class="col-md-6 mb-3">
-                  <label for="taskRealEnd" class="form-label">Fecha Real de Fin</label>
+                <div class="col-md-6 mb-3" v-if="taskForm.estado === 'completada'">
+                  <label class="form-label">Fecha Real de Fin</label>
                   <input 
                     type="date" 
                     class="form-control" 
-                    id="taskRealEnd" 
                     v-model="taskForm.fechaRealFin"
+                    readonly
+                    style="background-color: #f8f9fa;"
                   >
+                  <small class="form-text text-muted">Se establece automáticamente al cambiar a "Completada"</small>
                 </div>
               </div>
 
@@ -469,6 +500,8 @@ import TaskService from '../services/task.service.js';
 import ProjectService from '../services/project.service.js';
 import UserService from '../services/user.service.js';
 import AuthService from '../services/auth.service.js';
+import AssignmentService from '../services/assignment.service.js';
+import SkillsService from '../services/skills.service.js';
 
 export default {
   name: 'TareasView',
@@ -516,6 +549,9 @@ export default {
       // Input para habilidades
       skillInput: '',
       
+      // Habilidades disponibles
+      availableSkills: [],
+      
       // Tarea seleccionada para ver detalles
       selectedTask: null,
       
@@ -527,6 +563,22 @@ export default {
   computed: {
     isUserAdmin() {
       return this.user && this.user.rol === 'admin';
+    }
+  },
+  watch: {
+    // Watcher para establecer fechas automáticamente cuando cambia el estado
+    'taskForm.estado'(newEstado, oldEstado) {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Si cambia a "en curso" y no tiene fecha real de inicio, establecerla
+      if (newEstado === 'en curso' && oldEstado !== 'en curso' && !this.taskForm.fechaRealInicio) {
+        this.taskForm.fechaRealInicio = today;
+      }
+      
+      // Si cambia a "completada" y no tiene fecha real de fin, establecerla
+      if (newEstado === 'completada' && oldEstado !== 'completada' && !this.taskForm.fechaRealFin) {
+        this.taskForm.fechaRealFin = today;
+      }
     }
   },
   async mounted() {
@@ -541,6 +593,7 @@ export default {
     // Cargar datos iniciales
     await this.loadProjects();
     await this.loadUsers();
+    await this.loadSkills();
     await this.loadTasks();
   },
   methods: {
@@ -566,6 +619,18 @@ export default {
       } catch (error) {
         console.error('Error cargando usuarios:', error);
         this.users = [];
+      }
+    },
+    
+    // Cargar habilidades
+    async loadSkills() {
+      try {
+        const response = await SkillsService.getSkills();
+        this.availableSkills = response.data || [];
+        console.log('🔍 Habilidades cargadas desde el backend:', this.availableSkills);
+      } catch (error) {
+        console.error('Error cargando habilidades:', error);
+        this.availableSkills = [];
       }
     },
     
@@ -695,6 +760,22 @@ export default {
     // Abrir modal de edición
     editTask(task) {
       this.isEditing = true;
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Establecer fechas reales automáticamente según el estado actual
+      let fechaRealInicio = task.fechaRealInicio ? this.formatDateForInput(task.fechaRealInicio) : '';
+      let fechaRealFin = task.fechaRealFin ? this.formatDateForInput(task.fechaRealFin) : '';
+      
+      // Si está en curso o completada y no tiene fecha real de inicio, establecerla
+      if ((task.estado === 'en curso' || task.estado === 'completada') && !fechaRealInicio) {
+        fechaRealInicio = today;
+      }
+      
+      // Si está completada y no tiene fecha real de fin, establecerla
+      if (task.estado === 'completada' && !fechaRealFin) {
+        fechaRealFin = today;
+      }
+      
       this.taskForm = {
         _id: task._id, // Guardar el ID de la tarea
         descripcion: task.descripcion || '',
@@ -708,8 +789,8 @@ export default {
         fechaEstimadaFin: task.fechaEstimadaFin ? this.formatDateForInput(task.fechaEstimadaFin) : '',
         fechaEstimadaInicio: task.fechaEstimadaInicio ? this.formatDateForInput(task.fechaEstimadaInicio) : '',
         tiempoInvertidoHoras: task.tiempoInvertidoHoras || 0,
-        fechaRealInicio: task.fechaRealInicio ? this.formatDateForInput(task.fechaRealInicio) : '',
-        fechaRealFin: task.fechaRealFin ? this.formatDateForInput(task.fechaRealFin) : ''
+        fechaRealInicio: fechaRealInicio,
+        fechaRealFin: fechaRealFin
       };
       this.taskModalInstance.show();
     },
@@ -831,6 +912,13 @@ export default {
       if (skill && !this.taskForm.habilidadesRequeridas.includes(skill)) {
         this.taskForm.habilidadesRequeridas.push(skill);
         this.skillInput = '';
+      }
+    },
+    
+    // Agregar habilidad desde la lista disponible
+    addSkillFromList(skill) {
+      if (!this.taskForm.habilidadesRequeridas.includes(skill)) {
+        this.taskForm.habilidadesRequeridas.push(skill);
       }
     },
     
@@ -976,13 +1064,13 @@ export default {
       try {
         console.log('🔍 Tareas - Proyectos disponibles:', this.projects.length);
         
-        // Ejecutar asignación para cada proyecto usando el endpoint del backend
+        // Ejecutar asignación para cada proyecto usando el nuevo servicio
         for (const project of this.projects) {
           console.log('🔍 Tareas - Procesando proyecto:', project.name, 'ID:', project._id);
           
           try {
-            // Llamar al endpoint del backend para asignación automática
-            const resultado = await TaskService.asignarAutomaticoPorSemana(project._id);
+            // Llamar al endpoint del backend para asignación automática usando el nuevo servicio
+            const resultado = await AssignmentService.runAutomaticAssignment(project._id);
             
             console.log('🔍 Tareas - Resultado asignación proyecto desde backend:', resultado);
             console.log('🔍 Tareas - Tipo de resultado:', typeof resultado);
@@ -1009,7 +1097,9 @@ export default {
         // Guardar los datos de asignación en localStorage para la vista detallada
         const assignmentData = {
           message: "Asignación automática con calendario diario completada",
-          resumen: this.assignmentResults
+          resumen: this.assignmentResults,
+          fechaGeneracion: new Date().toISOString(),
+          proyecto: this.projects[0] // Asumimos que se ejecuta para un proyecto específico
         };
         console.log('🔍 Guardando datos de asignación en localStorage:', assignmentData);
         localStorage.setItem('lastAssignmentData', JSON.stringify(assignmentData));
