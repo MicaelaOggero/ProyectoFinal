@@ -40,12 +40,47 @@ export const deleteUser = async (id) => {
 };
 
 /**
+ * Obtener calendario de un desarrollador
+ * @param {String} userId - ID del usuario
+ * @param {String|null} month - Mes a filtrar (formato "YYYY-MM")
+ */
+export const obtenerCalendarioService = async (userId, month = null) => {
+  const user = await userDao.findUserById(userId);
+
+  if (!user) {
+    throw new Error("Usuario no encontrado");
+  }
+
+  // Si no tiene calendario, inicializarlo vacío
+  if (!user.calendario) {
+    user.calendario = [];
+    await userDao.saveUser(user);
+  }
+
+  if (!month) {
+    return user.calendario;
+  }
+
+  // Filtrar calendario por mes
+  const [year, monthNumber] = month.split("-");
+  const calendarioFiltrado = user.calendario.filter(entry => {
+    const fecha = new Date(entry.fecha);
+    return (
+      fecha.getUTCFullYear() === parseInt(year) &&
+      fecha.getUTCMonth() + 1 === parseInt(monthNumber)
+    );
+  });
+
+  return calendarioFiltrado;
+};
+
+/**
  * Editar calendario de un desarrollador
  * @param {String} userId - ID del desarrollador
  * @param {Array} cambios - [{ fecha, horasDisponibles }]
  */
 export const editarCalendarioService = async (userId, cambios) => {
-  const dev = await userDao.findUser(userId);
+  const dev = await userDao.findUserById(userId);
   if (!dev) throw new Error("Desarrollador no encontrado");
 
   for (const cambio of cambios) {

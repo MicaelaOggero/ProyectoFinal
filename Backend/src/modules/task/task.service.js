@@ -12,7 +12,7 @@ import {
 import { ordenarTareas } from '../../utils/ordenarTareas.js';
 import Project from "../projects/project.model.js";
 import User from "../users/user.model.js";
-import { asignarTareasConCalendario } from "../criteria/index.js";
+
 
 export async function addTask(taskData) {
   // 1. Verificar que el proyecto exista
@@ -108,7 +108,5 @@ export const obtenerTareasOrdenadasPorProyecto = async (projectId) => {
   return tareasOrdenadas;
 };
 
-export async function asignarTareasBasico(projectId) {
-  return await asignarTareasConCalendario(projectId);
-}
+
 

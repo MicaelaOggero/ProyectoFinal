@@ -4,21 +4,9 @@ import User from "../modules/users/user.model.js";
 import { ordenarTareas } from "./ordenarTareas.js";
 import { tieneHabilidadesSuficientes } from "./filtroHabilidades.js";
 import Asignacion from "../modules/assignment/assignment.model.js";
+import { obtenerDiasDisponibles } from "./diasDisponible.js";
 
-// 👉 generar rango de fechas de inicio a fin (solo días hábiles)
-function generarRangoDias(fechaInicio, fechaFin) {
-  const dias = [];
-  let fecha = new Date(fechaInicio);
-  while (fecha <= fechaFin) {
-    const diaSemana = fecha.getDay();
-    if (diaSemana >= 1 && diaSemana <= 5) {
-      dias.push(new Date(fecha));
-    }
-    fecha.setDate(fecha.getDate() + 1);
-  }
-  return dias;
-}
-
+// Función principal para asignar tareas usando el calendario diario
 export async function asignarTareasConCalendario(projectId) {
   // 🔹 obtener todas las tareas del proyecto
   let tareas = await Task.find({
@@ -42,7 +30,7 @@ export async function asignarTareasConCalendario(projectId) {
   for (const tarea of tareas) {
     const fechaInicio = new Date(tarea.fechaEstimadaInicio);
     const fechaFin = new Date(tarea.fechaEstimadaFin);
-    const diasDisponibles = generarRangoDias(fechaInicio, fechaFin);
+    const diasDisponibles = obtenerDiasDisponibles(fechaInicio, fechaFin);
 
     // 🔎 candidatos que cumplen habilidades y tienen disponibilidad
     const candidatos = desarrolladores.filter(dev => {

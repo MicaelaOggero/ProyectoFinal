@@ -15,5 +15,4 @@ cron.schedule('0 0 * * 1', async () => {
 // '* * * * *' cada minuto
 // '0 0 * * 1' cada lunes a la medianoche
 
-
-
+// crear el calendario anual para todos los usuarios a principio de año con 8 horas disponibles por día de lunes a viernes

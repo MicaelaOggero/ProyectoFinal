@@ -49,41 +49,18 @@ export const deleteUser = async (req, res) => {
 };
 
 // Mostrar calendario de un desarrollador
-
 export async function obtenerCalendario(req, res) {
   try {
     const { userId } = req.params;
     const { month } = req.query; // ej: "2025-09"
 
-    const user = await User.findById(userId);
+    const calendario = await userService.obtenerCalendarioService(userId, month);
 
-    if (!user) {
-      return res.status(404).json({ error: "Usuario no encontrado" });
-    }
-
-    // Si no tiene calendario en BD, inicializarlo vacío
-    if (!user.calendario) {
-      user.calendario = [];
-      await user.save();
-    }
-
-    // Si no mandaron el parámetro month devolvemos todo
-    if (!month) {
-      return res.json({ calendario: user.calendario });
-    }
-
-    // Filtrar por mes
-    const [year, monthNumber] = month.split("-");
-    const calendarioFiltrado = user.calendario.filter(entry => {
-      const fecha = new Date(entry.fecha);
-      return (
-        fecha.getUTCFullYear() === parseInt(year) &&
-        fecha.getUTCMonth() + 1 === parseInt(monthNumber)
-      );
-    });
-
-    res.json({ calendario: calendarioFiltrado });
+    res.json({ calendario });
   } catch (error) {
+    if (error.message === "Usuario no encontrado") {
+      return res.status(404).json({ error: error.message });
+    }
     res.status(500).json({ error: error.message });
   }
 }

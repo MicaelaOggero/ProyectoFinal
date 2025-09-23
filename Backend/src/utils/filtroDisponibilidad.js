@@ -1,16 +1,4 @@
-// 👉 genera rango de días hábiles (lunes a viernes)
-function generarRangoDias(fechaInicio, fechaFin) {
-  const dias = [];
-  let fecha = new Date(fechaInicio);
-  while (fecha <= fechaFin) {
-    const diaSemana = fecha.getDay();
-    if (diaSemana >= 1 && diaSemana <= 5) {
-      dias.push(new Date(fecha));
-    }
-    fecha.setDate(fecha.getDate() + 1);
-  }
-  return dias;
-}
+import { obtenerDiasDisponibles } from "./diasDisponible.js";
 
 /**
  * Verifica si un desarrollador tiene disponibilidad suficiente en el rango
@@ -20,7 +8,7 @@ function generarRangoDias(fechaInicio, fechaFin) {
  * @param {Number} horasNecesarias - Horas totales que requiere la tarea
  */
 export function tieneDisponibilidad(dev, fechaInicio, fechaFin, horasNecesarias) {
-  const diasDisponibles = generarRangoDias(fechaInicio, fechaFin);
+  const diasDisponibles = obtenerDiasDisponibles(fechaInicio, fechaFin);
 
   let horasTotales = 0;
   for (const dia of diasDisponibles) {
