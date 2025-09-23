@@ -19,3 +19,10 @@ export const updateUser = async (id, data) => {
 export const deleteUser = async (id) => {
   return await User.findByIdAndDelete(id);
 };
+
+// Guardar cambios en el dev
+export const saveUser = async (user) => {
+  return user.save();
+};
+
+export const findUser = (id) => User.findById(id);

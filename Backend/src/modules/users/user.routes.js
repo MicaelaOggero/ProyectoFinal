@@ -18,6 +18,9 @@ router.delete("/:id", authAdmin, userController.deleteUser);
 //Mostrar calendario de un desarrollador (admin puede ver cualquier calendario)
 router.get("/:userId/calendario", userController.obtenerCalendario);
 
+//Editar disponibilidad de un desarrollador (admin puede editar cualquier calendario)
+router.put("/:userId/calendario", userController.editarCalendario);
+
 // Ruta para crear varios usuarios
 router.post("/bulk", async (req, res) => {
   const usuarios = req.body; // esperamos un arreglo de objetos usuario

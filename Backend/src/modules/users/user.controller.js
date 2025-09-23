@@ -1,6 +1,5 @@
 import * as userService from "./user.service.js";
 import User from "../users/user.model.js";
-import Task from "../task/task.model.js";
 
 // Obtener todos los usuarios con rol 'user'
 export const getUsers = async (req, res) => {
@@ -106,3 +105,20 @@ export async function generarCalendarioAnual() {
 
   return calendario;
 }
+
+// Editar calendario de un desarrollador
+export const editarCalendario = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const cambios = req.body; // 👈 ya es un array
+
+    if (!Array.isArray(cambios)) {
+      return res.status(400).json({ error: "El body debe ser un array de cambios" });
+    }
+
+    const dev = await userService.editarCalendarioService(userId, cambios);
+    res.json({ message: "Calendario actualizado", calendario: dev.calendario });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
