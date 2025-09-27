@@ -32,7 +32,7 @@ class UserService {
   }
 
   updateUserCalendar(userId, calendarData) {
-    return axios.put(`${API_URL}/user/${userId}/calendario`, { calendario: calendarData });
+    return axios.put(`${API_URL}/user/${userId}/calendario`, calendarData);
   }
 
   addCalendarEntry(userId, entry) {

@@ -269,19 +269,19 @@
                   <div class="mt-2">
                     <small class="text-muted">Habilidades seleccionadas:</small>
                     <div class="mt-1">
-                      <span 
-                        v-for="(skill, index) in taskForm.habilidadesRequeridas" 
-                        :key="index" 
-                        class="badge bg-primary me-1 mb-1"
-                      >
-                        {{ skill }}
-                        <button 
-                          type="button" 
-                          class="btn-close btn-close-white ms-1" 
-                          @click="removeSkill(index)"
-                          style="font-size: 0.7em;"
-                        ></button>
-                      </span>
+                    <span 
+                      v-for="(skill, index) in taskForm.habilidadesRequeridas" 
+                      :key="index" 
+                      class="badge bg-primary me-1 mb-1"
+                    >
+                      {{ skill }}
+                      <button 
+                        type="button" 
+                        class="btn-close btn-close-white ms-1" 
+                        @click="removeSkill(index)"
+                        style="font-size: 0.7em;"
+                      ></button>
+                    </span>
                     </div>
                   </div>
                 </div>

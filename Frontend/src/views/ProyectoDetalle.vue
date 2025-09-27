@@ -226,28 +226,179 @@
         </div>
         <div class="modal-body">
           <form @submit.prevent="createTask">
+            <!-- Descripción -->
             <div class="mb-3">
-              <label class="form-label">Descripción de la Tarea</label>
+              <label class="form-label">Descripción de la Tarea *</label>
               <textarea class="form-control" v-model="newTask.descripcion" required></textarea>
             </div>
+
+            <!-- Habilidades Requeridas -->
+            <div class="mb-3">
+              <label class="form-label">Habilidades Requeridas *</label>
+              
+              <!-- Lista de habilidades disponibles -->
+              <div v-if="availableSkills.length > 0" class="mb-3">
+                <small class="text-muted">Habilidades disponibles:</small>
+                <div class="d-flex flex-wrap gap-1 mt-1">
+                  <button 
+                    type="button" 
+                    class="btn btn-sm btn-outline-primary"
+                    v-for="skill in availableSkills" 
+                    :key="skill._id || skill"
+                    @click="addSkillFromList(skill.nombre || skill)"
+                    :disabled="newTask.habilidadesRequeridas.includes(skill.nombre || skill)"
+                    :title="newTask.habilidadesRequeridas.includes(skill.nombre || skill) ? 'Ya seleccionada' : 'Agregar habilidad'"
+                  >
+                    <i class="bi bi-plus-circle me-1"></i>
+                    {{ skill.nombre || skill }}
+                  </button>
+                </div>
+              </div>
+              
+              <!-- Input manual como alternativa -->
+              <div class="input-group">
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  v-model="skillInput"
+                  @keyup.enter="addSkill"
+                  placeholder="O escribir habilidad personalizada y presionar Enter"
+                >
+                <button type="button" class="btn btn-outline-secondary" @click="addSkill">
+                  <i class="bi bi-plus"></i>
+                </button>
+              </div>
+              
+              <!-- Habilidades seleccionadas -->
+              <div class="mt-2">
+                <small class="text-muted">Habilidades seleccionadas:</small>
+                <div class="mt-1">
+                  <span 
+                    v-for="(skill, index) in newTask.habilidadesRequeridas" 
+                    :key="index" 
+                    class="badge bg-primary me-1 mb-1"
+                  >
+                    {{ skill }}
+                    <button 
+                      type="button" 
+                      class="btn-close btn-close-white ms-1" 
+                      @click="removeSkill(index)"
+                      style="font-size: 0.7em;"
+                    ></button>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Desarrollador Asignado -->
+            <div class="mb-3">
+              <label class="form-label">Desarrollador Asignado</label>
+              <select class="form-select" v-model="newTask.desarrolladorAsignado">
+                <option value="">Sin asignar</option>
+                <option v-for="user in users" :key="user._id" :value="user._id">
+                  {{ user.nombre || user.email }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Nivel de Dificultad, Prioridad y Estado -->
             <div class="row">
-              <div class="col-md-6">
-                <label class="form-label">Prioridad</label>
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Nivel de Dificultad *</label>
+                <select class="form-select" v-model="newTask.nivelDificultad" required>
+                  <option value="">Seleccionar</option>
+                  <option value="1">1 - Muy Fácil</option>
+                  <option value="2">2 - Fácil</option>
+                  <option value="3">3 - Intermedio</option>
+                  <option value="4">4 - Difícil</option>
+                  <option value="5">5 - Muy Difícil</option>
+                </select>
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Prioridad *</label>
                 <select class="form-select" v-model="newTask.prioridad" required>
+                  <option value="">Seleccionar</option>
                   <option value="baja">Baja</option>
                   <option value="media">Media</option>
                   <option value="alta">Alta</option>
                 </select>
               </div>
-              <div class="col-md-6">
-                <label class="form-label">Plazo de Entrega</label>
-                <input type="date" class="form-control" v-model="newTask.plazoEntrega" required>
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Estado</label>
+                <select class="form-select" v-model="newTask.estado">
+                  <option value="pendiente">Pendiente</option>
+                  <option value="en curso">En Curso</option>
+                  <option value="completada">Completada</option>
+                </select>
               </div>
             </div>
-            <div class="mb-3">
-              <label class="form-label">Habilidades Requeridas</label>
-              <input type="text" class="form-control" v-model="newTask.habilidadesRequeridas" 
-                     placeholder="JavaScript, React, Node.js">
+
+            <!-- Tiempo Estimado e Invertido -->
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Tiempo Estimado (horas)</label>
+                <input 
+                  type="number" 
+                  class="form-control" 
+                  v-model="newTask.tiempoEstimadoHoras"
+                  min="0"
+                  step="0.5"
+                >
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Tiempo Invertido (horas)</label>
+                <input 
+                  type="number" 
+                  class="form-control" 
+                  v-model="newTask.tiempoInvertidoHoras"
+                  min="0"
+                  step="0.5"
+                >
+              </div>
+            </div>
+
+            <!-- Fechas Estimadas -->
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Fecha Estimada de Inicio</label>
+                <input 
+                  type="date" 
+                  class="form-control" 
+                  v-model="newTask.fechaEstimadaInicio"
+                >
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Fecha Estimada de Fin</label>
+                <input 
+                  type="date" 
+                  class="form-control" 
+                  v-model="newTask.fechaEstimadaFin"
+                >
+              </div>
+            </div>
+
+            <!-- Fechas Reales (solo para edición) -->
+            <div v-if="isEditing" class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Fecha Real de Inicio</label>
+                <input 
+                  type="date" 
+                  class="form-control" 
+                  v-model="newTask.fechaRealInicio"
+                  :readonly="true"
+                >
+                <small class="text-muted">Se establece automáticamente cuando cambia a "En Curso"</small>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Fecha Real de Fin</label>
+                <input 
+                  type="date" 
+                  class="form-control" 
+                  v-model="newTask.fechaRealFin"
+                  :readonly="true"
+                >
+                <small class="text-muted">Se establece automáticamente cuando cambia a "Completada"</small>
+              </div>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" @click="closeModal">Cancelar</button>
@@ -271,6 +422,8 @@
 <script>
 import ProjectService from '@/services/project.service.js';
 import TaskService from '@/services/task.service.js';
+import SkillsService from '@/services/skills.service.js';
+import UserService from '@/services/user.service.js';
 
 export default {
   name: 'ProyectoDetalleView',
@@ -284,12 +437,25 @@ export default {
       newTask: {
         descripcion: '',
         prioridad: 'media',
-        nivelDificultad: 3,
-        plazoEntrega: '',
-        habilidadesRequeridas: '',
+        nivelDificultad: '',
+        estado: 'pendiente',
+        desarrolladorAsignado: '',
+        tiempoEstimadoHoras: null,
+        tiempoInvertidoHoras: 0,
+        fechaEstimadaInicio: '',
+        fechaEstimadaFin: '',
+        fechaRealInicio: '',
+        fechaRealFin: '',
+        habilidadesRequeridas: [],
         proyecto: null,
         _id: null
-      }
+      },
+      // Habilidades disponibles
+      availableSkills: [],
+      // Input para habilidades
+      skillInput: '',
+      // Lista de usuarios para asignación
+      users: []
     };
   },
   computed: {
@@ -334,6 +500,8 @@ export default {
   async mounted() {
     await this.loadProject();
     await this.loadProjectTasks();
+    await this.loadSkills();
+    await this.loadUsers();
   },
   methods: {
     async loadProject() {
@@ -369,10 +537,14 @@ export default {
         const taskData = {
           descripcion: this.newTask.descripcion,
           prioridad: this.newTask.prioridad,
-          nivelDificultad: this.newTask.nivelDificultad || 3,
-          estado: 'pendiente',
-          habilidadesRequeridas: this.newTask.habilidadesRequeridas ? [this.newTask.habilidadesRequeridas] : [],
-          fechaEstimadaFin: this.newTask.plazoEntrega || null,
+          nivelDificultad: parseInt(this.newTask.nivelDificultad),
+          estado: this.newTask.estado,
+          desarrolladorAsignado: this.newTask.desarrolladorAsignado || null,
+          tiempoEstimadoHoras: this.newTask.tiempoEstimadoHoras,
+          tiempoInvertidoHoras: this.newTask.tiempoInvertidoHoras || 0,
+          fechaEstimadaInicio: this.newTask.fechaEstimadaInicio || null,
+          fechaEstimadaFin: this.newTask.fechaEstimadaFin || null,
+          habilidadesRequeridas: this.newTask.habilidadesRequeridas || [],
           proyecto: projectId
         };
         
@@ -381,10 +553,14 @@ export default {
           const updateData = {
             descripcion: this.newTask.descripcion,
             prioridad: this.newTask.prioridad,
-            nivelDificultad: this.newTask.nivelDificultad || 3,
-            estado: 'pendiente',
-            habilidadesRequeridas: this.newTask.habilidadesRequeridas ? [this.newTask.habilidadesRequeridas] : [],
-            fechaEstimadaFin: this.newTask.plazoEntrega || null
+            nivelDificultad: parseInt(this.newTask.nivelDificultad),
+            estado: this.newTask.estado,
+            desarrolladorAsignado: this.newTask.desarrolladorAsignado || null,
+            tiempoEstimadoHoras: this.newTask.tiempoEstimadoHoras,
+            tiempoInvertidoHoras: this.newTask.tiempoInvertidoHoras || 0,
+            fechaEstimadaInicio: this.newTask.fechaEstimadaInicio || null,
+            fechaEstimadaFin: this.newTask.fechaEstimadaFin || null,
+            habilidadesRequeridas: this.newTask.habilidadesRequeridas || []
           };
           console.log('ProyectoDetalle - Actualizando tarea:', this.newTask._id, updateData);
           await TaskService.updateTask(this.newTask._id, updateData);
@@ -396,20 +572,33 @@ export default {
         
         this.showAddTaskModal = false;
         this.isEditing = false;
-        this.newTask = {
-          descripcion: '',
-          prioridad: 'media',
-          nivelDificultad: 3,
-          plazoEntrega: '',
-          habilidadesRequeridas: '',
-          proyecto: this.$route.params.id,
-          _id: null
-        };
+        this.resetTaskForm();
         await this.loadProjectTasks();
       } catch (error) {
         console.error('Error guardando tarea:', error);
         alert('Error al guardar la tarea: ' + (error.response?.data?.error || error.message));
       }
+    },
+
+    // Resetear formulario de tarea
+    resetTaskForm() {
+      this.newTask = {
+        descripcion: '',
+        prioridad: 'media',
+        nivelDificultad: '',
+        estado: 'pendiente',
+        desarrolladorAsignado: '',
+        tiempoEstimadoHoras: null,
+        tiempoInvertidoHoras: 0,
+        fechaEstimadaInicio: '',
+        fechaEstimadaFin: '',
+        fechaRealInicio: '',
+        fechaRealFin: '',
+        habilidadesRequeridas: [],
+        proyecto: this.$route.params.id,
+        _id: null
+      };
+      this.skillInput = '';
     },
     
     // Ver detalles de tarea
@@ -423,9 +612,16 @@ export default {
       this.newTask = {
         descripcion: task.descripcion,
         prioridad: task.prioridad,
-        nivelDificultad: task.nivelDificultad || 3,
-        plazoEntrega: task.fechaEstimadaFin ? this.formatDateForInput(task.fechaEstimadaFin) : '',
-        habilidadesRequeridas: task.habilidadesRequeridas ? task.habilidadesRequeridas.join(', ') : '',
+        nivelDificultad: task.nivelDificultad?.toString() || '',
+        estado: task.estado || 'pendiente',
+        desarrolladorAsignado: task.desarrolladorAsignado?._id || task.desarrolladorAsignado || '',
+        tiempoEstimadoHoras: task.tiempoEstimadoHoras || null,
+        tiempoInvertidoHoras: task.tiempoInvertidoHoras || 0,
+        fechaEstimadaInicio: task.fechaEstimadaInicio ? this.formatDateForInput(task.fechaEstimadaInicio) : '',
+        fechaEstimadaFin: task.fechaEstimadaFin ? this.formatDateForInput(task.fechaEstimadaFin) : '',
+        fechaRealInicio: task.fechaRealInicio ? this.formatDateForInput(task.fechaRealInicio) : '',
+        fechaRealFin: task.fechaRealFin ? this.formatDateForInput(task.fechaRealFin) : '',
+        habilidadesRequeridas: task.habilidadesRequeridas ? [...task.habilidadesRequeridas] : [],
         proyecto: this.$route.params.id,
         _id: task._id // Guardar el ID para la actualización
       };
@@ -446,19 +642,55 @@ export default {
       }
     },
     
+    // Cargar habilidades
+    async loadSkills() {
+      try {
+        const response = await SkillsService.getSkills();
+        this.availableSkills = response.data || [];
+        console.log('🔍 ProyectoDetalle - Habilidades cargadas:', this.availableSkills);
+      } catch (error) {
+        console.error('Error cargando habilidades:', error);
+        this.availableSkills = [];
+      }
+    },
+
+    async loadUsers() {
+      try {
+        const response = await UserService.getUsers();
+        this.users = response.data || [];
+        console.log('🔍 ProyectoDetalle - Usuarios cargados:', this.users);
+      } catch (error) {
+        console.error('Error cargando usuarios:', error);
+        this.users = [];
+      }
+    },
+    
+    // Agregar habilidad
+    addSkill() {
+      const skill = this.skillInput.trim();
+      if (skill && !this.newTask.habilidadesRequeridas.includes(skill)) {
+        this.newTask.habilidadesRequeridas.push(skill);
+        this.skillInput = '';
+      }
+    },
+    
+    // Agregar habilidad desde la lista disponible
+    addSkillFromList(skill) {
+      if (!this.newTask.habilidadesRequeridas.includes(skill)) {
+        this.newTask.habilidadesRequeridas.push(skill);
+      }
+    },
+    
+    // Remover habilidad
+    removeSkill(index) {
+      this.newTask.habilidadesRequeridas.splice(index, 1);
+    },
+    
     // Cerrar modal y resetear formulario
     closeModal() {
       this.showAddTaskModal = false;
       this.isEditing = false;
-      this.newTask = {
-        descripcion: '',
-        prioridad: 'media',
-        nivelDificultad: 3,
-        plazoEntrega: '',
-        habilidadesRequeridas: '',
-        proyecto: this.$route.params.id,
-        _id: null
-      };
+      this.resetTaskForm();
     },
     
     formatDateForInput(dateString) {

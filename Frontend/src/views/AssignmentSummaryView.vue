@@ -324,7 +324,7 @@ export default {
             } else {
               console.log(`ℹ️ No hay asignaciones para el proyecto ${project.name}`);
             }
-          } catch (error) {
+        } catch (error) {
             // Si es un error 400, significa que no hay asignaciones para este proyecto
             if (error.response && error.response.status === 400) {
               console.log(`ℹ️ Proyecto ${project.name} no tiene asignaciones (error 400 esperado)`);
