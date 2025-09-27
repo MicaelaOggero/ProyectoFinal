@@ -7,8 +7,7 @@ import {
   getTasksByDeveloper,
   getTasksByProjectAndDeveloper,
   obtenerTareasOrdenadasPorProyecto,
-  obtenerTodasTareasService,
-  asignarTareasBasico
+  obtenerTodasTareasService
 } from "./task.service.js";
 
 export async function crearTask(req, res) {
@@ -105,16 +104,4 @@ export const obtenerTareasOrdenadasController = async (req, res) => {
   }
 };
 
-export async function asignarAutomaticoBasico(req, res) {
-  try {
-    const { projectId } = req.params;
-
-    const result = await asignarTareasBasico(projectId);
-
-    res.json(result);
-  } catch (error) {
-    console.error("Error en asignación automática por semana:", error);
-    res.status(500).json({ error: error.message });
-  }
-}
 

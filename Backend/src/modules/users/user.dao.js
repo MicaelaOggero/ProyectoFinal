@@ -24,5 +24,3 @@ export const deleteUser = async (id) => {
 export const saveUser = async (user) => {
   return user.save();
 };
-
-export const findUser = (id) => User.findById(id);

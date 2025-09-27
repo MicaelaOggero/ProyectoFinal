@@ -8,13 +8,25 @@ const projectSchema = new mongoose.Schema({
   descripcion: {
     type: String
   },
-  fechaInicio: {
+  fechaInicioEstimada: {
     type: Date,
     required: true
   },
-  fechaFin: {
+  fechaFinEstimada: {
     type: Date,
     required: true
+  },
+  fechaInicioReal: {
+    type: Date,
+    required: true
+  },
+  fechaFinReal: {
+    type: Date,
+    required: true
+  },
+  fechaCreacion: {
+    type: Date,
+    default: Date.now
   },
   nivelDificultad: {
     type: Number,
@@ -32,10 +44,6 @@ const projectSchema = new mongoose.Schema({
     type: String,
     enum: ['activo', 'pausado', 'finalizado'],
     default: 'activo'
-  },
-  fechaCreacion: {
-    type: Date,
-    default: Date.now
   },
   administrador: {
     type: mongoose.Schema.Types.ObjectId,

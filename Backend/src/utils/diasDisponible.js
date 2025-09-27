@@ -1,4 +1,4 @@
-// 👉 genera rango de días hábiles (lunes a viernes)
+// 👉 genera rango de días hábiles (lunes a viernes) segun la fecha de inicio y fin de la tarea
 export function obtenerDiasDisponibles(fechaInicio, fechaFin) {
   const dias = [];
   let fecha = new Date(fechaInicio);

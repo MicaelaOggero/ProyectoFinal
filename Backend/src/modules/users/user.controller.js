@@ -49,52 +49,30 @@ export const deleteUser = async (req, res) => {
 };
 
 // Mostrar calendario de un desarrollador
-
 export async function obtenerCalendario(req, res) {
   try {
     const { userId } = req.params;
     const { month } = req.query; // ej: "2025-09"
 
-    const user = await User.findById(userId);
+    const calendario = await userService.obtenerCalendarioService(userId, month);
 
-    if (!user) {
-      return res.status(404).json({ error: "Usuario no encontrado" });
-    }
-
-    // Si no tiene calendario en BD, inicializarlo vacío
-    if (!user.calendario) {
-      user.calendario = [];
-      await user.save();
-    }
-
-    // Si no mandaron el parámetro month devolvemos todo
-    if (!month) {
-      return res.json({ calendario: user.calendario });
-    }
-
-    // Filtrar por mes
-    const [year, monthNumber] = month.split("-");
-    const calendarioFiltrado = user.calendario.filter(entry => {
-      const fecha = new Date(entry.fecha);
-      return (
-        fecha.getUTCFullYear() === parseInt(year) &&
-        fecha.getUTCMonth() + 1 === parseInt(monthNumber)
-      );
-    });
-
-    res.json({ calendario: calendarioFiltrado });
+    res.json({ calendario });
   } catch (error) {
+    if (error.message === "Usuario no encontrado") {
+      return res.status(404).json({ error: error.message });
+    }
     res.status(500).json({ error: error.message });
   }
 }
 
-// Función auxiliar para generar calendario de un año completo
-export async function generarCalendarioAnual() {
+// 📌 Generar calendario anual desde la fecha de creación del desarrollador
+export async function generarCalendarioAnual(fechaCreacion) {
   const calendario = [];
-  const inicio = new Date();
-  inicio.setHours(0,0,0,0);
+  const inicio = new Date(fechaCreacion); 
+  inicio.setHours(0, 0, 0, 0);
+
   const fin = new Date(inicio);
-  fin.setFullYear(fin.getFullYear() + 1); // un año de calendario
+  fin.setFullYear(fin.getFullYear() + 1); // hasta un año después
 
   for (let d = new Date(inicio); d <= fin; d.setDate(d.getDate() + 1)) {
     const dia = d.getDay();
@@ -105,6 +83,7 @@ export async function generarCalendarioAnual() {
 
   return calendario;
 }
+
 
 // Editar calendario de un desarrollador
 export const editarCalendario = async (req, res) => {

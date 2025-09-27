@@ -1,6 +1,7 @@
 import { findAsignacionById, saveAsignacion, saveUser, saveTask, findAsignacionesByProyecto } from "./assignment.dao.js";
 import { tieneDisponibilidad } from "../../utils/filtroDisponibilidad.js"; // tu función que ya verifica horas
 import { findUserById } from "../users/user.dao.js";
+import { asignarTareasConCalendario } from "../criteria/index.js";
 
 export const editarAsignacionService = async (asignacionId, nuevoDevId) => {
   // 1. Buscar la asignación original
@@ -96,3 +97,6 @@ export const getAsignacionesPorProyectoService = async (proyectoId) => {
   }));
 };
 
+export async function asignarTareasBasico(projectId) {
+  return await asignarTareasConCalendario(projectId);
+}
