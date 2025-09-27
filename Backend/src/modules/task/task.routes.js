@@ -19,7 +19,7 @@ const router = express.Router();
 router.post("/:projectId", authAdmin, crearTask);
 
 // Actualización de tarea
-router.patch("/:taskId", actualizarTask);
+router.patch("/:taskId", authAdmin,actualizarTask);
 
 // Eliminar
 router.delete("/:taskId", authAdmin, eliminarTask);

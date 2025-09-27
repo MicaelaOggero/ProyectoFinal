@@ -65,13 +65,14 @@ export async function obtenerCalendario(req, res) {
   }
 }
 
-// Función auxiliar para generar calendario de un año completo
-export async function generarCalendarioAnual() {
+// 📌 Generar calendario anual desde la fecha de creación del desarrollador
+export async function generarCalendarioAnual(fechaCreacion) {
   const calendario = [];
-  const inicio = new Date();
-  inicio.setHours(0,0,0,0);
+  const inicio = new Date(fechaCreacion); 
+  inicio.setHours(0, 0, 0, 0);
+
   const fin = new Date(inicio);
-  fin.setFullYear(fin.getFullYear() + 1); // un año de calendario
+  fin.setFullYear(fin.getFullYear() + 1); // hasta un año después
 
   for (let d = new Date(inicio); d <= fin; d.setDate(d.getDate() + 1)) {
     const dia = d.getDay();
@@ -82,6 +83,7 @@ export async function generarCalendarioAnual() {
 
   return calendario;
 }
+
 
 // Editar calendario de un desarrollador
 export const editarCalendario = async (req, res) => {

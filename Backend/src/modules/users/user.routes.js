@@ -19,7 +19,7 @@ router.delete("/:id", authAdmin, userController.deleteUser);
 router.get("/:userId/calendario", userController.obtenerCalendario);
 
 //Editar disponibilidad de un desarrollador (admin puede editar cualquier calendario)
-router.put("/:userId/calendario", userController.editarCalendario);
+router.put("/:userId/calendario", auth, userController.editarCalendario);
 
 // Ruta para crear varios usuarios
 router.post("/bulk", async (req, res) => {
