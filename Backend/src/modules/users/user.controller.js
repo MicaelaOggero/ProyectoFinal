@@ -65,24 +65,25 @@ export async function obtenerCalendario(req, res) {
   }
 }
 
-// 📌 Generar calendario anual desde la fecha de creación del desarrollador
+// 📌 Generar calendario anual (todos los días con 8h disponibles)
 export async function generarCalendarioAnual(fechaCreacion) {
   const calendario = [];
-  const inicio = new Date(fechaCreacion); 
+  const inicio = new Date(fechaCreacion);
   inicio.setHours(0, 0, 0, 0);
 
   const fin = new Date(inicio);
   fin.setFullYear(fin.getFullYear() + 1); // hasta un año después
 
   for (let d = new Date(inicio); d <= fin; d.setDate(d.getDate() + 1)) {
-    const dia = d.getDay();
-    if (dia >= 1 && dia <= 5) { // lunes a viernes
-      calendario.push({ fecha: new Date(d), horasDisponibles: 8 });
-    }
+    calendario.push({
+      fecha: new Date(d),
+      horasDisponibles: 8
+    });
   }
 
   return calendario;
 }
+
 
 
 // Editar calendario de un desarrollador
