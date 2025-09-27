@@ -177,27 +177,23 @@
             </div>
             <CalendarAvailability 
               v-else
+              ref="calendarAvailability"
               :user-calendar="userCalendar"
               :user-id="user._id"
               @update-availability="handleUpdateAvailability"
               @remove-availability="handleRemoveAvailability"
+              @initialize-default-availability="handleInitializeDefaultAvailability"
+              @update-work-days-config="handleUpdateWorkDaysConfig"
+              @load-assigned-tasks="handleLoadAssignedTasks"
+              @update-calendar-data="handleUpdateCalendarData"
             />
             
             <!-- Información sobre el calendario -->
             <div class="mt-3">
               <div class="alert alert-info" role="alert">
-                <h6 class="alert-heading">
-                  <i class="bi bi-info-circle me-2"></i>
-                  ¿Cómo funciona el Calendario de Disponibilidad?
-                </h6>
-                <p class="mb-2">
-                  <strong>Verde:</strong> Días con disponibilidad configurada<br>
-                  <strong>Amarillo:</strong> Días sin disponibilidad<br>
-                  <strong>Azul:</strong> Día actual
-                </p>
                 <p class="mb-0">
-                  Haz clic en cualquier día para establecer tus horas disponibles. 
-                  Esto ayuda a los administradores a asignarte tareas según tu disponibilidad real.
+                  Haz clic en "Configurar" para ajustar tus días laborales y horas por día. 
+                  Haz clic en cualquier día para establecer tus horas disponibles.
                 </p>
               </div>
             </div>
@@ -754,7 +750,10 @@ export default {
       try {
         console.log('🔍 MiPerfil - Actualizando disponibilidad:', availabilityData);
         
-        // Buscar si ya existe una entrada para esta fecha
+        // Enviar actualización al backend (el backend espera un array de cambios)
+        await UserService.updateUserCalendar(this.user._id, [availabilityData]);
+        
+        // Actualizar el calendario local después de la actualización exitosa
         const existingIndex = this.userCalendar.findIndex(entry => entry.fecha === availabilityData.fecha);
         
         if (existingIndex >= 0) {
@@ -764,9 +763,6 @@ export default {
           // Agregar nueva entrada
           this.userCalendar.push(availabilityData);
         }
-        
-        // Enviar actualización al backend
-        await UserService.updateUserCalendar(this.user._id, this.userCalendar);
         
         console.log('🔍 MiPerfil - Disponibilidad actualizada correctamente');
       } catch (error) {
@@ -794,6 +790,64 @@ export default {
         await this.loadUserCalendar();
         throw error;
       }
+    },
+    
+    // Manejar inicialización de disponibilidad por defecto
+    async handleInitializeDefaultAvailability(newAvailabilityEntries) {
+      try {
+        console.log('🔍 MiPerfil - Inicializando disponibilidad por defecto:', newAvailabilityEntries);
+        
+        // Enviar solo las nuevas entradas al backend (no todo el calendario)
+        await UserService.updateUserCalendar(this.user._id, newAvailabilityEntries);
+        
+        // Agregar las nuevas entradas al calendario local solo si el backend las aceptó
+        this.userCalendar.push(...newAvailabilityEntries);
+        
+        console.log('🔍 MiPerfil - Disponibilidad por defecto inicializada correctamente');
+      } catch (error) {
+        console.error('Error initializing default availability:', error);
+        
+        // Si el error es por tareas asignadas, no mostrar alerta molesta
+        if (error.response?.data?.error?.includes('tareas asignadas')) {
+          console.log('ℹ️ MiPerfil - Algunos días no se pueden modificar porque tienen tareas asignadas (comportamiento esperado)');
+        } else {
+          alert('Error al inicializar la disponibilidad por defecto: ' + (error.response?.data?.error || error.message));
+        }
+      }
+    },
+    
+    // Manejar actualización de configuración de días laborales
+    async handleUpdateWorkDaysConfig(config) {
+      try {
+        console.log('🔍 MiPerfil - Actualizando configuración de días laborales:', config);
+        
+        // Aquí podrías guardar la configuración en el backend si es necesario
+        // Por ahora solo guardamos en localStorage para persistencia local
+        localStorage.setItem('workDaysConfig', JSON.stringify(config));
+        
+        console.log('🔍 MiPerfil - Configuración de días laborales guardada correctamente');
+      } catch (error) {
+        console.error('Error updating work days config:', error);
+        alert('Error al guardar la configuración de días laborales: ' + (error.response?.data?.error || error.message));
+      }
+    },
+    
+    // Manejar carga de tareas asignadas (ya no es necesario, el calendario viene actualizado del backend)
+    async handleLoadAssignedTasks(userId) {
+      try {
+        console.log('🔍 MiPerfil - El calendario ya viene actualizado del backend con las horas descontadas');
+        // Ya no necesitamos cargar tareas asignadas por separado
+        // porque el calendario del backend ya viene con las horas descontadas
+        console.log('🔍 MiPerfil - Calendario actualizado desde el backend para usuario:', userId);
+      } catch (error) {
+        console.error('Error loading calendar for user:', userId, error);
+      }
+    },
+    
+    // Manejar actualización de datos del calendario desde múltiples meses
+    handleUpdateCalendarData(calendarData) {
+      console.log('🔍 MiPerfil - Actualizando datos del calendario desde múltiples meses:', calendarData);
+      this.userCalendar = calendarData;
     }
   }
 }
