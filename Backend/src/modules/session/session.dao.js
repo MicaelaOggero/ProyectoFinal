@@ -1,5 +1,5 @@
 import User from "../users/user.model.js";
-import {generarCalendarioAnual} from "../session/session.service.js"
+import {generarCalendarioAnual} from "../users/user.service.js"
 
 // Buscar usuario por email
 export const findByEmail = async (email) => User.findOne({ email });

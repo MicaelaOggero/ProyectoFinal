@@ -39,6 +39,21 @@ export const deleteUser = async (id) => {
   return await userDao.deleteUser(id);
 };
 
+// Función auxiliar para generar calendario de un año completo
+export async function generarCalendarioAnual() {
+  const calendario = [];
+  const inicio = new Date(); // fecha de creación del usuario
+  inicio.setHours(0, 0, 0, 0);
+  const fin = new Date(inicio);
+  fin.setFullYear(fin.getFullYear() + 1); // un año completo
+
+  for (let d = new Date(inicio); d <= fin; d.setDate(d.getDate() + 1)) {
+    calendario.push({ fecha: new Date(d), horasDisponibles: 8 });
+  }
+
+  return calendario;
+}
+
 /**
  * Obtener calendario de un desarrollador
  * @param {String} userId - ID del usuario
