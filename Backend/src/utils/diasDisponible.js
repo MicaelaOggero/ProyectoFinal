@@ -6,13 +6,13 @@
  * @param {Object} dev - desarrollador con propiedad trabajaFinesDeSemana
  * @returns {Date[]} arreglo de días disponibles
  */
-export function obtenerDiasDisponibles(fechaInicio, fechaFin, dev) {
+export function obtenerDiasDisponibles(fechaInicio, fechaFin) {
   const dias = [];
   let fecha = new Date(fechaInicio);
 
   while (fecha <= fechaFin) {
-    const diaSemana = fecha.getDay(); // 0=domingo, 6=sábado
-    if (dev.trabajaFinesDeSemana || (diaSemana >= 1 && diaSemana <= 5)) {
+    const diaSemana = fecha.getDay();
+    if (diaSemana >= 1 && diaSemana <= 5) { // Lunes a Viernes
       dias.push(new Date(fecha));
     }
     fecha.setDate(fecha.getDate() + 1);
