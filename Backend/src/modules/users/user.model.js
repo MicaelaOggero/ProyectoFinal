@@ -77,11 +77,12 @@ const userSchema = new mongoose.Schema({
   },
   // ⏱ Máxima capacidad semanal
   horasSemanalMaxima: { type: Number, default: 40 },
-
+  trabajaFinesDeSemana: { type: Boolean, default: false },
   calendario: {
     type: [calendarioSchema], // array de días con disponibilidad
     default: [],
   },
+  
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
