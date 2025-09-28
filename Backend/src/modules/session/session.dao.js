@@ -21,7 +21,7 @@ export async function getUserById(userId) {
 
 export async function createUser(data) {
   // agregar calendario automáticamente
-  const calendario = generarCalendarioAnual();
+  const calendario = await generarCalendarioAnual();
 
   const nuevoUsuario = new User({
     ...data,
