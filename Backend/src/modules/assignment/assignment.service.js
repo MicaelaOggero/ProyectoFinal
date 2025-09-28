@@ -80,6 +80,7 @@ export const getAsignacionesPorProyectoService = async (proyectoId) => {
 
   // Podés formatear la respuesta si no querés mandar todo crudo
   return asignacionesValidas.map(asig => ({
+    asignacionId: asig._id,
     tarea: {
       id: asig.tarea._id,
       descripcion: asig.tarea.descripcion,
