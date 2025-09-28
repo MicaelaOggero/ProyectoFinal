@@ -485,8 +485,17 @@ export default {
     }
   },
   mounted() {
-    this.modalInstance = new Modal(document.getElementById('availabilityModal'));
-    this.workDaysModalInstance = new Modal(document.getElementById('workDaysModal'));
+    // Solo inicializar modales si existen (no en el dashboard)
+    const availabilityModal = document.getElementById('availabilityModal');
+    const workDaysModal = document.getElementById('workDaysModal');
+    
+    if (availabilityModal) {
+      this.modalInstance = new Modal(availabilityModal);
+    }
+    if (workDaysModal) {
+      this.workDaysModalInstance = new Modal(workDaysModal);
+    }
+    
     this.initializeDefaultAvailability();
     this.loadAssignedTasks();
     // Cargar datos de múltiples meses si está en esa vista

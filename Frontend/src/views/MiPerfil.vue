@@ -516,7 +516,7 @@ export default {
         horasSemanalMaxima: null,
         costoPorHora: null,
         habilidades: [],
-        preferencias: ''
+        preferencias: []
       },
       saving: false,
       editMessage: '',
@@ -544,7 +544,7 @@ export default {
         horasSemanalMaxima: 40,
         costoPorHora: 0,
         habilidades: [{ nombre: '', nivel: '' }],
-        preferencias: ''
+        preferencias: []
       };
     },
     
@@ -642,7 +642,7 @@ export default {
         horasSemanalMaxima: this.user.horasSemanalMaxima || 40,
         costoPorHora: this.user.costoPorHora || 0,
         habilidades: this.user.habilidades ? [...this.user.habilidades] : [{ nombre: '', nivel: '' }],
-        preferencias: this.user.preferencias || ''
+        preferencias: this.user.preferencias || []
       };
       
       // Asegurar que siempre haya al menos una habilidad

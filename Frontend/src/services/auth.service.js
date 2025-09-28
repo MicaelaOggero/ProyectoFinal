@@ -69,7 +69,7 @@ class AuthService {
         aniosExperiencia: profileData.aniosExperiencia || 0,
         horasSemanalMaxima: profileData.horasSemanalMaxima || 40,
         costoPorHora: profileData.costoPorHora || 0,
-        preferencias: profileData.preferencias || '',
+        preferencias: profileData.preferencias || [],
         habilidades: profileData.habilidades || []
       };
       

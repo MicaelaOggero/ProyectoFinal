@@ -121,11 +121,55 @@
             <p>Tareas Completadas</p>
           </div>
         </div>
-        <div class="stat-card">
-          <i class="bi bi-clock"></i>
-          <div class="stat-content">
-            <h4>{{ myAvailability }}h</h4>
-            <p>Disponibilidad Semanal</p>
+        <div class="stat-card calendar-card" @click="navigateToProfile">
+          <div class="calendar-mini-container">
+            <div class="mini-calendar-header">
+              <i class="bi bi-calendar3 me-2"></i>
+              <span class="mini-calendar-title">Calendario</span>
+            </div>
+            <div v-if="calendarLoading" class="mini-calendar-loading">
+              <div class="spinner-border spinner-border-sm" role="status">
+                <span class="visually-hidden">Cargando...</span>
+              </div>
+            </div>
+            <div v-else class="mini-calendar-content">
+              <!-- Header rojo con el mes -->
+              <div class="mini-calendar-month-header">
+                {{ getCurrentMonthYear() }}
+              </div>
+              
+              <!-- Días de la semana -->
+              <div class="mini-calendar-weekdays">
+                <div class="mini-weekday">LU</div>
+                <div class="mini-weekday">MA</div>
+                <div class="mini-weekday">MI</div>
+                <div class="mini-weekday">JU</div>
+                <div class="mini-weekday">VI</div>
+                <div class="mini-weekday">SA</div>
+                <div class="mini-weekday">DO</div>
+              </div>
+              
+              <!-- Grid de días -->
+              <div class="mini-calendar-grid">
+                <!-- Debug: Mostrar información sobre los días -->
+                <div v-if="miniCalendarDays.length === 0" style="grid-column: 1 / -1; padding: 1rem; text-align: center; color: #6c757d;">
+                  Cargando días del calendario...
+                </div>
+                <div 
+                  v-for="day in miniCalendarDays" 
+                  :key="day.date"
+                  class="mini-calendar-day"
+                  :class="{
+                    'other-month': !day.isCurrentMonth,
+                    'today': day.isToday,
+                    'has-assigned-tasks': day.hoursAvailable < 8 && day.isCurrentMonth
+                  }"
+                  :title="day.formattedDate + ' - ' + day.hoursAvailable + 'h disponibles'"
+                >
+                  <span class="mini-day-number">{{ day.dayNumber }}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -190,6 +234,7 @@
         </div>
       </div>
 
+
     </div>
 
     <!-- No User State -->
@@ -231,6 +276,10 @@ export default {
       completedTasksCount: 0,
       myAvailability: 0,
       
+      // Calendar data
+      userCalendar: [],
+      calendarLoading: true,
+      
       // Common
       currentUser: null,
       allProjects: [],
@@ -241,6 +290,71 @@ export default {
   computed: {
     isUserAdmin() {
       return AuthService.isAdmin(this.currentUser);
+    },
+    miniCalendarDays() {
+      console.log('🔍 Dashboard - miniCalendarDays computed:', {
+        userCalendar: this.userCalendar,
+        userCalendarLength: this.userCalendar?.length
+      });
+      
+      // Generar días del calendario independientemente de si hay datos del backend
+      // Si no hay datos del backend, mostrar días con 0 horas disponibles
+      
+      const currentDate = new Date();
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      
+      // Primer día del mes
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      
+      // Días del mes anterior para completar la semana
+      const startDate = new Date(firstDay);
+      startDate.setDate(startDate.getDate() - firstDay.getDay());
+      
+      // Días del mes siguiente para completar la semana
+      const endDate = new Date(lastDay);
+      endDate.setDate(endDate.getDate() + (6 - lastDay.getDay()));
+      
+      const days = [];
+      const today = new Date();
+      
+      for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+        const dateStr = this.formatDateForAPI(date);
+        // Buscar en los datos del backend si están disponibles
+        let calendarEntry = null;
+        let hoursAvailable = 0;
+        
+        if (this.userCalendar && this.userCalendar.length > 0) {
+          calendarEntry = this.userCalendar.find(entry => {
+            const normalizedBackendDate = this.normalizeBackendDate(entry.fecha);
+            return normalizedBackendDate === dateStr;
+          });
+          hoursAvailable = calendarEntry ? calendarEntry.horasDisponibles : 0;
+        } else {
+          // Si no hay datos del backend, usar valores por defecto
+          const dayOfWeek = date.getDay();
+          // Lunes a viernes = 8 horas, sábados y domingos = 0 horas
+          hoursAvailable = (dayOfWeek >= 1 && dayOfWeek <= 5) ? 8 : 0;
+        }
+        
+        days.push({
+          date: dateStr,
+          dayNumber: date.getDate(),
+          isCurrentMonth: date.getMonth() === month,
+          isToday: date.toDateString() === today.toDateString(),
+          hoursAvailable: hoursAvailable,
+          formattedDate: date.toLocaleDateString('es-ES', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })
+        });
+      }
+      
+      console.log('🔍 Dashboard - miniCalendarDays generados:', days.length, 'días');
+      return days;
     }
   },
   async mounted() {
@@ -248,6 +362,8 @@ export default {
       await this.checkUserSession();
       if (this.currentUser) {
         await this.loadDashboardData();
+        // Cargar el calendario del usuario
+        await this.loadUserCalendar();
       }
     } catch (error) {
       console.error('Error inicializando dashboard:', error);
@@ -352,6 +468,9 @@ export default {
         // Disponibilidad del usuario
         this.myAvailability = this.currentUser.horasSemanalMaxima || 0;
 
+        // Cargar calendario del usuario
+        await this.loadUserCalendar();
+
         console.log('🔍 Dashboard - Datos del usuario cargados:', {
           myProjects: this.myProjects.length,
           myTasks: this.myTasks.length,
@@ -377,6 +496,59 @@ export default {
     },
     navigateToLogin() {
       this.$router.push({ name: 'Login' });
+    },
+    navigateToProfile() {
+      this.$router.push({ name: 'MiPerfil' });
+    },
+    // Calendar methods
+    async loadUserCalendar() {
+      if (!this.currentUser?._id) {
+        console.log('🔍 Dashboard - No hay currentUser._id, no se puede cargar calendario');
+        return;
+      }
+      
+      try {
+        console.log('🔍 Dashboard - Iniciando carga del calendario para usuario:', this.currentUser._id);
+        this.calendarLoading = true;
+        const currentDate = new Date();
+        const monthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+        
+        console.log('🔍 Dashboard - Cargando calendario para mes:', monthStr);
+        const response = await UserService.getUserCalendar(this.currentUser._id, monthStr);
+        this.userCalendar = response.data.calendario || [];
+        
+        console.log('🔍 Dashboard - Calendario cargado exitosamente:', {
+          userCalendar: this.userCalendar,
+          length: this.userCalendar.length,
+          response: response.data
+        });
+      } catch (error) {
+        console.error('🔍 Dashboard - Error loading user calendar:', error);
+        this.userCalendar = [];
+      } finally {
+        this.calendarLoading = false;
+        console.log('🔍 Dashboard - calendarLoading establecido a false');
+      }
+    },
+    handleUpdateCalendarData(calendarData) {
+      console.log('🔍 Dashboard - handleUpdateCalendarData llamado con:', calendarData);
+      this.userCalendar = calendarData;
+    },
+    formatDateForAPI(date) {
+      return date.toISOString().split('T')[0];
+    },
+    normalizeBackendDate(backendDate) {
+      if (backendDate.includes('T')) {
+        return backendDate.split('T')[0];
+      }
+      return backendDate;
+    },
+    getCurrentMonthYear() {
+      const currentDate = new Date();
+      return currentDate.toLocaleDateString('es-ES', { 
+        year: 'numeric', 
+        month: 'long' 
+      }).toUpperCase();
     },
     // Utility methods
     formatDate(dateString) {
@@ -943,6 +1115,142 @@ export default {
 .empty-state p {
   margin: 0;
   font-size: 1.1rem;
+}
+
+/* Mini Calendar Styles */
+.calendar-card {
+  cursor: pointer;
+  transition: all 0.3s;
+  padding: 0 !important;
+  min-height: 250px;
+  background: white;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.calendar-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.calendar-mini-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.mini-calendar-header {
+  display: none; /* Ocultar el header original con el icono */
+}
+
+.mini-calendar-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #6c757d;
+}
+
+.mini-calendar-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header rojo con el mes */
+.mini-calendar-month-header {
+  background: #dc3545;
+  color: white;
+  text-align: center;
+  padding: 0.5rem;
+  font-weight: bold;
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+}
+
+/* Días de la semana */
+.mini-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: white;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.mini-weekday {
+  text-align: center;
+  padding: 0.3rem 0.2rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #495057;
+  border-right: 1px solid #dee2e6;
+}
+
+.mini-weekday:last-child {
+  border-right: none;
+}
+
+/* Grid de días */
+.mini-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  flex: 1;
+  background: white;
+}
+
+.mini-calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-right: 1px solid #dee2e6;
+  border-bottom: 1px solid #dee2e6;
+  position: relative;
+}
+
+.mini-calendar-day:nth-child(7n) {
+  border-right: none;
+}
+
+.mini-calendar-day:hover {
+  background: #f8f9fa;
+}
+
+.mini-calendar-day.other-month {
+  color: #adb5bd;
+  background: #f8f9fa;
+}
+
+.mini-calendar-day.today {
+  background: #e3f2fd;
+  color: #1976d2;
+  font-weight: 600;
+}
+
+.mini-calendar-day.has-assigned-tasks {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.mini-calendar-day.has-assigned-tasks::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  height: 2px;
+  background: #ffc107;
+  border-radius: 1px;
+}
+
+.mini-day-number {
+  font-weight: 600;
+  line-height: 1;
 }
 
 .spinning {

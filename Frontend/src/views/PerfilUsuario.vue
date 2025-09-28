@@ -342,7 +342,7 @@ export default {
         horasSemanalMaxima: null,
         costoPorHora: null,
         habilidades: [],
-        preferencias: ''
+        preferencias: []
       },
       editMessage: '',
       editMessageClass: '',
@@ -436,7 +436,7 @@ export default {
         horasSemanalMaxima: this.user.horasSemanalMaxima || null,
         costoPorHora: this.user.costoPorHora || null,
         habilidades: this.user.habilidades ? [...this.user.habilidades] : [{ nombre: '', nivel: '' }],
-        preferencias: this.user.preferencias || ''
+        preferencias: this.user.preferencias || []
       };
       this.editMessage = '';
       

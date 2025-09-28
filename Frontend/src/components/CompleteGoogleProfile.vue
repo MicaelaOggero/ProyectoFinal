@@ -173,7 +173,7 @@ export default {
          aniosExperiencia: 0,
          horasSemanalMaxima: 40,
          costoPorHora: 0,
-         preferencias: '',
+         preferencias: [],
          habilidades: []
        },
       errorMessage: '',
@@ -201,7 +201,7 @@ export default {
          aniosExperiencia: 0,
          horasSemanalMaxima: 40,
          costoPorHora: 0,
-         preferencias: '',
+         preferencias: [],
          habilidades: []
        };
        this.addSkill(); // Agregar primera habilidad

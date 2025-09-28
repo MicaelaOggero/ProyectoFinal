@@ -201,7 +201,7 @@ export default {
         habilidades: [],
         aniosExperiencia: 0,
         horasSemanalMaxima: 0,
-        preferencias: '',
+        preferencias: [],
         costoPorHora: 0,
         email: '',
         password: ''
@@ -235,7 +235,7 @@ export default {
         habilidades: [],
         aniosExperiencia: 0,
         horasSemanalMaxima: 0,
-        preferencias: '',
+        preferencias: [],
         costoPorHora: 0,
         email: '',
         password: ''
