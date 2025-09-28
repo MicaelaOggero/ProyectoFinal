@@ -33,10 +33,17 @@ class AssignmentService {
   // Ejecutar asignación automática (que retorna el resumen)
   async runAutomaticAssignment(projectId) {
     try {
-      const response = await axios.post(`${API_URL}/tasks/asignar-automatico/${projectId}`, {});
+      console.log('🔍 AssignmentService - Iniciando asignación automática para proyecto:', projectId);
+      console.log('🔍 AssignmentService - URL:', `${API_URL}/assignment/asignar-automatico/${projectId}`);
+      
+      const response = await axios.post(`${API_URL}/assignment/asignar-automatico/${projectId}`, {});
+      
+      console.log('🔍 AssignmentService - Respuesta exitosa:', response.data);
       return response.data;
     } catch (error) {
-      console.error('Error ejecutando asignación automática:', error);
+      console.error('🔍 AssignmentService - Error ejecutando asignación automática:', error);
+      console.error('🔍 AssignmentService - Error response:', error.response?.data);
+      console.error('🔍 AssignmentService - Error status:', error.response?.status);
       throw error;
     }
   }
