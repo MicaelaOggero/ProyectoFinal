@@ -45,6 +45,13 @@
         >
           Equipo
         </button>
+        <button 
+          class="tab-btn" 
+          :class="{ active: activeTab === 'asignaciones' }"
+          @click="switchToAssignmentsTab"
+        >
+          Asignaciones
+        </button>
       </div>
     </div>
 
@@ -86,10 +93,20 @@
         <div class="tasks-content">
           <div class="tasks-header">
             <h3>Tareas del Proyecto</h3>
-            <button class="btn btn-success btn-sm" @click="showAddTaskModal = true">
-              <i class="bi bi-plus-circle me-1"></i>
-              Nueva Tarea
-            </button>
+            <div class="tasks-actions">
+              <button 
+                class="btn btn-success me-2" 
+                @click="runAutoAssignment" 
+                :disabled="isAssigning"
+              >
+                <i class="bi bi-robot me-1" :class="{ 'spinning': isAssigning }"></i>
+                {{ isAssigning ? 'Asignando...' : 'Asignación Automática' }}
+              </button>
+              <button class="btn btn-primary btn-sm" @click="showAddTaskModal = true">
+                <i class="bi bi-plus-circle me-1"></i>
+                Nueva Tarea
+              </button>
+            </div>
           </div>
           
           <div v-if="projectTasks.length === 0" class="no-tasks">
@@ -209,6 +226,224 @@
                     {{ member.tareasAsignadas }} {{ member.tareasAsignadas === 1 ? 'tarea' : 'tareas' }}
                   </span>
                   <small class="member-date">Asignado: {{ formatDate(member.fechaAsignacion) }}</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Asignaciones -->
+      <div v-if="activeTab === 'asignaciones'" class="tab-pane active">
+        <div class="assignments-content">
+          <div class="assignments-header">
+            <h3>Resumen de Asignaciones</h3>
+          </div>
+
+          <!-- Información del proyecto -->
+          <div class="project-assignment-info mb-4">
+            <div class="card">
+              <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                  <i class="bi bi-info-circle me-2"></i>
+                  Información del Proyecto
+                </h5>
+              </div>
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-md-6">
+                    <p><strong>Proyecto:</strong> {{ project?.name || 'N/A' }}</p>
+                    <p><strong>Total de Tareas:</strong> {{ projectTasks.length }}</p>
+                  </div>
+                  <div class="col-md-6">
+                    <p><strong>Tareas Asignadas:</strong> {{ assignedTasksCount }}</p>
+                    <p><strong>Sin Asignar:</strong> {{ unassignedTasksCount }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Resumen de asignaciones -->
+          <div class="assignments-summary">
+            <div class="card">
+              <div class="card-header">
+                <h5 class="mb-0">
+                  <i class="bi bi-list-check me-2"></i>
+                  Detalle de Asignaciones
+                </h5>
+              </div>
+              <div class="card-body">
+                <div v-if="loadingAssignments" class="text-center py-4">
+                  <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                  </div>
+                </div>
+                
+                <div v-else-if="!assignments || assignments.length === 0" class="text-center py-4 text-muted">
+                  <i class="bi bi-inbox fs-1"></i>
+                  <p class="mt-2">No hay asignaciones disponibles</p>
+                  <p class="small">Las asignaciones aparecerán aquí cuando se ejecute la asignación automática.</p>
+                </div>
+
+                <div v-else>
+                  <!-- Filtros -->
+                  <div class="row mb-3">
+                    <div class="col-md-6">
+                      <label for="assignmentStatusFilter" class="form-label">Filtrar por Estado</label>
+                      <select class="form-select" id="assignmentStatusFilter" v-model="assignmentStatusFilter" @change="filterAssignments">
+                        <option value="">Todos</option>
+                        <option value="asignado">Asignadas</option>
+                        <option value="sin_asignar">Sin Asignar</option>
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label for="assignmentDeveloperFilter" class="form-label">Filtrar por Desarrollador</label>
+                      <select class="form-select" id="assignmentDeveloperFilter" v-model="assignmentDeveloperFilter" @change="filterAssignments">
+                        <option value="">Todos los desarrolladores</option>
+                        <option v-for="dev in uniqueDevelopers" :key="dev" :value="dev">
+                          {{ dev }}
+                        </option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- Lista de Asignaciones -->
+                  <div class="assignment-list">
+                    <div 
+                      v-for="(assignment, index) in filteredAssignments" 
+                      :key="index" 
+                      class="assignment-item"
+                      :class="{ 'assignment-success': assignment.asignado, 'assignment-warning': !assignment.asignado }"
+                    >
+                      <div class="assignment-header">
+                        <div class="assignment-info">
+                          <h6 class="assignment-title">{{ assignment.tarea?.descripcion || assignment.tarea }}</h6>
+                          <div class="assignment-meta">
+                            <span v-if="assignment.asignado" class="badge bg-success">
+                              <i class="bi bi-person-check me-1"></i>
+                              Asignada a: {{ assignment.asignado }}
+                            </span>
+                            <span v-else class="badge bg-warning text-dark">
+                              <i class="bi bi-exclamation-triangle me-1"></i>
+                              Sin asignar
+                            </span>
+                            <span v-if="assignment.tarea?.estado" class="badge bg-info">
+                              <i class="bi bi-tag me-1"></i>
+                              {{ assignment.tarea.estado }}
+                            </span>
+                          </div>
+                        </div>
+                        <div class="assignment-status">
+                          <i v-if="assignment.asignado" class="bi bi-check-circle-fill text-success fs-4"></i>
+                          <i v-else class="bi bi-x-circle-fill text-warning fs-4"></i>
+                        </div>
+                      </div>
+
+                      <!-- Información adicional para tareas asignadas -->
+                      <div v-if="assignment.asignado" class="assignment-details">
+                        <div class="row">
+                          <div class="col-md-6">
+                            <p v-if="assignment.tarea?.tiempoEstimadoHoras" class="mb-1">
+                              <i class="bi bi-clock me-1"></i>
+                              <strong>Horas Estimadas:</strong> {{ assignment.tarea.tiempoEstimadoHoras }}h
+                            </p>
+                            <p v-if="assignment.horasAsignadasTotales" class="mb-1">
+                              <i class="bi bi-clock-fill me-1"></i>
+                              <strong>Horas Asignadas:</strong> {{ assignment.horasAsignadasTotales }}h
+                            </p>
+                            <p v-if="assignment.dias && assignment.dias.length > 0" class="mb-1">
+                              <i class="bi bi-calendar me-1"></i>
+                              <strong>Días Asignados:</strong> {{ assignment.dias.length }} días
+                            </p>
+                          </div>
+                          <div class="col-md-6">
+                            <div v-if="assignment.desarrollador?.habilidades && assignment.desarrollador.habilidades.length > 0" class="mb-2">
+                              <small class="text-muted">Habilidades del desarrollador:</small>
+                              <div class="skills-list">
+                                <span 
+                                  v-for="(habilidad, index) in assignment.desarrollador.habilidades.slice(0, 3)" 
+                                  :key="index"
+                                  class="skill-badge"
+                                >
+                                  {{ typeof habilidad === 'string' ? habilidad : habilidad.nombre }}
+                                </span>
+                                <span v-if="assignment.desarrollador.habilidades.length > 3" class="skill-badge more-skills">
+                                  +{{ assignment.desarrollador.habilidades.length - 3 }} más
+                                </span>
+                              </div>
+                            </div>
+                            <div v-if="assignment.dias && assignment.dias.length > 0" class="days-list">
+                              <small class="text-muted">Fechas asignadas:</small>
+                              <div class="days-grid">
+                                <span 
+                                  v-for="(dia, diaIndex) in assignment.dias.slice(0, 3)" 
+                                  :key="diaIndex"
+                                  class="day-badge"
+                                  :title="`${formatDate(dia.fecha)} - ${dia.horasAsignadas}h`"
+                                >
+                                  {{ formatDate(dia.fecha) }} ({{ dia.horasAsignadas }}h)
+                                </span>
+                                <span v-if="assignment.dias.length > 3" class="day-badge more-days">
+                                  +{{ assignment.dias.length - 3 }} más
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Motivo para tareas sin asignar -->
+                      <div v-else-if="assignment.motivo" class="assignment-details">
+                        <div class="alert alert-warning mb-0">
+                          <i class="bi bi-info-circle me-1"></i>
+                          <strong>Motivo:</strong> {{ assignment.motivo }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Estadísticas Resumen -->
+          <div v-if="assignments && assignments.length > 0" class="row mt-4">
+            <div class="col-12">
+              <div class="card">
+                <div class="card-header bg-light">
+                  <h5 class="mb-0">
+                    <i class="bi bi-bar-chart me-2"></i>
+                    Estadísticas
+                  </h5>
+                </div>
+                <div class="card-body">
+                  <div class="row text-center">
+                    <div class="col-md-3">
+                      <div class="stat-item">
+                        <h3 class="text-primary">{{ assignedTasksCount }}</h3>
+                        <p class="text-muted">Tareas Asignadas</p>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="stat-item">
+                        <h3 class="text-warning">{{ unassignedTasksCount }}</h3>
+                        <p class="text-muted">Sin Asignar</p>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="stat-item">
+                        <h3 class="text-info">{{ uniqueDevelopers.length }}</h3>
+                        <p class="text-muted">Desarrolladores</p>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="stat-item">
+                        <h3 class="text-success">{{ totalHoursAssigned }}</h3>
+                        <p class="text-muted">Horas Totales</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -425,6 +660,7 @@ import TaskService from '@/services/task.service.js';
 import SkillsService from '@/services/skills.service.js';
 import UserService from '@/services/user.service.js';
 import ValidationService from '@/services/validation.service.js';
+import AssignmentService from '@/services/assignment.service.js';
 
 export default {
   name: 'ProyectoDetalleView',
@@ -456,7 +692,13 @@ export default {
       // Input para habilidades
       skillInput: '',
       // Lista de usuarios para asignación
-      users: []
+      users: [],
+      // Propiedades para el tab de asignaciones
+      assignments: [],
+      loadingAssignments: false,
+      isAssigning: false,
+      assignmentStatusFilter: '',
+      assignmentDeveloperFilter: ''
     };
   },
   computed: {
@@ -496,6 +738,50 @@ export default {
       });
       
       return Array.from(teamMap.values());
+    },
+
+    // Propiedades computadas para asignaciones
+    assignedTasksCount() {
+      return this.projectTasks.filter(task => task.desarrolladorAsignado).length;
+    },
+
+    unassignedTasksCount() {
+      return this.projectTasks.filter(task => !task.desarrolladorAsignado).length;
+    },
+
+    filteredAssignments() {
+      if (!this.assignments || this.assignments.length === 0) return [];
+      
+      let filtered = this.assignments;
+      
+      // Filtrar por estado
+      if (this.assignmentStatusFilter === 'asignado') {
+        filtered = filtered.filter(a => a.asignado);
+      } else if (this.assignmentStatusFilter === 'sin_asignar') {
+        filtered = filtered.filter(a => !a.asignado);
+      }
+      
+      // Filtrar por desarrollador
+      if (this.assignmentDeveloperFilter) {
+        filtered = filtered.filter(a => a.asignado === this.assignmentDeveloperFilter);
+      }
+      
+      return filtered;
+    },
+    
+    uniqueDevelopers() {
+      if (!this.assignments || this.assignments.length === 0) return [];
+      const developers = this.assignments
+        .filter(a => a.asignado)
+        .map(a => a.asignado);
+      return [...new Set(developers)];
+    },
+    
+    totalHoursAssigned() {
+      if (!this.assignments || this.assignments.length === 0) return 0;
+      return this.assignments
+        .filter(a => a.horasAsignadasTotales)
+        .reduce((total, a) => total + a.horasAsignadasTotales, 0);
     }
   },
   async mounted() {
@@ -769,6 +1055,318 @@ export default {
       if (isNaN(date.getTime())) return 'N/A';
       return date.toLocaleDateString('es-ES');
     },
+
+    // Métodos para el tab de asignaciones
+    async runAutoAssignment() {
+      const projectId = this.$route.params.id;
+      console.log('🔍 ProyectoDetalle - Iniciando asignación automática para proyecto:', projectId);
+      
+      this.isAssigning = true;
+      
+      try {
+        // Validar tareas del proyecto antes de la asignación automática
+        const validationResults = await this.validateProjectTasksForAssignment(projectId);
+        
+        if (!validationResults.isValid) {
+          alert(`No se puede ejecutar la asignación automática: ${validationResults.message}`);
+          return;
+        }
+        
+        console.log(`✅ Proyecto ${this.project.name}: Todas las tareas pasaron las validaciones`);
+        
+        // Llamar al endpoint del backend para asignación automática
+        const resultado = await AssignmentService.runAutomaticAssignment(projectId);
+        
+        console.log('🔍 ProyectoDetalle - Resultado asignación desde backend:', resultado);
+        
+        if (resultado.resumen && resultado.resumen.length > 0) {
+          // Guardar las asignaciones localmente
+          this.assignments = resultado.resumen.map(assignment => ({
+            // ID de la asignación
+            asignacionId: assignment.asignacionId,
+            
+            // Información completa de la tarea
+            tarea: {
+              id: assignment.tarea?.id,
+              descripcion: assignment.tarea?.descripcion || 'Tarea no disponible',
+              fechaEstimadaInicio: assignment.tarea?.fechaEstimadaInicio,
+              fechaEstimadaFin: assignment.tarea?.fechaEstimadaFin,
+              tiempoEstimadoHoras: assignment.tarea?.tiempoEstimadoHoras,
+              estado: assignment.tarea?.estado
+            },
+            
+            // Información completa del desarrollador
+            desarrollador: {
+              id: assignment.desarrollador?.id,
+              nombre: assignment.desarrollador?.nombre || 'Desarrollador no disponible',
+              habilidades: assignment.desarrollador?.habilidades || []
+            },
+            
+            // Nombre del desarrollador para compatibilidad
+            asignado: assignment.desarrollador?.nombre || 'Desarrollador no disponible',
+            
+            // Información de días y horas
+            horasAsignadasTotales: assignment.horasTotales || 0,
+            dias: assignment.dias || [],
+            
+            // Fecha de asignación
+            fechaAsignacion: assignment.creadoEn || new Date().toISOString()
+          }));
+          
+          console.log('✅ ProyectoDetalle - Asignaciones cargadas:', this.assignments.length);
+          
+          // Recargar las tareas del proyecto para reflejar los cambios
+          await this.loadProjectTasks();
+          
+          alert('Asignación automática completada exitosamente!');
+        } else {
+          console.log('ℹ️ ProyectoDetalle - No se encontraron tareas para asignar');
+          alert('No se encontraron tareas para asignar en este proyecto.');
+        }
+        
+      } catch (error) {
+        console.error('Error ejecutando asignación automática:', error);
+        alert('Error ejecutando asignación automática: ' + error.message);
+      } finally {
+        this.isAssigning = false;
+      }
+    },
+
+    async validateProjectTasksForAssignment(projectId) {
+      try {
+        // Obtener tareas del proyecto
+        const tasks = await TaskService.getTasksByProject(projectId);
+        
+        if (!tasks || tasks.length === 0) {
+          return { isValid: true, message: 'No hay tareas para validar' };
+        }
+
+        // Obtener todos los desarrolladores
+        const usersResponse = await UserService.getUsers();
+        const developers = usersResponse.data.filter(user => user.rol === 'user');
+
+        if (developers.length === 0) {
+          return { isValid: false, message: 'No hay desarrolladores disponibles para asignación' };
+        }
+
+        let validTasksCount = 0;
+        let invalidTasksCount = 0;
+        const invalidTasks = [];
+
+        // Validar cada tarea
+        for (const task of tasks) {
+          // Solo validar tareas sin asignar
+          if (task.desarrolladorAsignado) {
+            validTasksCount++;
+            continue;
+          }
+
+          // Validar que la tarea tenga fechas y horas estimadas
+          if (!task.fechaEstimadaInicio || !task.fechaEstimadaFin || !task.tiempoEstimadoHoras) {
+            invalidTasksCount++;
+            invalidTasks.push({
+              task: task.descripcion,
+              reason: 'Faltan fechas o tiempo estimado'
+            });
+            continue;
+          }
+
+          // Validar horas del mismo día
+          const sameDayValidation = ValidationService.validateSameDayHours({
+            fechaEstimadaInicio: task.fechaEstimadaInicio,
+            fechaEstimadaFin: task.fechaEstimadaFin,
+            tiempoEstimadoHoras: task.tiempoEstimadoHoras
+          });
+
+          if (!sameDayValidation.isValid) {
+            invalidTasksCount++;
+            invalidTasks.push({
+              task: task.descripcion,
+              reason: sameDayValidation.message
+            });
+            continue;
+          }
+
+          // Verificar si hay al menos un desarrollador disponible
+          let hasAvailableDeveloper = false;
+          for (const developer of developers) {
+            // Validar disponibilidad
+            const availabilityValidation = await ValidationService.validateDeveloperAvailability(
+              developer._id,
+              task.fechaEstimadaInicio,
+              task.fechaEstimadaFin,
+              task.tiempoEstimadoHoras
+            );
+
+            // Validar habilidades
+            const skillsValidation = ValidationService.validateSkillsMatch(
+              developer.habilidades || [],
+              task.habilidadesRequeridas || []
+            );
+
+            if (availabilityValidation.isValid && skillsValidation.isValid) {
+              hasAvailableDeveloper = true;
+              break;
+            }
+          }
+
+          if (hasAvailableDeveloper) {
+            validTasksCount++;
+          } else {
+            invalidTasksCount++;
+            invalidTasks.push({
+              task: task.descripcion,
+              reason: 'No hay desarrolladores disponibles con las habilidades requeridas y disponibilidad'
+            });
+          }
+        }
+
+        if (invalidTasksCount > 0) {
+          const invalidTasksList = invalidTasks.slice(0, 3).map(t => `- ${t.task}: ${t.reason}`).join('\n');
+          const moreTasks = invalidTasks.length > 3 ? `\n... y ${invalidTasks.length - 3} tareas más` : '';
+          
+          return {
+            isValid: false,
+            message: `Se encontraron ${invalidTasksCount} tareas que no pueden ser asignadas:\n${invalidTasksList}${moreTasks}`,
+            validTasks: validTasksCount,
+            invalidTasks: invalidTasksCount
+          };
+        }
+
+        return {
+          isValid: true,
+          message: `Todas las ${validTasksCount} tareas pueden ser asignadas`,
+          validTasks: validTasksCount,
+          invalidTasks: 0
+        };
+
+      } catch (error) {
+        console.error('Error validando tareas del proyecto:', error);
+        return {
+          isValid: false,
+          message: 'Error al validar las tareas del proyecto'
+        };
+      }
+    },
+
+    filterAssignments() {
+      // El filtrado se hace en computed property
+    },
+
+    async switchToAssignmentsTab() {
+      this.activeTab = 'asignaciones';
+      await this.loadExistingAssignments();
+    },
+
+    async loadExistingAssignments() {
+      const projectId = this.$route.params.id;
+      this.loadingAssignments = true;
+      
+      try {
+        console.log('🔍 ProyectoDetalle - Cargando asignaciones existentes para proyecto:', projectId);
+        
+        // Intentar cargar asignaciones desde localStorage primero
+        const savedData = localStorage.getItem('lastAssignmentData');
+        if (savedData) {
+          const assignmentData = JSON.parse(savedData);
+          console.log('🔍 ProyectoDetalle - Datos de asignación cargados desde localStorage:', assignmentData);
+          
+          // Verificar si los datos son para este proyecto específico
+          if (assignmentData.proyecto && assignmentData.proyecto._id === projectId) {
+            this.assignments = assignmentData.resumen.map(assignment => ({
+              // ID de la asignación
+              asignacionId: assignment.asignacionId,
+              
+              // Información completa de la tarea
+              tarea: {
+                id: assignment.tarea?.id,
+                descripcion: assignment.tarea?.descripcion || 'Tarea no disponible',
+                fechaEstimadaInicio: assignment.tarea?.fechaEstimadaInicio,
+                fechaEstimadaFin: assignment.tarea?.fechaEstimadaFin,
+                tiempoEstimadoHoras: assignment.tarea?.tiempoEstimadoHoras,
+                estado: assignment.tarea?.estado
+              },
+              
+              // Información completa del desarrollador
+              desarrollador: {
+                id: assignment.desarrollador?.id,
+                nombre: assignment.desarrollador?.nombre || 'Desarrollador no disponible',
+                habilidades: assignment.desarrollador?.habilidades || []
+              },
+              
+              // Nombre del desarrollador para compatibilidad
+              asignado: assignment.desarrollador?.nombre || 'Desarrollador no disponible',
+              
+              // Información de días y horas
+              horasAsignadasTotales: assignment.horasTotales || 0,
+              dias: assignment.dias || [],
+              
+              // Fecha de asignación
+              fechaAsignacion: assignment.creadoEn || new Date().toISOString()
+            }));
+            
+            console.log('✅ ProyectoDetalle - Asignaciones cargadas desde localStorage:', this.assignments.length);
+            return;
+          }
+        }
+
+        // Si no hay datos en localStorage, intentar cargar desde el backend
+        console.log('🔍 ProyectoDetalle - Cargando asignaciones desde backend...');
+        const assignmentsResponse = await AssignmentService.getAssignmentsByProject(projectId);
+        
+        if (assignmentsResponse.asignaciones && assignmentsResponse.asignaciones.length > 0) {
+          this.assignments = assignmentsResponse.asignaciones.map(assignment => ({
+            // ID de la asignación
+            asignacionId: assignment.asignacionId,
+            
+            // Información completa de la tarea
+            tarea: {
+              id: assignment.tarea?.id,
+              descripcion: assignment.tarea?.descripcion || 'Tarea no disponible',
+              fechaEstimadaInicio: assignment.tarea?.fechaEstimadaInicio,
+              fechaEstimadaFin: assignment.tarea?.fechaEstimadaFin,
+              tiempoEstimadoHoras: assignment.tarea?.tiempoEstimadoHoras,
+              estado: assignment.tarea?.estado
+            },
+            
+            // Información completa del desarrollador
+            desarrollador: {
+              id: assignment.desarrollador?.id,
+              nombre: assignment.desarrollador?.nombre || 'Desarrollador no disponible',
+              habilidades: assignment.desarrollador?.habilidades || []
+            },
+            
+            // Nombre del desarrollador para compatibilidad
+            asignado: assignment.desarrollador?.nombre || 'Desarrollador no disponible',
+            
+            // Información de días y horas
+            horasAsignadasTotales: assignment.horasTotales || 0,
+            dias: assignment.dias || [],
+            
+            // Fecha de asignación
+            fechaAsignacion: assignment.creadoEn || new Date().toISOString()
+          }));
+          
+          console.log('✅ ProyectoDetalle - Asignaciones cargadas desde backend:', this.assignments.length);
+        } else {
+          console.log('ℹ️ ProyectoDetalle - No hay asignaciones en el backend');
+          this.assignments = [];
+        }
+        
+      } catch (error) {
+        console.error('Error cargando asignaciones:', error);
+        // Si es un error 400, significa que no hay asignaciones para este proyecto (esperado)
+        if (error.response && error.response.status === 400) {
+          console.log('ℹ️ ProyectoDetalle - Proyecto no tiene asignaciones (error 400 esperado)');
+          this.assignments = [];
+        } else {
+          console.error('❌ Error inesperado cargando asignaciones:', error);
+          this.assignments = [];
+        }
+      } finally {
+        this.loadingAssignments = false;
+      }
+    },
     
     formatCreationDate(dateString) {
       if (!dateString) return 'N/A';
@@ -1028,6 +1626,12 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
+}
+
+.tasks-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .no-tasks {
@@ -1319,6 +1923,215 @@ export default {
   .tab-btn {
     padding: 0.75rem 1rem;
     font-size: 1rem;
+  }
+  
+  .tasks-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  
+  .tasks-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.5rem;
+  }
+  
+  .tasks-actions .btn {
+    width: 100%;
+  }
+}
+
+/* Estilos para el tab de asignaciones */
+.assignments-content {
+  padding: 1rem 0;
+}
+
+.assignments-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.assignments-header h3 {
+  margin: 0;
+  color: #495057;
+}
+
+.assignments-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.assignment-list {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.assignment-item {
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  transition: all 0.3s ease;
+}
+
+.assignment-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.assignment-success {
+  border-left: 4px solid #28a745;
+  background: linear-gradient(90deg, rgba(40, 167, 69, 0.05) 0%, transparent 100%);
+}
+
+.assignment-warning {
+  border-left: 4px solid #ffc107;
+  background: linear-gradient(90deg, rgba(255, 193, 7, 0.05) 0%, transparent 100%);
+}
+
+.assignment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.assignment-title {
+  color: #495057;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.assignment-meta {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.assignment-details {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.days-list {
+  margin-top: 0.5rem;
+}
+
+.days-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+.day-badge {
+  background: #e9ecef;
+  color: #495057;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.day-badge.more-days {
+  background: #007bff;
+  color: white;
+}
+
+.skills-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+.skill-badge {
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid #bbdefb;
+}
+
+.skill-badge.more-skills {
+  background: #1976d2;
+  color: white;
+  border: 1px solid #1976d2;
+}
+
+.stat-item h3 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.stat-item p {
+  font-size: 0.9rem;
+  margin-bottom: 0;
+}
+
+/* Animaciones */
+.assignment-item {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Estilos para badges */
+.badge {
+  font-size: 0.8rem;
+  padding: 0.4em 0.8em;
+}
+
+/* Estilos para alertas */
+.alert {
+  border-radius: 0.5rem;
+  border: none;
+}
+
+/* Estilos para el header */
+.card-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.bg-primary {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+}
+
+/* Responsive para asignaciones */
+@media (max-width: 768px) {
+  .assignments-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .assignment-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .assignment-status {
+    align-self: flex-start;
+  }
+  
+  .days-grid {
+    justify-content: flex-start;
   }
 }
 </style>
