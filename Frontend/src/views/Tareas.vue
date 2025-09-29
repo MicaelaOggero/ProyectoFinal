@@ -566,6 +566,7 @@ import ProjectService from '../services/project.service.js';
 import UserService from '../services/user.service.js';
 import AuthService from '../services/auth.service.js';
 import AssignmentService from '../services/assignment.service.js';
+import ValidationService from '../services/validation.service.js';
 import SkillsService from '../services/skills.service.js';
 
 export default {
@@ -784,6 +785,11 @@ export default {
         }
         
         console.log('🔍 Total de tareas cargadas:', this.tasks.length);
+        
+        // Ordenar tareas por prioridad y dificultad
+        this.tasks = ValidationService.sortTasksByPriority(this.tasks);
+        console.log('🔍 Tareas ordenadas por prioridad y dificultad');
+        
         this.filterTasks();
       } catch (error) {
         console.error('Error cargando tareas:', error);
@@ -899,7 +905,7 @@ export default {
       this.errorMessage = '';
       
       try {
-        // Validaciones
+        // Validaciones básicas
         if (!this.taskForm.descripcion.trim()) {
           throw new Error('La descripción es obligatoria');
         }
@@ -914,6 +920,37 @@ export default {
         }
         if (this.taskForm.habilidadesRequeridas.length === 0) {
           throw new Error('Debe agregar al menos una habilidad requerida');
+        }
+
+        // Validación de horas para tareas del mismo día
+        if (this.taskForm.fechaEstimadaInicio && this.taskForm.fechaEstimadaFin && this.taskForm.tiempoEstimadoHoras) {
+          const sameDayValidation = ValidationService.validateSameDayHours({
+            fechaEstimadaInicio: this.taskForm.fechaEstimadaInicio,
+            fechaEstimadaFin: this.taskForm.fechaEstimadaFin,
+            tiempoEstimadoHoras: this.taskForm.tiempoEstimadoHoras
+          });
+          
+          if (!sameDayValidation.isValid) {
+            throw new Error(sameDayValidation.message);
+          }
+        }
+
+        // Validación de disponibilidad del desarrollador si está asignado
+        if (this.taskForm.desarrolladorAsignado && this.taskForm.fechaEstimadaInicio && this.taskForm.fechaEstimadaFin && this.taskForm.tiempoEstimadoHoras) {
+          const developerId = typeof this.taskForm.desarrolladorAsignado === 'object' 
+            ? this.taskForm.desarrolladorAsignado._id 
+            : this.taskForm.desarrolladorAsignado;
+
+          const availabilityValidation = await ValidationService.validateDeveloperAvailability(
+            developerId,
+            this.taskForm.fechaEstimadaInicio,
+            this.taskForm.fechaEstimadaFin,
+            this.taskForm.tiempoEstimadoHoras
+          );
+
+          if (!availabilityValidation.isValid) {
+            throw new Error(availabilityValidation.message);
+          }
         }
         
         // Preparar datos para envío
@@ -1053,24 +1090,66 @@ export default {
       try {
         this.isUpdatingAssignment = true;
         
-        // Como el backend no devuelve el _id de la asignación, vamos a editar directamente la tarea
-        console.log('🔍 EditAssignment - Editando tarea directamente');
+        // Ahora que el backend incluye el asignacionId, podemos usar la ruta correcta
+        const projectId = this.selectedTaskForAssignment.proyecto;
+        console.log('🔍 EditAssignment - Buscando asignación para proyecto:', projectId);
         console.log('🔍 EditAssignment - Tarea ID:', this.selectedTaskForAssignment._id);
         console.log('🔍 EditAssignment - Nuevo desarrollador ID:', this.assignmentForm.newDeveloperId);
         
-        // Actualizar solo el desarrollador asignado para evitar conflictos de versión
-        const updateData = {
-          desarrolladorAsignado: this.assignmentForm.newDeveloperId
-        };
+        const assignmentsResponse = await AssignmentService.getAssignmentsByProject(projectId);
+        console.log('🔍 EditAssignment - Respuesta completa:', assignmentsResponse);
         
-        console.log('🔍 EditAssignment - Datos a enviar al backend:', updateData);
+        const assignment = assignmentsResponse.asignaciones?.find(a => 
+          a.tarea && a.tarea.id === this.selectedTaskForAssignment._id
+        );
         
-        // Llamar al servicio de tareas para actualizar la tarea
-        await TaskService.updateTask(this.selectedTaskForAssignment._id, updateData);
+        console.log('🔍 EditAssignment - Asignación encontrada:', assignment);
         
-        // IMPORTANTE: Actualizar los calendarios de los desarrolladores
-        // El backend debería manejar esto, pero como estamos usando TaskService en lugar de AssignmentService,
-        // necesitamos notificar al usuario que debe recargar su calendario
+        if (!assignment) {
+          throw new Error('No se encontró la asignación para esta tarea');
+        }
+        
+        if (!assignment.asignacionId) {
+          throw new Error('La asignación no tiene un ID válido');
+        }
+        
+        console.log('🔍 EditAssignment - Usando asignacionId:', assignment.asignacionId);
+        
+        // Validar disponibilidad del nuevo desarrollador
+        const newDeveloper = this.users.find(u => u._id === this.assignmentForm.newDeveloperId);
+        if (!newDeveloper) {
+          throw new Error('No se encontró información del nuevo desarrollador');
+        }
+
+        // Validar disponibilidad del desarrollador para la tarea
+        if (this.selectedTaskForAssignment.fechaEstimadaInicio && 
+            this.selectedTaskForAssignment.fechaEstimadaFin && 
+            this.selectedTaskForAssignment.tiempoEstimadoHoras) {
+          
+          const availabilityValidation = await ValidationService.validateDeveloperAvailability(
+            this.assignmentForm.newDeveloperId,
+            this.selectedTaskForAssignment.fechaEstimadaInicio,
+            this.selectedTaskForAssignment.fechaEstimadaFin,
+            this.selectedTaskForAssignment.tiempoEstimadoHoras
+          );
+
+          if (!availabilityValidation.isValid) {
+            throw new Error(`No se puede asignar la tarea al nuevo desarrollador: ${availabilityValidation.message}`);
+          }
+
+          // Validar habilidades del desarrollador
+          const skillsValidation = ValidationService.validateSkillsMatch(
+            newDeveloper.habilidades || [],
+            this.selectedTaskForAssignment.habilidadesRequeridas || []
+          );
+
+          if (!skillsValidation.isValid) {
+            throw new Error(`El nuevo desarrollador no cumple con los requisitos de habilidades: ${skillsValidation.message}`);
+          }
+        }
+        
+        // Llamar al servicio de asignaciones que actualiza también los calendarios
+        await AssignmentService.editAssignment(assignment.asignacionId, this.assignmentForm.newDeveloperId);
         
         // Actualizar la tarea localmente
         const taskIndex = this.tasks.findIndex(t => t._id === this.selectedTaskForAssignment._id);
@@ -1083,7 +1162,7 @@ export default {
         // Actualizar la lista filtrada también
         this.filterTasks();
         
-        alert('Desarrollador asignado actualizado correctamente.\n\nNOTA: Los calendarios de disponibilidad de los desarrolladores no se actualizarán automáticamente. Para que los cambios se reflejen en el calendario, se debe ejecutar una nueva asignación automática o actualizar manualmente los calendarios.');
+        alert('Asignación actualizada correctamente.\n\nLos calendarios de disponibilidad de ambos desarrolladores han sido actualizados automáticamente.');
         this.closeEditAssignmentModal();
         
       } catch (error) {
@@ -1245,6 +1324,16 @@ export default {
           console.log('🔍 Tareas - Procesando proyecto:', project.name, 'ID:', project._id);
           
           try {
+            // Validar tareas del proyecto antes de la asignación automática
+            const validationResults = await this.validateProjectTasksForAssignment(project._id);
+            
+            if (!validationResults.isValid) {
+              console.warn(`⚠️ Proyecto ${project.name}: ${validationResults.message}`);
+              continue; // Saltar este proyecto si no pasa las validaciones
+            }
+            
+            console.log(`✅ Proyecto ${project.name}: Todas las tareas pasaron las validaciones`);
+            
             // Llamar al endpoint del backend para asignación automática usando el nuevo servicio
             const resultado = await AssignmentService.runAutomaticAssignment(project._id);
             
@@ -1300,6 +1389,124 @@ export default {
 
     clearAssignmentResults() {
       this.assignmentResults = [];
+    },
+
+    // Validar tareas de un proyecto para asignación automática
+    async validateProjectTasksForAssignment(projectId) {
+      try {
+        // Obtener tareas del proyecto
+        const tasks = await TaskService.getTasksByProject(projectId);
+        
+        if (!tasks || tasks.length === 0) {
+          return { isValid: true, message: 'No hay tareas para validar' };
+        }
+
+        // Obtener todos los desarrolladores
+        const usersResponse = await UserService.getUsers();
+        const developers = usersResponse.data.filter(user => user.rol === 'user');
+
+        if (developers.length === 0) {
+          return { isValid: false, message: 'No hay desarrolladores disponibles para asignación' };
+        }
+
+        let validTasksCount = 0;
+        let invalidTasksCount = 0;
+        const invalidTasks = [];
+
+        // Validar cada tarea
+        for (const task of tasks) {
+          // Solo validar tareas sin asignar
+          if (task.desarrolladorAsignado) {
+            validTasksCount++;
+            continue;
+          }
+
+          // Validar que la tarea tenga fechas y horas estimadas
+          if (!task.fechaEstimadaInicio || !task.fechaEstimadaFin || !task.tiempoEstimadoHoras) {
+            invalidTasksCount++;
+            invalidTasks.push({
+              task: task.descripcion,
+              reason: 'Faltan fechas o tiempo estimado'
+            });
+            continue;
+          }
+
+          // Validar horas del mismo día
+          const sameDayValidation = ValidationService.validateSameDayHours({
+            fechaEstimadaInicio: task.fechaEstimadaInicio,
+            fechaEstimadaFin: task.fechaEstimadaFin,
+            tiempoEstimadoHoras: task.tiempoEstimadoHoras
+          });
+
+          if (!sameDayValidation.isValid) {
+            invalidTasksCount++;
+            invalidTasks.push({
+              task: task.descripcion,
+              reason: sameDayValidation.message
+            });
+            continue;
+          }
+
+          // Verificar si hay al menos un desarrollador disponible
+          let hasAvailableDeveloper = false;
+          for (const developer of developers) {
+            // Validar disponibilidad
+            const availabilityValidation = await ValidationService.validateDeveloperAvailability(
+              developer._id,
+              task.fechaEstimadaInicio,
+              task.fechaEstimadaFin,
+              task.tiempoEstimadoHoras
+            );
+
+            // Validar habilidades
+            const skillsValidation = ValidationService.validateSkillsMatch(
+              developer.habilidades || [],
+              task.habilidadesRequeridas || []
+            );
+
+            if (availabilityValidation.isValid && skillsValidation.isValid) {
+              hasAvailableDeveloper = true;
+              break;
+            }
+          }
+
+          if (hasAvailableDeveloper) {
+            validTasksCount++;
+          } else {
+            invalidTasksCount++;
+            invalidTasks.push({
+              task: task.descripcion,
+              reason: 'No hay desarrolladores disponibles con las habilidades requeridas y disponibilidad'
+            });
+          }
+        }
+
+        if (invalidTasksCount > 0) {
+          const invalidTasksList = invalidTasks.slice(0, 3).map(t => `- ${t.task}: ${t.reason}`).join('\n');
+          const moreTasks = invalidTasks.length > 3 ? `\n... y ${invalidTasks.length - 3} tareas más` : '';
+          
+          return {
+            isValid: false,
+            message: `Se encontraron ${invalidTasksCount} tareas que no pueden ser asignadas:\n${invalidTasksList}${moreTasks}`,
+            validTasks: validTasksCount,
+            invalidTasks: invalidTasksCount
+          };
+        }
+
+        return {
+          isValid: true,
+          message: `Todas las ${validTasksCount} tareas pueden ser asignadas`,
+          validTasks: validTasksCount,
+          invalidTasks: 0
+        };
+
+      } catch (error) {
+        console.error('Error validando tareas del proyecto:', error);
+        return {
+          isValid: false,
+          message: 'Error al validar las tareas del proyecto'
+        };
+      }
     },
 
     viewDetailedSummary() {

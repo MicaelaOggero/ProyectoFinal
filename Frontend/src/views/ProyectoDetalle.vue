@@ -424,6 +424,7 @@ import ProjectService from '@/services/project.service.js';
 import TaskService from '@/services/task.service.js';
 import SkillsService from '@/services/skills.service.js';
 import UserService from '@/services/user.service.js';
+import ValidationService from '@/services/validation.service.js';
 
 export default {
   name: 'ProyectoDetalleView',
@@ -524,7 +525,10 @@ export default {
         const tasks = await TaskService.getTasksByProject(projectId);
         console.log('🔍 ProyectoDetalle - Tareas recibidas del backend:', tasks);
         console.log('🔍 ProyectoDetalle - Cantidad de tareas:', tasks.length);
-        this.projectTasks = tasks;
+        
+        // Ordenar tareas por prioridad y dificultad
+        this.projectTasks = ValidationService.sortTasksByPriority(tasks);
+        console.log('🔍 ProyectoDetalle - Tareas ordenadas por prioridad y dificultad');
       } catch (error) {
         console.error('Error cargando tareas:', error);
         this.projectTasks = [];
@@ -533,6 +537,64 @@ export default {
     
     async createTask() {
       try {
+        // Validaciones básicas
+        if (!this.newTask.descripcion.trim()) {
+          throw new Error('La descripción es obligatoria');
+        }
+        if (!this.newTask.nivelDificultad) {
+          throw new Error('Debe seleccionar un nivel de dificultad');
+        }
+        if (!this.newTask.prioridad) {
+          throw new Error('Debe seleccionar una prioridad');
+        }
+        if (!this.newTask.habilidadesRequeridas || this.newTask.habilidadesRequeridas.length === 0) {
+          throw new Error('Debe agregar al menos una habilidad requerida');
+        }
+
+        // Validación de horas para tareas del mismo día
+        if (this.newTask.fechaEstimadaInicio && this.newTask.fechaEstimadaFin && this.newTask.tiempoEstimadoHoras) {
+          const sameDayValidation = ValidationService.validateSameDayHours({
+            fechaEstimadaInicio: this.newTask.fechaEstimadaInicio,
+            fechaEstimadaFin: this.newTask.fechaEstimadaFin,
+            tiempoEstimadoHoras: this.newTask.tiempoEstimadoHoras
+          });
+          
+          if (!sameDayValidation.isValid) {
+            throw new Error(sameDayValidation.message);
+          }
+        }
+
+        // Validación de disponibilidad del desarrollador si está asignado
+        if (this.newTask.desarrolladorAsignado && this.newTask.fechaEstimadaInicio && this.newTask.fechaEstimadaFin && this.newTask.tiempoEstimadoHoras) {
+          const developerId = typeof this.newTask.desarrolladorAsignado === 'object' 
+            ? this.newTask.desarrolladorAsignado._id 
+            : this.newTask.desarrolladorAsignado;
+
+          const availabilityValidation = await ValidationService.validateDeveloperAvailability(
+            developerId,
+            this.newTask.fechaEstimadaInicio,
+            this.newTask.fechaEstimadaFin,
+            this.newTask.tiempoEstimadoHoras
+          );
+
+          if (!availabilityValidation.isValid) {
+            throw new Error(availabilityValidation.message);
+          }
+
+          // Validar habilidades del desarrollador
+          const selectedDeveloper = this.users.find(u => u._id === developerId);
+          if (selectedDeveloper) {
+            const skillsValidation = ValidationService.validateSkillsMatch(
+              selectedDeveloper.habilidades || [],
+              this.newTask.habilidadesRequeridas || []
+            );
+
+            if (!skillsValidation.isValid) {
+              throw new Error(`El desarrollador no cumple con los requisitos de habilidades: ${skillsValidation.message}`);
+            }
+          }
+        }
+
         const projectId = this.$route.params.id;
         const taskData = {
           descripcion: this.newTask.descripcion,

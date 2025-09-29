@@ -101,7 +101,7 @@
                 >
                   <div class="assignment-header">
                     <div class="assignment-info">
-                      <h6 class="assignment-title">{{ assignment.tarea }}</h6>
+                      <h6 class="assignment-title">{{ assignment.tarea?.descripcion || assignment.tarea }}</h6>
                       <div class="assignment-meta">
                         <span v-if="assignment.asignado" class="badge bg-success">
                           <i class="bi bi-person-check me-1"></i>
@@ -110,6 +110,14 @@
                         <span v-else class="badge bg-warning text-dark">
                           <i class="bi bi-exclamation-triangle me-1"></i>
                           Sin asignar
+                        </span>
+                        <span v-if="assignment.tarea?.estado" class="badge bg-info">
+                          <i class="bi bi-tag me-1"></i>
+                          {{ assignment.tarea.estado }}
+                        </span>
+                        <span v-if="assignment.proyecto" class="badge bg-secondary">
+                          <i class="bi bi-folder me-1"></i>
+                          {{ assignment.proyecto }}
                         </span>
                       </div>
                     </div>
@@ -123,16 +131,43 @@
                   <div v-if="assignment.asignado" class="assignment-details">
                     <div class="row">
                       <div class="col-md-6">
-                        <p v-if="assignment.horasAsignadasTotales" class="mb-1">
+                        <p v-if="assignment.tarea?.tiempoEstimadoHoras" class="mb-1">
                           <i class="bi bi-clock me-1"></i>
+                          <strong>Horas Estimadas:</strong> {{ assignment.tarea.tiempoEstimadoHoras }}h
+                        </p>
+                        <p v-if="assignment.horasAsignadasTotales" class="mb-1">
+                          <i class="bi bi-clock-fill me-1"></i>
                           <strong>Horas Asignadas:</strong> {{ assignment.horasAsignadasTotales }}h
                         </p>
                         <p v-if="assignment.dias && assignment.dias.length > 0" class="mb-1">
                           <i class="bi bi-calendar me-1"></i>
                           <strong>Días Asignados:</strong> {{ assignment.dias.length }} días
                         </p>
+                        <p v-if="assignment.tarea?.fechaEstimadaInicio" class="mb-1">
+                          <i class="bi bi-calendar-event me-1"></i>
+                          <strong>Fecha Inicio:</strong> {{ formatDate(assignment.tarea.fechaEstimadaInicio) }}
+                        </p>
+                        <p v-if="assignment.tarea?.fechaEstimadaFin" class="mb-1">
+                          <i class="bi bi-calendar-check me-1"></i>
+                          <strong>Fecha Fin:</strong> {{ formatDate(assignment.tarea.fechaEstimadaFin) }}
+                        </p>
                       </div>
                       <div class="col-md-6">
+                        <div v-if="assignment.desarrollador?.habilidades && assignment.desarrollador.habilidades.length > 0" class="mb-2">
+                          <small class="text-muted">Habilidades del desarrollador:</small>
+                          <div class="skills-list">
+                            <span 
+                              v-for="(habilidad, index) in assignment.desarrollador.habilidades.slice(0, 3)" 
+                              :key="index"
+                              class="skill-badge"
+                            >
+                              {{ typeof habilidad === 'string' ? habilidad : habilidad.nombre }}
+                            </span>
+                            <span v-if="assignment.desarrollador.habilidades.length > 3" class="skill-badge more-skills">
+                              +{{ assignment.desarrollador.habilidades.length - 3 }} más
+                            </span>
+                          </div>
+                        </div>
                         <div v-if="assignment.dias && assignment.dias.length > 0" class="days-list">
                           <small class="text-muted">Fechas asignadas:</small>
                           <div class="days-grid">
@@ -140,8 +175,9 @@
                               v-for="(dia, diaIndex) in assignment.dias.slice(0, 3)" 
                               :key="diaIndex"
                               class="day-badge"
+                              :title="`${formatDate(dia.fecha)} - ${dia.horasAsignadas}h`"
                             >
-                              {{ formatDate(dia.fecha) }}
+                              {{ formatDate(dia.fecha) }} ({{ dia.horasAsignadas }}h)
                             </span>
                             <span v-if="assignment.dias.length > 3" class="day-badge more-days">
                               +{{ assignment.dias.length - 3 }} más
@@ -340,11 +376,37 @@ export default {
           this.summaryData = {
             message: "Asignaciones cargadas desde la base de datos",
                 resumen: this.allAssignments.map(assignment => ({
-                  tarea: assignment.tarea?.descripcion || 'Tarea no disponible',
+                  // ID de la asignación
+                  asignacionId: assignment.asignacionId,
+                  
+                  // Información completa de la tarea
+                  tarea: {
+                    id: assignment.tarea?.id,
+                    descripcion: assignment.tarea?.descripcion || 'Tarea no disponible',
+                    fechaEstimadaInicio: assignment.tarea?.fechaEstimadaInicio,
+                    fechaEstimadaFin: assignment.tarea?.fechaEstimadaFin,
+                    tiempoEstimadoHoras: assignment.tarea?.tiempoEstimadoHoras,
+                    estado: assignment.tarea?.estado
+                  },
+                  
+                  // Información completa del desarrollador
+                  desarrollador: {
+                    id: assignment.desarrollador?.id,
+                    nombre: assignment.desarrollador?.nombre || 'Desarrollador no disponible',
+                    habilidades: assignment.desarrollador?.habilidades || []
+                  },
+                  
+                  // Nombre del desarrollador para compatibilidad
                   asignado: assignment.desarrollador?.nombre || 'Desarrollador no disponible',
+                  
+                  // Información del proyecto
                   proyecto: assignment.projectName,
+                  
+                  // Información de días y horas
                   horasAsignadasTotales: assignment.horasTotales || 0,
                   dias: assignment.dias || [],
+                  
+                  // Fecha de asignación
                   fechaAsignacion: assignment.creadoEn || new Date().toISOString()
                 })),
             fechaGeneracion: new Date().toISOString(),
@@ -448,6 +510,29 @@ export default {
 .day-badge.more-days {
   background: #007bff;
   color: white;
+}
+
+.skills-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+.skill-badge {
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid #bbdefb;
+}
+
+.skill-badge.more-skills {
+  background: #1976d2;
+  color: white;
+  border: 1px solid #1976d2;
 }
 
 .stat-item h3 {
