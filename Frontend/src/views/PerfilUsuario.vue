@@ -147,6 +147,35 @@
           </div>
         </div>
 
+        <!-- Calendario de Disponibilidad -->
+        <div class="card mb-4">
+          <div class="card-header bg-info text-white">
+            <h5 class="mb-0">
+              <i class="bi bi-calendar3 me-2"></i>
+              Calendario de Disponibilidad
+            </h5>
+          </div>
+          <div class="card-body">
+            <div v-if="calendarLoading" class="text-center py-3">
+              <div class="spinner-border spinner-border-sm" role="status">
+                <span class="visually-hidden">Cargando calendario...</span>
+              </div>
+              <p class="mt-2 mb-0 small text-muted">Cargando calendario...</p>
+            </div>
+            <div v-else>
+              <CalendarAvailability 
+                :user-id="user._id"
+                :user-calendar="userCalendar"
+                @update-availability="handleUpdateAvailability"
+                @remove-availability="handleRemoveAvailability"
+                @initialize-default-availability="handleInitializeDefaultAvailability"
+                @update-work-days-config="handleUpdateWorkDaysConfig"
+                @update-calendar-data="handleUpdateCalendarData"
+              />
+            </div>
+          </div>
+        </div>
+
         <!-- Historial de Desempeño -->
         <div v-if="user.historialDesempeño && user.historialDesempeño.length > 0" class="card">
           <div class="card-header bg-dark text-white">
@@ -326,15 +355,22 @@
 import { Modal } from 'bootstrap';
 import UserService from '@/services/user.service.js';
 import AuthService from '@/services/auth.service.js';
+import CalendarAvailability from '@/components/CalendarAvailability.vue';
 
 export default {
   name: 'PerfilUsuarioView',
+  components: {
+    CalendarAvailability
+  },
   data() {
     return {
       user: null,
       loading: true,
       error: null,
       editModalInstance: null,
+      // Propiedades para el calendario
+      userCalendar: [],
+      calendarLoading: true,
       currentUser: null,
       editForm: {
         dni: '',
@@ -392,6 +428,9 @@ export default {
         const userId = this.$route.params.id;
         const response = await UserService.getUserById(userId);
         this.user = response.data;
+        
+        // Cargar calendario después de cargar el perfil
+        await this.loadUserCalendar();
       } catch (error) {
         console.error('Error loading user profile:', error);
         this.error = 'No se pudo cargar el perfil del usuario. Verifica que el ID sea válido.';
@@ -529,6 +568,113 @@ export default {
             this.editModalInstance = new Modal(modalElement);
           }
         });
+      }
+    },
+
+    // Métodos para manejar el calendario
+    async loadUserCalendar() {
+      if (!this.user || !this.user._id) {
+        console.log('No hay usuario para cargar calendario');
+        return;
+      }
+
+      this.calendarLoading = true;
+      try {
+        console.log('🔍 Cargando calendario para usuario:', this.user._id);
+        const response = await UserService.getUserCalendar(this.user._id);
+        
+        if (response && response.calendario) {
+          this.userCalendar = response.calendario;
+          console.log('✅ Calendario cargado:', this.userCalendar.length, 'entradas');
+        } else {
+          console.log('ℹ️ Usuario no tiene calendario configurado');
+          this.userCalendar = [];
+        }
+      } catch (error) {
+        console.error('Error cargando calendario:', error);
+        this.userCalendar = [];
+      } finally {
+        this.calendarLoading = false;
+      }
+    },
+
+    async handleUpdateAvailability(availabilityData) {
+      try {
+        console.log('🔄 Actualizando disponibilidad:', availabilityData);
+        await UserService.updateAvailability(this.user._id, availabilityData);
+        
+        // Recargar calendario después de la actualización
+        await this.loadUserCalendar();
+        
+        // Mostrar mensaje de éxito
+        this.$toast?.success('Disponibilidad actualizada correctamente');
+      } catch (error) {
+        console.error('Error actualizando disponibilidad:', error);
+        this.$toast?.error('Error al actualizar la disponibilidad');
+      }
+    },
+
+    async handleRemoveAvailability(dateToRemove) {
+      try {
+        console.log('🗑️ Eliminando disponibilidad para:', dateToRemove);
+        await UserService.removeAvailability(this.user._id, dateToRemove);
+        
+        // Recargar calendario después de la eliminación
+        await this.loadUserCalendar();
+        
+        // Mostrar mensaje de éxito
+        this.$toast?.success('Disponibilidad eliminada correctamente');
+      } catch (error) {
+        console.error('Error eliminando disponibilidad:', error);
+        this.$toast?.error('Error al eliminar la disponibilidad');
+      }
+    },
+
+    async handleInitializeDefaultAvailability(workDaysConfig) {
+      try {
+        console.log('⚙️ Inicializando disponibilidad por defecto:', workDaysConfig);
+        await UserService.initializeDefaultAvailability(this.user._id, workDaysConfig);
+        
+        // Recargar calendario después de la inicialización
+        await this.loadUserCalendar();
+        
+        // Mostrar mensaje de éxito
+        this.$toast?.success('Disponibilidad por defecto configurada correctamente');
+      } catch (error) {
+        console.error('Error inicializando disponibilidad por defecto:', error);
+        this.$toast?.error('Error al configurar la disponibilidad por defecto');
+      }
+    },
+
+    async handleUpdateWorkDaysConfig(workDaysConfig) {
+      try {
+        console.log('📅 Actualizando configuración de días laborales:', workDaysConfig);
+        await UserService.updateWorkDaysConfig(this.user._id, workDaysConfig);
+        
+        // Recargar calendario después de la actualización
+        await this.loadUserCalendar();
+        
+        // Mostrar mensaje de éxito
+        this.$toast?.success('Configuración de días laborales actualizada correctamente');
+      } catch (error) {
+        console.error('Error actualizando configuración de días laborales:', error);
+        this.$toast?.error('Error al actualizar la configuración de días laborales');
+      }
+    },
+
+    async handleUpdateCalendarData(calendarData) {
+      try {
+        console.log('📊 Actualizando datos del calendario:', calendarData);
+        await UserService.updateCalendarData(this.user._id, calendarData);
+        
+        // Recargar calendario después de la actualización
+        await this.loadUserCalendar();
+        
+        // Mostrar mensaje de éxito
+        this.$toast?.success('Datos del calendario actualizados correctamente');
+      } catch (error) {
+        console.error('Error actualizando datos del calendario:', error);
+        this.$toast?.error('Error al actualizar los datos del calendario');
       }
     }
   }
