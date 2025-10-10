@@ -580,16 +580,10 @@ export default {
 
       this.calendarLoading = true;
       try {
-        console.log('🔍 Cargando calendario para usuario:', this.user._id);
+        console.log('🔍 PerfilUsuario - Cargando calendario para usuario:', this.user._id);
         const response = await UserService.getUserCalendar(this.user._id);
-        
-        if (response && response.calendario) {
-          this.userCalendar = response.calendario;
-          console.log('✅ Calendario cargado:', this.userCalendar.length, 'entradas');
-        } else {
-          console.log('ℹ️ Usuario no tiene calendario configurado');
-          this.userCalendar = [];
-        }
+        this.userCalendar = response.data.calendario || [];
+        console.log('🔍 PerfilUsuario - Calendario cargado:', this.userCalendar);
       } catch (error) {
         console.error('Error cargando calendario:', error);
         this.userCalendar = [];
@@ -600,82 +594,91 @@ export default {
 
     async handleUpdateAvailability(availabilityData) {
       try {
-        console.log('🔄 Actualizando disponibilidad:', availabilityData);
-        await UserService.updateAvailability(this.user._id, availabilityData);
+        console.log('🔍 PerfilUsuario - Actualizando disponibilidad:', availabilityData);
         
-        // Recargar calendario después de la actualización
-        await this.loadUserCalendar();
+        // Enviar actualización al backend (el backend espera un array de cambios)
+        await UserService.updateUserCalendar(this.user._id, [availabilityData]);
         
-        // Mostrar mensaje de éxito
-        this.$toast?.success('Disponibilidad actualizada correctamente');
+        // Actualizar el calendario local después de la actualización exitosa
+        const existingIndex = this.userCalendar.findIndex(entry => entry.fecha === availabilityData.fecha);
+        
+        if (existingIndex >= 0) {
+          // Actualizar entrada existente
+          this.userCalendar[existingIndex] = availabilityData;
+        } else {
+          // Agregar nueva entrada
+          this.userCalendar.push(availabilityData);
+        }
+        
+        console.log('🔍 PerfilUsuario - Disponibilidad actualizada correctamente');
       } catch (error) {
-        console.error('Error actualizando disponibilidad:', error);
-        this.$toast?.error('Error al actualizar la disponibilidad');
+        console.error('Error updating availability:', error);
+        // Revertir cambios en caso de error
+        await this.loadUserCalendar();
+        throw error;
       }
     },
 
-    async handleRemoveAvailability(dateToRemove) {
+    async handleRemoveAvailability(date) {
       try {
-        console.log('🗑️ Eliminando disponibilidad para:', dateToRemove);
-        await UserService.removeAvailability(this.user._id, dateToRemove);
+        console.log('🔍 PerfilUsuario - Eliminando disponibilidad para:', date);
         
-        // Recargar calendario después de la eliminación
-        await this.loadUserCalendar();
+        // Remover del array local
+        this.userCalendar = this.userCalendar.filter(entry => entry.fecha !== date);
         
-        // Mostrar mensaje de éxito
-        this.$toast?.success('Disponibilidad eliminada correctamente');
+        // Enviar actualización al backend
+        await UserService.updateUserCalendar(this.user._id, this.userCalendar);
+        
+        console.log('🔍 PerfilUsuario - Disponibilidad eliminada correctamente');
       } catch (error) {
-        console.error('Error eliminando disponibilidad:', error);
-        this.$toast?.error('Error al eliminar la disponibilidad');
+        console.error('Error removing availability:', error);
+        // Revertir cambios en caso de error
+        await this.loadUserCalendar();
+        throw error;
       }
     },
 
-    async handleInitializeDefaultAvailability(workDaysConfig) {
+    async handleInitializeDefaultAvailability(newAvailabilityEntries) {
       try {
-        console.log('⚙️ Inicializando disponibilidad por defecto:', workDaysConfig);
-        await UserService.initializeDefaultAvailability(this.user._id, workDaysConfig);
+        console.log('🔍 PerfilUsuario - Inicializando disponibilidad por defecto:', newAvailabilityEntries);
         
-        // Recargar calendario después de la inicialización
-        await this.loadUserCalendar();
+        // Enviar solo las nuevas entradas al backend (no todo el calendario)
+        await UserService.updateUserCalendar(this.user._id, newAvailabilityEntries);
         
-        // Mostrar mensaje de éxito
-        this.$toast?.success('Disponibilidad por defecto configurada correctamente');
+        // Agregar las nuevas entradas al calendario local solo si el backend las aceptó
+        this.userCalendar.push(...newAvailabilityEntries);
+        
+        console.log('🔍 PerfilUsuario - Disponibilidad por defecto inicializada correctamente');
       } catch (error) {
-        console.error('Error inicializando disponibilidad por defecto:', error);
-        this.$toast?.error('Error al configurar la disponibilidad por defecto');
+        console.error('Error initializing default availability:', error);
+        
+        // Si el error es por tareas asignadas, no mostrar alerta molesta
+        if (error.response?.data?.error?.includes('tareas asignadas')) {
+          console.log('ℹ️ PerfilUsuario - Algunos días no se pueden modificar porque tienen tareas asignadas (comportamiento esperado)');
+        } else {
+          alert('Error al inicializar la disponibilidad por defecto: ' + (error.response?.data?.error || error.message));
+        }
       }
     },
 
-    async handleUpdateWorkDaysConfig(workDaysConfig) {
+    async handleUpdateWorkDaysConfig(config) {
       try {
-        console.log('📅 Actualizando configuración de días laborales:', workDaysConfig);
-        await UserService.updateWorkDaysConfig(this.user._id, workDaysConfig);
+        console.log('🔍 PerfilUsuario - Actualizando configuración de días laborales:', config);
         
-        // Recargar calendario después de la actualización
-        await this.loadUserCalendar();
+        // Aquí podrías guardar la configuración en el backend si es necesario
+        // Por ahora solo guardamos en localStorage para persistencia local
+        localStorage.setItem('workDaysConfig', JSON.stringify(config));
         
-        // Mostrar mensaje de éxito
-        this.$toast?.success('Configuración de días laborales actualizada correctamente');
+        console.log('🔍 PerfilUsuario - Configuración de días laborales guardada correctamente');
       } catch (error) {
-        console.error('Error actualizando configuración de días laborales:', error);
-        this.$toast?.error('Error al actualizar la configuración de días laborales');
+        console.error('Error updating work days config:', error);
+        alert('Error al guardar la configuración de días laborales: ' + (error.response?.data?.error || error.message));
       }
     },
 
-    async handleUpdateCalendarData(calendarData) {
-      try {
-        console.log('📊 Actualizando datos del calendario:', calendarData);
-        await UserService.updateCalendarData(this.user._id, calendarData);
-        
-        // Recargar calendario después de la actualización
-        await this.loadUserCalendar();
-        
-        // Mostrar mensaje de éxito
-        this.$toast?.success('Datos del calendario actualizados correctamente');
-      } catch (error) {
-        console.error('Error actualizando datos del calendario:', error);
-        this.$toast?.error('Error al actualizar los datos del calendario');
-      }
+    handleUpdateCalendarData(calendarData) {
+      console.log('🔍 PerfilUsuario - Actualizando datos del calendario desde múltiples meses:', calendarData);
+      this.userCalendar = calendarData;
     }
   }
 }
