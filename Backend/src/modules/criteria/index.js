@@ -1,11 +1,11 @@
 import Task from "../task/task.model.js";
 import User from "../users/user.model.js";
-import { ordenarTareas } from "../../utils/ordenarTareas.js";
-import { tieneHabilidadesSuficientes } from "../../utils/filtroHabilidades.js";
-import { tieneDisponibilidad } from "../../utils/filtroDisponibilidad.js";
-import { seleccionarMejorDev } from "../../utils/filtroMejorDev.js";
+import { ordenarTareas } from "../../utils/asignacionBasica/ordenarTareas.js";
+import { tieneHabilidadesSuficientes } from "../../utils/asignacionBasica/filtroHabilidades.js";
+import { tieneDisponibilidad } from "../../utils/asignacionBasica/filtroDisponibilidad.js";
+import { seleccionarMejorDev } from "../../utils/asignacionBasica/filtroMejorDev.js";
 import Asignacion from "../assignment/assignment.model.js";
-import { obtenerDiasDisponibles } from "../../utils/diasDisponible.js";
+import { obtenerDiasDisponibles } from "../../utils/asignacionBasica/diasDisponible.js";
 
 export async function asignarTareasConCalendario(projectId) {
     // 🔹 obtener todas las tareas pendientes
@@ -53,6 +53,7 @@ export async function asignarTareasConCalendario(projectId) {
         tarea.desarrolladorAsignado = mejorDev._id;
         await tarea.save();
 
+        // 4️⃣ descontar horas en el calendario del dev 
         let horasRestantes = tarea.tiempoEstimadoHoras;
         const diasAsignados = [];
 

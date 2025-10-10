@@ -81,3 +81,17 @@ export const editarCalendario = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// Crear calendario y asignarlo a un usuario
+export const crearCalendarioUsuario = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const calendario = await userService.generarCalendarioAnual();
+
+    const user = await userService.updateUser(userId, { calendario });
+    res.json({ message: "Calendario asignado al usuario correctamente", user });
+  } catch (error) {
+    console.error("Error al asignar calendario al usuario:", error);
+    res.status(500).json({ error: "Error al asignar calendario al usuario" });
+  }
+};

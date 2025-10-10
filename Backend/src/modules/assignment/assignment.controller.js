@@ -1,4 +1,4 @@
-import { editarAsignacionService, getAsignacionesPorProyectoService, asignarTareasBasico } from "./assignment.service.js";
+import { editarAsignacionService, getAsignacionesPorProyectoService, asignarTareasBasico, asignarPorCostoService } from "./assignment.service.js";
 
 export const editarAsignacion = async (req, res) => {
   try {
@@ -38,3 +38,15 @@ export async function asignarAutomaticoBasico(req, res) {
     res.status(500).json({ error: error.message });
   }
 }
+
+
+export const asignarPorCosto = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const resultado = await asignarPorCostoService(projectId);
+    res.json(resultado);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+

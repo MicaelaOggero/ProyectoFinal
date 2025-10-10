@@ -9,7 +9,7 @@ import {
   getTareasSinAsignar,
   obtenerTodasTareasDAO
 } from "./task.dao.js";
-import { ordenarTareas } from '../../utils/ordenarTareas.js';
+import { ordenarTareas } from '../../utils/asignacionBasica/ordenarTareas.js';
 import Project from "../projects/project.model.js";
 import User from "../users/user.model.js";
 

@@ -21,6 +21,9 @@ router.get("/:userId/calendario", userController.obtenerCalendario);
 //Editar disponibilidad de un desarrollador (admin puede editar cualquier calendario)
 router.put("/:userId/calendario", auth, userController.editarCalendario);
 
+//Crear calendario para un usuario específico
+router.post("/crearCalendario/:userId", userController.crearCalendarioUsuario);
+
 // Ruta para crear varios usuarios
 router.post("/bulk", async (req, res) => {
   const usuarios = req.body; // esperamos un arreglo de objetos usuario

@@ -1,5 +1,5 @@
 import { Router }  from "express";
-import { editarAsignacion, getAsignacionesPorProyecto, asignarAutomaticoBasico } from "./assignment.controller.js";
+import { editarAsignacion, getAsignacionesPorProyecto, asignarAutomaticoBasico, asignarPorCosto } from "./assignment.controller.js";
 
 const router = Router();
 
@@ -11,5 +11,9 @@ router.get("/proyecto/:proyectoId", getAsignacionesPorProyecto); //authAdmin,
 
 // Ruta de asignación automática por proyecto segun disponibilidad y habilidades (básico)
 router.post("/asignar-automatico/:projectId", asignarAutomaticoBasico); //authAdmin,
+
+// Asignación automática por costo
+router.post("/asignar-costo/:projectId", asignarPorCosto);
+
 
 export default router;
