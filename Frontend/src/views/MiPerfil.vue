@@ -767,9 +767,21 @@ export default {
         console.log('🔍 MiPerfil - Disponibilidad actualizada correctamente');
       } catch (error) {
         console.error('Error updating availability:', error);
+        console.error('Error details:', error.response?.data);
+        
+        // Mostrar mensaje de error más informativo
+        const errorMsg = error.response?.data?.error || error.message || 'Error desconocido';
+        
+        // Si el error es por tareas asignadas, mostrar mensaje específico
+        if (errorMsg.includes('tareas asignadas')) {
+          alert(`⚠️ No se puede modificar la disponibilidad\n\n${errorMsg}\n\nLos días con tareas asignadas no pueden ser modificados.`);
+        } else {
+          alert(`Error al actualizar disponibilidad: ${errorMsg}`);
+        }
+        
         // Revertir cambios en caso de error
         await this.loadUserCalendar();
-        throw error;
+        // NO hacer throw error; para evitar que se muestre como error no manejado
       }
     },
     
@@ -786,9 +798,15 @@ export default {
         console.log('🔍 MiPerfil - Disponibilidad eliminada correctamente');
       } catch (error) {
         console.error('Error removing availability:', error);
+        console.error('Error details:', error.response?.data);
+        
+        // Mostrar mensaje de error
+        const errorMsg = error.response?.data?.error || error.message || 'Error desconocido';
+        alert(`Error al eliminar disponibilidad: ${errorMsg}`);
+        
         // Revertir cambios en caso de error
         await this.loadUserCalendar();
-        throw error;
+        // NO hacer throw error; para evitar que se muestre como error no manejado
       }
     },
     
