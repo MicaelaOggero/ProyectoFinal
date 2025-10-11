@@ -30,7 +30,7 @@ class AssignmentService {
     }
   }
 
-  // Ejecutar asignación automática (que retorna el resumen)
+  // Ejecutar asignación automática por disponibilidad y habilidades (método original)
   async runAutomaticAssignment(projectId) {
     try {
       console.log('🔍 AssignmentService - Iniciando asignación automática para proyecto:', projectId);
@@ -42,6 +42,42 @@ class AssignmentService {
       return response.data;
     } catch (error) {
       console.error('🔍 AssignmentService - Error ejecutando asignación automática:', error);
+      console.error('🔍 AssignmentService - Error response:', error.response?.data);
+      console.error('🔍 AssignmentService - Error status:', error.response?.status);
+      throw error;
+    }
+  }
+
+  // Ejecutar asignación automática por disponibilidad y habilidades
+  async runAvailabilityBasedAssignment(projectId) {
+    try {
+      console.log('🔍 AssignmentService - Iniciando asignación por disponibilidad para proyecto:', projectId);
+      console.log('🔍 AssignmentService - URL:', `${API_URL}/assignment/asignar-automatico/${projectId}`);
+      
+      const response = await axios.post(`${API_URL}/assignment/asignar-automatico/${projectId}`, {});
+      
+      console.log('🔍 AssignmentService - Respuesta exitosa:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('🔍 AssignmentService - Error ejecutando asignación por disponibilidad:', error);
+      console.error('🔍 AssignmentService - Error response:', error.response?.data);
+      console.error('🔍 AssignmentService - Error status:', error.response?.status);
+      throw error;
+    }
+  }
+
+  // Ejecutar asignación automática por costo
+  async runCostBasedAssignment(projectId) {
+    try {
+      console.log('🔍 AssignmentService - Iniciando asignación por costo para proyecto:', projectId);
+      console.log('🔍 AssignmentService - URL:', `${API_URL}/assignment/asignar-costo/${projectId}`);
+      
+      const response = await axios.post(`${API_URL}/assignment/asignar-costo/${projectId}`, {});
+      
+      console.log('🔍 AssignmentService - Respuesta exitosa:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('🔍 AssignmentService - Error ejecutando asignación por costo:', error);
       console.error('🔍 AssignmentService - Error response:', error.response?.data);
       console.error('🔍 AssignmentService - Error status:', error.response?.status);
       throw error;

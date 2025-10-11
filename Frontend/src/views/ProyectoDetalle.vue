@@ -96,11 +96,10 @@
             <div class="tasks-actions">
               <button 
                 class="btn btn-success me-2" 
-                @click="runAutoAssignment" 
-                :disabled="isAssigning"
+                @click="openAssignmentTypeModal"
               >
-                <i class="bi bi-robot me-1" :class="{ 'spinning': isAssigning }"></i>
-                {{ isAssigning ? 'Asignando...' : 'Asignación Automática' }}
+                <i class="bi bi-robot me-1"></i>
+                Asignación Automática
               </button>
               <button class="btn btn-primary btn-sm" @click="showAddTaskModal = true">
                 <i class="bi bi-plus-circle me-1"></i>
@@ -651,6 +650,92 @@
         Volver a Proyectos
       </router-link>
     </div>
+
+    <!-- Modal para Seleccionar Tipo de Asignación Automática -->
+    <div v-if="showAssignmentTypeModal" class="modal-overlay" @click="closeAssignmentTypeModal">
+      <div class="modal-content assignment-type-modal" @click.stop>
+        <div class="modal-header">
+          <h5>
+            <i class="bi bi-robot me-2"></i>Asignación Automática
+          </h5>
+          <button class="btn-close" @click="closeAssignmentTypeModal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-4">Selecciona el tipo de optimización para la asignación automática:</p>
+          
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <div class="card h-100 assignment-option-card" @click="selectAssignmentType('availability')" :class="{ 'selected': selectedAssignmentType === 'availability' }">
+                <div class="card-body text-center">
+                  <div class="assignment-icon mb-3">
+                    <i class="bi bi-clock-history fs-1 text-primary"></i>
+                  </div>
+                  <h6 class="card-title">Por Disponibilidad y Habilidades</h6>
+                  <p class="card-text small text-muted">
+                    Tener el proyecto en menor tiempo posible
+                  </p>
+                  <div class="assignment-features">
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Optimiza tiempo de finalización
+                    </small><br>
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Considera calendario de desarrolladores
+                    </small><br>
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Prioriza habilidades requeridas
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <div class="card h-100 assignment-option-card" @click="selectAssignmentType('cost')" :class="{ 'selected': selectedAssignmentType === 'cost' }">
+                <div class="card-body text-center">
+                  <div class="assignment-icon mb-3">
+                    <i class="bi bi-currency-dollar fs-1 text-success"></i>
+                  </div>
+                  <h6 class="card-title">Por Costo</h6>
+                  <p class="card-text small text-muted">
+                    Un proyecto más barato
+                  </p>
+                  <div class="assignment-features">
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Minimiza costos totales
+                    </small><br>
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Considera tarifas por hora
+                    </small><br>
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Optimiza presupuesto
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" @click="closeAssignmentTypeModal">Cancelar</button>
+          <button 
+            type="button" 
+            class="btn btn-success" 
+            @click="executeSelectedAssignment"
+            :disabled="!selectedAssignmentType || isAssigning"
+          >
+            <span v-if="isAssigning" class="spinner-border spinner-border-sm me-2" role="status"></span>
+            <i v-else class="bi bi-robot me-2"></i>
+            {{ isAssigning ? 'Ejecutando...' : 'Ejecutar Asignación' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -698,7 +783,10 @@ export default {
       loadingAssignments: false,
       isAssigning: false,
       assignmentStatusFilter: '',
-      assignmentDeveloperFilter: ''
+      assignmentDeveloperFilter: '',
+      // Variables para el modal de selección de tipo de asignación
+      showAssignmentTypeModal: false,
+      selectedAssignmentType: null // 'availability' o 'cost'
     };
   },
   computed: {
@@ -1129,6 +1217,107 @@ export default {
         alert('Error ejecutando asignación automática: ' + error.message);
       } finally {
         this.isAssigning = false;
+      }
+    },
+
+    // Métodos para el modal de selección de tipo de asignación
+    openAssignmentTypeModal() {
+      this.selectedAssignmentType = null;
+      this.showAssignmentTypeModal = true;
+    },
+
+    closeAssignmentTypeModal() {
+      this.selectedAssignmentType = null;
+      this.showAssignmentTypeModal = false;
+    },
+
+    selectAssignmentType(type) {
+      this.selectedAssignmentType = type;
+    },
+
+    async executeSelectedAssignment() {
+      if (!this.selectedAssignmentType) return;
+      
+      this.isAssigning = true;
+      
+      try {
+        if (this.selectedAssignmentType === 'availability') {
+          await this.runAvailabilityBasedAssignment();
+        } else if (this.selectedAssignmentType === 'cost') {
+          await this.runCostBasedAssignment();
+        }
+        
+        // Cerrar modal después de ejecutar
+        this.closeAssignmentTypeModal();
+      } catch (error) {
+        console.error('Error ejecutando asignación:', error);
+        alert('Error ejecutando asignación: ' + error.message);
+      } finally {
+        this.isAssigning = false;
+      }
+    },
+
+    async runAvailabilityBasedAssignment() {
+      const projectId = this.$route.params.id;
+      console.log('🔍 ProyectoDetalle - Iniciando asignación por disponibilidad y habilidades para proyecto:', projectId);
+      
+      try {
+        // Validar tareas del proyecto antes de la asignación automática
+        const validationResults = await this.validateProjectTasksForAssignment(projectId);
+        
+        if (!validationResults.isValid) {
+          alert(`No se puede ejecutar la asignación automática: ${validationResults.message}`);
+          return;
+        }
+        
+        console.log(`✅ Proyecto ${this.project.name}: Todas las tareas pasaron las validaciones`);
+        
+        // Llamar al endpoint de asignación por disponibilidad
+        const resultado = await AssignmentService.runAvailabilityBasedAssignment(projectId);
+        
+        console.log('🔍 ProyectoDetalle - Resultado asignación por disponibilidad:', resultado);
+        
+        // Recargar las tareas para mostrar los cambios
+        await this.loadProjectTasks();
+        
+        // Mostrar mensaje de éxito
+        alert('Asignación automática por disponibilidad completada exitosamente');
+        
+      } catch (error) {
+        console.error('Error ejecutando asignación por disponibilidad:', error);
+        throw error;
+      }
+    },
+
+    async runCostBasedAssignment() {
+      const projectId = this.$route.params.id;
+      console.log('🔍 ProyectoDetalle - Iniciando asignación por costo para proyecto:', projectId);
+      
+      try {
+        // Validar tareas del proyecto antes de la asignación automática
+        const validationResults = await this.validateProjectTasksForAssignment(projectId);
+        
+        if (!validationResults.isValid) {
+          alert(`No se puede ejecutar la asignación automática: ${validationResults.message}`);
+          return;
+        }
+        
+        console.log(`✅ Proyecto ${this.project.name}: Todas las tareas pasaron las validaciones`);
+        
+        // Llamar al endpoint de asignación por costo
+        const resultado = await AssignmentService.runCostBasedAssignment(projectId);
+        
+        console.log('🔍 ProyectoDetalle - Resultado asignación por costo:', resultado);
+        
+        // Recargar las tareas para mostrar los cambios
+        await this.loadProjectTasks();
+        
+        // Mostrar mensaje de éxito
+        alert('Asignación automática por costo completada exitosamente');
+        
+      } catch (error) {
+        console.error('Error ejecutando asignación por costo:', error);
+        throw error;
       }
     },
 
@@ -2133,5 +2322,51 @@ export default {
   .days-grid {
     justify-content: flex-start;
   }
+}
+
+/* Estilos para el modal de selección de tipo de asignación */
+.assignment-type-modal {
+  max-width: 800px;
+}
+
+.assignment-option-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid #e9ecef;
+}
+
+.assignment-option-card:hover {
+  border-color: #0d6efd;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  transform: translateY(-2px);
+}
+
+.assignment-option-card.selected {
+  border-color: #198754;
+  background-color: #f8fff9;
+  box-shadow: 0 0.125rem 0.25rem rgba(25, 135, 84, 0.15);
+}
+
+.assignment-icon {
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.assignment-option-card:hover .assignment-icon {
+  opacity: 1;
+}
+
+.assignment-option-card.selected .assignment-icon {
+  opacity: 1;
+}
+
+.assignment-features {
+  margin-top: 1rem;
+  text-align: left;
+}
+
+.assignment-features small {
+  display: block;
+  margin-bottom: 0.25rem;
 }
 </style>
