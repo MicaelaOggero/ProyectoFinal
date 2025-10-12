@@ -1251,7 +1251,14 @@ export default {
         this.closeAssignmentTypeModal();
       } catch (error) {
         console.error('Error ejecutando asignación:', error);
-        alert('Error ejecutando asignación: ' + error.message);
+        const errorMsg = error.response?.data?.error || error.message || 'Error desconocido';
+        
+        // Mostrar mensaje de error específico
+        if (errorMsg.includes('is not defined')) {
+          alert(`⚠️ Error en el servidor\n\nLa funcionalidad de asignación por costo tiene un problema en el backend.\n\nError técnico: ${errorMsg}\n\nPor favor, contacta al desarrollador del backend.`);
+        } else {
+          alert(`Error ejecutando asignación: ${errorMsg}`);
+        }
       } finally {
         this.isAssigning = false;
       }
