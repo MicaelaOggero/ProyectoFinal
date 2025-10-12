@@ -286,27 +286,6 @@
                 </div>
 
                 <div v-else>
-                  <!-- Filtros -->
-                  <div class="row mb-3">
-                    <div class="col-md-6">
-                      <label for="assignmentStatusFilter" class="form-label">Filtrar por Estado</label>
-                      <select class="form-select" id="assignmentStatusFilter" v-model="assignmentStatusFilter" @change="filterAssignments">
-                        <option value="">Todos</option>
-                        <option value="asignado">Asignadas</option>
-                        <option value="sin_asignar">Sin Asignar</option>
-                      </select>
-                    </div>
-                    <div class="col-md-6">
-                      <label for="assignmentDeveloperFilter" class="form-label">Filtrar por Desarrollador</label>
-                      <select class="form-select" id="assignmentDeveloperFilter" v-model="assignmentDeveloperFilter" @change="filterAssignments">
-                        <option value="">Todos los desarrolladores</option>
-                        <option v-for="dev in uniqueDevelopers" :key="dev" :value="dev">
-                          {{ dev }}
-                        </option>
-                      </select>
-                    </div>
-                  </div>
-
                   <!-- Lista de Asignaciones -->
                   <div class="assignment-list">
                     <div 
@@ -330,6 +309,10 @@
                             <span v-if="assignment.tarea?.estado" class="badge bg-info">
                               <i class="bi bi-tag me-1"></i>
                               {{ assignment.tarea.estado }}
+                            </span>
+                            <span v-if="assignment.tipoAsignacion" class="badge" :class="getAssignmentTypeClass(assignment.tipoAsignacion)">
+                              <i class="bi" :class="getAssignmentTypeIcon(assignment.tipoAsignacion)"></i>
+                              {{ getAssignmentTypeText(assignment.tipoAsignacion) }}
                             </span>
                           </div>
                         </div>
@@ -355,6 +338,14 @@
                               <i class="bi bi-calendar me-1"></i>
                               <strong>Días Asignados:</strong> {{ assignment.dias.length }} días
                             </p>
+                            <p v-if="assignment.tarea?.fechaEstimadaInicio" class="mb-1">
+                              <i class="bi bi-calendar-event me-1"></i>
+                              <strong>Fecha Inicio:</strong> {{ formatDate(assignment.tarea.fechaEstimadaInicio) }}
+                            </p>
+                            <p v-if="assignment.tarea?.fechaEstimadaFin" class="mb-1">
+                              <i class="bi bi-calendar-check me-1"></i>
+                              <strong>Fecha Fin:</strong> {{ formatDate(assignment.tarea.fechaEstimadaFin) }}
+                            </p>
                           </div>
                           <div class="col-md-6">
                             <div v-if="assignment.desarrollador?.habilidades && assignment.desarrollador.habilidades.length > 0" class="mb-2">
@@ -367,7 +358,7 @@
                                 >
                                   {{ typeof habilidad === 'string' ? habilidad : habilidad.nombre }}
                                 </span>
-                                <span v-if="assignment.desarrollador.habilidades.length > 3" class="skill-badge more-skills">
+                                <span v-if="assignment.desarrollador?.habilidades && assignment.desarrollador.habilidades.length > 3" class="skill-badge more-skills">
                                   +{{ assignment.desarrollador.habilidades.length - 3 }} más
                                 </span>
                               </div>
@@ -383,7 +374,7 @@
                                 >
                                   {{ formatDate(dia.fecha) }} ({{ dia.horasAsignadas }}h)
                                 </span>
-                                <span v-if="assignment.dias.length > 3" class="day-badge more-days">
+                                <span v-if="assignment.dias && assignment.dias.length > 3" class="day-badge more-days">
                                   +{{ assignment.dias.length - 3 }} más
                                 </span>
                               </div>
@@ -782,8 +773,6 @@ export default {
       assignments: [],
       loadingAssignments: false,
       isAssigning: false,
-      assignmentStatusFilter: '',
-      assignmentDeveloperFilter: '',
       // Variables para el modal de selección de tipo de asignación
       showAssignmentTypeModal: false,
       selectedAssignmentType: null // 'availability' o 'cost'
@@ -838,23 +827,8 @@ export default {
     },
 
     filteredAssignments() {
-      if (!this.assignments || this.assignments.length === 0) return [];
-      
-      let filtered = this.assignments;
-      
-      // Filtrar por estado
-      if (this.assignmentStatusFilter === 'asignado') {
-        filtered = filtered.filter(a => a.asignado);
-      } else if (this.assignmentStatusFilter === 'sin_asignar') {
-        filtered = filtered.filter(a => !a.asignado);
-      }
-      
-      // Filtrar por desarrollador
-      if (this.assignmentDeveloperFilter) {
-        filtered = filtered.filter(a => a.asignado === this.assignmentDeveloperFilter);
-      }
-      
-      return filtered;
+      // En el detalle de proyecto, mostrar todas las asignaciones sin filtros
+      return this.assignments || [];
     },
     
     uniqueDevelopers() {
@@ -1137,8 +1111,16 @@ export default {
     
     formatDate(dateString) {
       if (!dateString) return 'N/A';
-      // Crear la fecha en zona horaria local para evitar problemas de UTC
-      const date = new Date(dateString + 'T00:00:00');
+      
+      // Si ya es una fecha ISO completa, usarla directamente
+      let date;
+      if (dateString.includes('T')) {
+        date = new Date(dateString);
+      } else {
+        // Si es solo fecha (YYYY-MM-DD), agregar hora
+        date = new Date(dateString + 'T00:00:00');
+      }
+      
       // Verificar que la fecha sea válida
       if (isNaN(date.getTime())) return 'N/A';
       return date.toLocaleDateString('es-ES');
@@ -1196,6 +1178,9 @@ export default {
             // Información de días y horas
             horasAsignadasTotales: assignment.horasTotales || 0,
             dias: assignment.dias || [],
+            
+            // Tipo de asignación (basica o costo)
+            tipoAsignacion: assignment.tipoAsignacion || 'basica',
             
             // Fecha de asignación
             fechaAsignacion: assignment.creadoEn || new Date().toISOString()
@@ -1445,8 +1430,20 @@ export default {
       }
     },
 
-    filterAssignments() {
-      // El filtrado se hace en computed property
+    getAssignmentTypeClass(tipo) {
+      if (tipo === 'costo') return 'bg-success';
+      return 'bg-primary';
+    },
+    
+    getAssignmentTypeIcon(tipo) {
+      if (tipo === 'costo') return 'bi-currency-dollar me-1';
+      return 'bi-clock-history me-1';
+    },
+    
+    getAssignmentTypeText(tipo) {
+      if (tipo === 'costo') return 'Por Costo';
+      if (tipo === 'basica') return 'Por Disponibilidad';
+      return 'Tipo Desconocido';
     },
 
     async switchToAssignmentsTab() {
@@ -1461,15 +1458,20 @@ export default {
       try {
         console.log('🔍 ProyectoDetalle - Cargando asignaciones existentes para proyecto:', projectId);
         
-        // Intentar cargar asignaciones desde localStorage primero
-        const savedData = localStorage.getItem('lastAssignmentData');
-        if (savedData) {
-          const assignmentData = JSON.parse(savedData);
-          console.log('🔍 ProyectoDetalle - Datos de asignación cargados desde localStorage:', assignmentData);
+        // Cargar asignaciones desde el backend (igual que en AssignmentSummaryView)
+        try {
+          const assignmentsResponse = await AssignmentService.getAssignmentsByProject(projectId);
+          console.log('🔍 ProyectoDetalle - Respuesta del backend:', assignmentsResponse);
           
-          // Verificar si los datos son para este proyecto específico
-          if (assignmentData.proyecto && assignmentData.proyecto._id === projectId) {
-            this.assignments = assignmentData.resumen.map(assignment => ({
+          if (assignmentsResponse.asignaciones && assignmentsResponse.asignaciones.length > 0) {
+            console.log('🔍 ProyectoDetalle - Primera asignación del backend:', assignmentsResponse.asignaciones[0]);
+            console.log('🔍 ProyectoDetalle - Tarea de la primera asignación:', assignmentsResponse.asignaciones[0].tarea);
+            console.log('🔍 ProyectoDetalle - Fechas de la tarea:', {
+              fechaEstimadaInicio: assignmentsResponse.asignaciones[0].tarea?.fechaEstimadaInicio,
+              fechaEstimadaFin: assignmentsResponse.asignaciones[0].tarea?.fechaEstimadaFin
+            });
+            
+            this.assignments = assignmentsResponse.asignaciones.map(assignment => ({
               // ID de la asignación
               asignacionId: assignment.asignacionId,
               
@@ -1497,67 +1499,33 @@ export default {
               horasAsignadasTotales: assignment.horasTotales || 0,
               dias: assignment.dias || [],
               
+              // Tipo de asignación (basica o costo)
+              tipoAsignacion: assignment.tipoAsignacion || 'basica',
+              
               // Fecha de asignación
               fechaAsignacion: assignment.creadoEn || new Date().toISOString()
             }));
             
-            console.log('✅ ProyectoDetalle - Asignaciones cargadas desde localStorage:', this.assignments.length);
-            return;
+            console.log('✅ ProyectoDetalle - Asignaciones mapeadas:', this.assignments);
+            console.log('✅ ProyectoDetalle - Primera asignación mapeada:', this.assignments[0]);
+            console.log('✅ ProyectoDetalle - Tarea de la primera asignación mapeada:', this.assignments[0]?.tarea);
+            console.log('✅ ProyectoDetalle - Fechas de la tarea mapeada:', {
+              fechaEstimadaInicio: this.assignments[0]?.tarea?.fechaEstimadaInicio,
+              fechaEstimadaFin: this.assignments[0]?.tarea?.fechaEstimadaFin
+            });
+          } else {
+            console.log('ℹ️ ProyectoDetalle - No hay asignaciones para este proyecto');
+            this.assignments = [];
           }
-        }
-
-        // Si no hay datos en localStorage, intentar cargar desde el backend
-        console.log('🔍 ProyectoDetalle - Cargando asignaciones desde backend...');
-        const assignmentsResponse = await AssignmentService.getAssignmentsByProject(projectId);
-        
-        if (assignmentsResponse.asignaciones && assignmentsResponse.asignaciones.length > 0) {
-          this.assignments = assignmentsResponse.asignaciones.map(assignment => ({
-            // ID de la asignación
-            asignacionId: assignment.asignacionId,
-            
-            // Información completa de la tarea
-            tarea: {
-              id: assignment.tarea?.id,
-              descripcion: assignment.tarea?.descripcion || 'Tarea no disponible',
-              fechaEstimadaInicio: assignment.tarea?.fechaEstimadaInicio,
-              fechaEstimadaFin: assignment.tarea?.fechaEstimadaFin,
-              tiempoEstimadoHoras: assignment.tarea?.tiempoEstimadoHoras,
-              estado: assignment.tarea?.estado
-            },
-            
-            // Información completa del desarrollador
-            desarrollador: {
-              id: assignment.desarrollador?.id,
-              nombre: assignment.desarrollador?.nombre || 'Desarrollador no disponible',
-              habilidades: assignment.desarrollador?.habilidades || []
-            },
-            
-            // Nombre del desarrollador para compatibilidad
-            asignado: assignment.desarrollador?.nombre || 'Desarrollador no disponible',
-            
-            // Información de días y horas
-            horasAsignadasTotales: assignment.horasTotales || 0,
-            dias: assignment.dias || [],
-            
-            // Fecha de asignación
-            fechaAsignacion: assignment.creadoEn || new Date().toISOString()
-          }));
-          
-          console.log('✅ ProyectoDetalle - Asignaciones cargadas desde backend:', this.assignments.length);
-        } else {
-          console.log('ℹ️ ProyectoDetalle - No hay asignaciones en el backend');
-          this.assignments = [];
-        }
-        
-      } catch (error) {
-        console.error('Error cargando asignaciones:', error);
-        // Si es un error 400, significa que no hay asignaciones para este proyecto (esperado)
-        if (error.response && error.response.status === 400) {
-          console.log('ℹ️ ProyectoDetalle - Proyecto no tiene asignaciones (error 400 esperado)');
-          this.assignments = [];
-        } else {
-          console.error('❌ Error inesperado cargando asignaciones:', error);
-          this.assignments = [];
+        } catch (error) {
+          // Si es un error 400, significa que no hay asignaciones para este proyecto
+          if (error.response && error.response.status === 400) {
+            console.log('ℹ️ ProyectoDetalle - Proyecto no tiene asignaciones (error 400 esperado)');
+            this.assignments = [];
+          } else {
+            console.error('❌ ProyectoDetalle - Error cargando asignaciones:', error);
+            this.assignments = [];
+          }
         }
       } finally {
         this.loadingAssignments = false;
