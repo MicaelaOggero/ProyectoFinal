@@ -3,6 +3,7 @@ import { calcularCostoDev } from "../../utils/asignacionCosto/costoTarea.js";
 import { tieneDisponibilidad } from "../../utils/asignacionBasica/filtroDisponibilidad.js";
 import { ordenarTareas } from "../../utils/asignacionBasica/ordenarTareas.js";
 import { obtenerDiasDisponibles } from "../../utils/asignacionBasica/diasDisponible.js";
+import {tieneHabilidadesSuficientes} from "../../utils/asignacionBasica/filtroHabilidades.js";
 import Task from "../task/task.model.js";
 import User from "../users/user.model.js";
 import Asignacion from "../assignment/assignment.model.js";
