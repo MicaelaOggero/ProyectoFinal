@@ -72,6 +72,7 @@
 <script>
 import CompleteGoogleProfile from '@/components/CompleteGoogleProfile.vue';
 import AuthService from '@/services/auth.service.js';
+import UserService from '@/services/user.service.js';
 
 export default {
   name: 'GoogleCallback',
@@ -167,7 +168,22 @@ export default {
         console.log('Verificación de perfil:', profileCheck);
         
         if (profileCheck.isComplete) {
-          console.log('Perfil completo, redirigiendo al dashboard');
+          console.log('Perfil completo, creando calendario...');
+          
+          // Obtener el usuario actual para crear el calendario
+          const user = await AuthService.getCurrentUserGoogle();
+          if (user && user._id) {
+            try {
+              console.log('🔍 Creando calendario para usuario:', user._id);
+              await UserService.createCalendar(user._id);
+              console.log('✅ Calendario creado exitosamente');
+            } catch (calendarError) {
+              console.error('❌ Error creando calendario:', calendarError);
+              // No interrumpir el flujo si falla la creación del calendario
+              // El usuario puede crearlo manualmente después
+            }
+          }
+          
           this.needsProfileCompletion = false;
           
           // Ir directamente al dashboard sin esperar aprobación
