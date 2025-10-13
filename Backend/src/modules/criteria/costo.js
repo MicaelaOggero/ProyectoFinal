@@ -31,6 +31,8 @@ export async function asignarTareasPorCosto(projectId) {
     let costoTotalProyecto = 0;
 
     for (const tarea of tareas) {
+        const fechaInicio = new Date(tarea.fechaEstimadaInicio);
+        const fechaFin = new Date(tarea.fechaEstimadaFin);
         // 🔍 candidatos con disponibilidad
         const candidatos = desarrolladores.filter(dev =>
             tieneHabilidadesSuficientes(dev, tarea.habilidadesRequeridas, 0.7) &&
