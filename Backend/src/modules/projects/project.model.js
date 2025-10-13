@@ -17,12 +17,10 @@ const projectSchema = new mongoose.Schema({
     required: true
   },
   fechaInicioReal: {
-    type: Date,
-    required: true
+    type: Date
   },
   fechaFinReal: {
-    type: Date,
-    required: true
+    type: Date
   },
   fechaCreacion: {
     type: Date,

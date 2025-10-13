@@ -96,6 +96,7 @@ export const getAsignacionesPorProyectoService = async (proyectoId) => {
       habilidades: asig.desarrollador.habilidades,
     },
     dias: asig.dias, // [{ fecha, horasAsignadas }]
+    tipoAsignacion: asig.tipoAsignacion,
   }));
 };
 
