@@ -17,8 +17,8 @@ export const createProject = async (projectData, adminId) => {
   return await projectDao.create({
     nombre,
     descripcion,
-    fechaInicio,
-    fechaFin,
+    fechaInicioEstimada,
+    fechaFinEstimada,
     nivelDificultad,
     prioridad,
     estado,
