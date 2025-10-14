@@ -95,7 +95,7 @@
               </div>
               <div class="row">
                 <div class="col-md-6 mb-3">
-                  <label for="projectStartDate" class="form-label">Fecha de Inicio</label>
+                  <label for="projectStartDate" class="form-label">Fecha de Inicio Estimada</label>
                   <input 
                     type="date" 
                     class="form-control" 
@@ -110,7 +110,7 @@
                   </div>
                 </div>
                 <div class="col-md-6 mb-3">
-                  <label for="projectEndDate" class="form-label">Fecha de Fin</label>
+                  <label for="projectEndDate" class="form-label">Fecha de Fin Estimada</label>
                   <input 
                     type="date" 
                     class="form-control" 
@@ -395,7 +395,11 @@ export default {
 
       // Validar que la fecha de inicio no sea anterior a hoy
       const today = new Date();
-      const todayString = today.toISOString().split('T')[0]; // Obtener solo la fecha en formato YYYY-MM-DD
+      // Usar zona horaria local en lugar de UTC
+      const todayString = today.getFullYear() + '-' + 
+                         String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                         String(today.getDate()).padStart(2, '0');
+      
       if (this.editableProject.startDate < todayString) {
         this.showAlert('La fecha de inicio no puede ser anterior a hoy', 'alert-warning');
         return;
@@ -407,11 +411,30 @@ export default {
       }
 
       try {
+        // Validar nivelDificultad primero
+        const difficultyIndex = this.difficultyOptions.indexOf(this.editableProject.difficulty);
+        if (difficultyIndex === -1) {
+          this.showAlert('Nivel de dificultad inválido', 'alert-warning');
+          return;
+        }
+        
+        // Enviar datos en formato frontend, el ProjectService se encarga del mapeo
+        const projectData = {
+          name: this.editableProject.name,
+          description: this.editableProject.description,
+          startDate: this.editableProject.startDate,
+          endDate: this.editableProject.endDate,
+          difficulty: this.editableProject.difficulty,
+          priority: this.editableProject.priority,
+          status: this.editableProject.status
+        };
+        
+        
         if (this.isEditMode) {
-          await ProjectService.updateProject(this.editableProject._id, this.editableProject);
+          await ProjectService.updateProject(this.editableProject._id, projectData);
           this.showAlert('Proyecto actualizado correctamente', 'alert-success');
         } else {
-          await ProjectService.createProject(this.editableProject);
+          await ProjectService.createProject(projectData);
           this.showAlert('Proyecto creado correctamente', 'alert-success');
         }
         this.loadProjects();
@@ -475,7 +498,11 @@ export default {
           this.dateErrors.endDate = 'La fecha de fin no puede ser anterior a la fecha de inicio.';
         }
         const today = new Date();
-        const todayString = today.toISOString().split('T')[0]; // Obtener solo la fecha en formato YYYY-MM-DD
+        // Usar zona horaria local en lugar de UTC
+        const todayString = today.getFullYear() + '-' + 
+                           String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                           String(today.getDate()).padStart(2, '0');
+        
         if (this.editableProject.startDate < todayString) {
           this.dateErrors.startDate = 'La fecha de inicio no puede ser anterior a hoy.';
         }
