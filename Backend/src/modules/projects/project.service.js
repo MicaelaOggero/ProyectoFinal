@@ -12,7 +12,7 @@ export const getProjectById = async (id) => {
 
 // Crear un nuevo proyecto
 export const createProject = async (projectData, adminId) => {
-  const { nombre, descripcion, fechaInicio, fechaFin, nivelDificultad, prioridad, estado } = projectData;
+  const { nombre, descripcion, fechaInicioEstimada, fechaFinEstimada, nivelDificultad, prioridad, estado } = projectData;
 
   return await projectDao.create({
     nombre,
