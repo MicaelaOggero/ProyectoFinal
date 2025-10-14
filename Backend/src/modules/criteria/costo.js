@@ -86,7 +86,13 @@ export async function asignarTareasPorCosto(projectId) {
             });
         }
 
+        
         await devSeleccionado.save();
+
+        // Actualizar costo total del proyecto en la base de datos
+        const proyecto = tarea.proyecto;
+        proyecto.costoTotalProyecto = costoTotalProyecto;
+        await proyecto.save();
 
         // 🧾 registrar asignación
         await Asignacion.create({

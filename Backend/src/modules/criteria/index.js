@@ -6,6 +6,7 @@ import { tieneDisponibilidad } from "../../utils/asignacionBasica/filtroDisponib
 import { seleccionarMejorDev } from "../../utils/asignacionBasica/filtroMejorDev.js";
 import Asignacion from "../assignment/assignment.model.js";
 import { obtenerDiasDisponibles } from "../../utils/asignacionBasica/diasDisponible.js";
+import { calcularCostoDev } from "../../utils/asignacionCosto/costoTarea.js";
 
 export async function asignarTareasConCalendario(projectId) {
     // 🔹 obtener todas las tareas pendientes
@@ -26,10 +27,11 @@ export async function asignarTareasConCalendario(projectId) {
     const desarrolladores = await User.find({ rol: "user" });
 
     const resumen = [];
-
+    let costoTotalProyecto = 0;
     for (const tarea of tareas) {
         const fechaInicio = new Date(tarea.fechaEstimadaInicio);
         const fechaFin = new Date(tarea.fechaEstimadaFin);
+        
 
         // 1️⃣ filtrar candidatos
         const candidatos = desarrolladores.filter(dev =>
@@ -48,6 +50,8 @@ export async function asignarTareasConCalendario(projectId) {
 
         // 2️⃣ elegir el mejor dev
         const mejorDev = seleccionarMejorDev(candidatos, fechaInicio, fechaFin);
+        const costoTarea = calcularCostoDev(mejorDev, tarea.tiempoEstimadoHoras);
+                costoTotalProyecto += costoTarea;
 
         // 3️⃣ asignar la tarea al dev
         tarea.desarrolladorAsignado = mejorDev._id;
@@ -84,6 +88,11 @@ export async function asignarTareasConCalendario(projectId) {
         }
 
         await mejorDev.save();
+
+        // Actualizar costo total del proyecto en la base de datos
+        const proyecto = tarea.proyecto;
+        proyecto.costoTotal = costoTotalProyecto;
+        await proyecto.save();
 
         // 📌 guardar registro de asignación
         await Asignacion.create({
