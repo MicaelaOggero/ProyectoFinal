@@ -48,6 +48,10 @@ const projectSchema = new mongoose.Schema({
     ref: 'User',
     required: true // asegura que cada proyecto tenga un admin asignado
   },
+  costoTotal: {
+    type: Number,
+    default: 0
+  }
 });
 
 const Project = mongoose.model('Project', projectSchema);
