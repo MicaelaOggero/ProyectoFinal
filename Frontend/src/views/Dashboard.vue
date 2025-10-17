@@ -41,10 +41,6 @@
           </div>
           <div class="card-stats">
             <div class="stat-item">
-              <span class="stat-number">{{ adminCount }}</span>
-              <span class="stat-label">Admins</span>
-            </div>
-            <div class="stat-item">
               <span class="stat-number">{{ userCount }}</span>
               <span class="stat-label">Usuarios</span>
             </div>
@@ -57,8 +53,16 @@
         <div class="stat-card">
           <i class="bi bi-clock-history"></i>
           <div class="stat-content">
-            <h4>{{ totalHours }}</h4>
-            <p>Horas Totales</p>
+            <h4>{{ totalHoursWorked }}</h4>
+            <p>Horas Trabajadas</p>
+            <small class="text-muted">{{ totalHoursAvailable }}h disponibles</small>
+            <div v-if="totalHoursAvailable > 0" class="progress mt-2" style="height: 4px;">
+              <div 
+                class="progress-bar bg-primary" 
+                :style="{ width: getHoursPercentage() + '%' }"
+                :title="'Progreso: ' + getHoursPercentage() + '%'"
+              ></div>
+            </div>
           </div>
         </div>
         <div class="stat-card">
@@ -256,6 +260,7 @@ import ProjectService from '@/services/project.service.js';
 import UserService from '@/services/user.service.js';
 import TaskService from '@/services/task.service.js';
 import AuthService from '@/services/auth.service.js';
+import StatsService from '@/services/stats.service.js';
 
 export default {
   name: 'DashboardView',
@@ -264,11 +269,12 @@ export default {
       // Admin data
       projectCount: 0,
       developerCount: 0,
-      adminCount: 0,
       userCount: 0,
       totalHours: 0,
       completedTasks: 0,
       activeProjects: 0,
+      totalHoursAvailable: 0, // Horas disponibles (capacidad semanal)
+      totalHoursWorked: 0,    // Horas realmente trabajadas
       
       // User data
       myProjects: [],
@@ -405,16 +411,42 @@ export default {
         const usersResponse = await UserService.getUsers();
         const users = usersResponse.data;
         this.developerCount = users.length;
-        this.adminCount = users.filter(u => u.rol === 'admin').length;
         this.userCount = users.filter(u => u.rol === 'user').length;
 
-        // Calcular horas totales
-        this.totalHours = users.reduce((total, user) => total + (user.horasSemanalMaxima || 0), 0);
+        // Calcular horas totales disponibles (capacidad semanal de todos los usuarios)
+        this.totalHoursAvailable = users.reduce((total, user) => total + (user.horasSemanalMaxima || 0), 0);
 
-        // Por ahora, establecer un valor por defecto para tareas completadas
-        this.completedTasks = Math.floor(Math.random() * 50) + 20; // Simulado
+        // Cargar estadísticas reales de tareas y horas
+        await this.loadRealStats();
       } catch (error) {
         console.error('Error loading admin data:', error);
+      }
+    },
+    async loadRealStats() {
+      try {
+        const stats = await StatsService.getDashboardStats();
+        
+        // Actualizar estadísticas de tareas
+        this.completedTasks = stats.tasks.completed;
+        
+        // Actualizar estadísticas de horas trabajadas
+        this.totalHoursWorked = stats.hours.totalHoursWorked;
+        
+        // Mostrar las horas trabajadas en la tarjeta principal
+        this.totalHours = this.totalHoursWorked;
+        
+        console.log('🔍 Dashboard - Estadísticas reales cargadas:', {
+          tareasCompletadas: this.completedTasks,
+          horasTrabajadas: this.totalHoursWorked,
+          horasDisponibles: this.totalHoursAvailable,
+          stats
+        });
+      } catch (error) {
+        console.error('Error cargando estadísticas reales:', error);
+        // En caso de error, mantener valores por defecto
+        this.completedTasks = 0;
+        this.totalHoursWorked = 0;
+        this.totalHours = 0;
       }
     },
     async loadUserData() {
@@ -635,6 +667,10 @@ export default {
         'baja': 'Baja'
       };
       return priorityMap[priority] || priority;
+    },
+    getHoursPercentage() {
+      if (this.totalHoursAvailable === 0) return 0;
+      return Math.min(100, Math.round((this.totalHoursWorked / this.totalHoursAvailable) * 100));
     }
   }
 }
