@@ -96,11 +96,10 @@
             <div class="tasks-actions">
               <button 
                 class="btn btn-success me-2" 
-                @click="runAutoAssignment" 
-                :disabled="isAssigning"
+                @click="openAssignmentTypeModal"
               >
-                <i class="bi bi-robot me-1" :class="{ 'spinning': isAssigning }"></i>
-                {{ isAssigning ? 'Asignando...' : 'Asignación Automática' }}
+                <i class="bi bi-robot me-1"></i>
+                Asignación Automática
               </button>
               <button class="btn btn-primary btn-sm" @click="showAddTaskModal = true">
                 <i class="bi bi-plus-circle me-1"></i>
@@ -287,27 +286,6 @@
                 </div>
 
                 <div v-else>
-                  <!-- Filtros -->
-                  <div class="row mb-3">
-                    <div class="col-md-6">
-                      <label for="assignmentStatusFilter" class="form-label">Filtrar por Estado</label>
-                      <select class="form-select" id="assignmentStatusFilter" v-model="assignmentStatusFilter" @change="filterAssignments">
-                        <option value="">Todos</option>
-                        <option value="asignado">Asignadas</option>
-                        <option value="sin_asignar">Sin Asignar</option>
-                      </select>
-                    </div>
-                    <div class="col-md-6">
-                      <label for="assignmentDeveloperFilter" class="form-label">Filtrar por Desarrollador</label>
-                      <select class="form-select" id="assignmentDeveloperFilter" v-model="assignmentDeveloperFilter" @change="filterAssignments">
-                        <option value="">Todos los desarrolladores</option>
-                        <option v-for="dev in uniqueDevelopers" :key="dev" :value="dev">
-                          {{ dev }}
-                        </option>
-                      </select>
-                    </div>
-                  </div>
-
                   <!-- Lista de Asignaciones -->
                   <div class="assignment-list">
                     <div 
@@ -331,6 +309,10 @@
                             <span v-if="assignment.tarea?.estado" class="badge bg-info">
                               <i class="bi bi-tag me-1"></i>
                               {{ assignment.tarea.estado }}
+                            </span>
+                            <span v-if="assignment.tipoAsignacion" class="badge" :class="getAssignmentTypeClass(assignment.tipoAsignacion)">
+                              <i class="bi" :class="getAssignmentTypeIcon(assignment.tipoAsignacion)"></i>
+                              {{ getAssignmentTypeText(assignment.tipoAsignacion) }}
                             </span>
                           </div>
                         </div>
@@ -356,6 +338,14 @@
                               <i class="bi bi-calendar me-1"></i>
                               <strong>Días Asignados:</strong> {{ assignment.dias.length }} días
                             </p>
+                            <p v-if="assignment.tarea?.fechaEstimadaInicio" class="mb-1">
+                              <i class="bi bi-calendar-event me-1"></i>
+                              <strong>Fecha Inicio:</strong> {{ formatDate(assignment.tarea.fechaEstimadaInicio) }}
+                            </p>
+                            <p v-if="assignment.tarea?.fechaEstimadaFin" class="mb-1">
+                              <i class="bi bi-calendar-check me-1"></i>
+                              <strong>Fecha Fin:</strong> {{ formatDate(assignment.tarea.fechaEstimadaFin) }}
+                            </p>
                           </div>
                           <div class="col-md-6">
                             <div v-if="assignment.desarrollador?.habilidades && assignment.desarrollador.habilidades.length > 0" class="mb-2">
@@ -368,7 +358,7 @@
                                 >
                                   {{ typeof habilidad === 'string' ? habilidad : habilidad.nombre }}
                                 </span>
-                                <span v-if="assignment.desarrollador.habilidades.length > 3" class="skill-badge more-skills">
+                                <span v-if="assignment.desarrollador?.habilidades && assignment.desarrollador.habilidades.length > 3" class="skill-badge more-skills">
                                   +{{ assignment.desarrollador.habilidades.length - 3 }} más
                                 </span>
                               </div>
@@ -384,7 +374,7 @@
                                 >
                                   {{ formatDate(dia.fecha) }} ({{ dia.horasAsignadas }}h)
                                 </span>
-                                <span v-if="assignment.dias.length > 3" class="day-badge more-days">
+                                <span v-if="assignment.dias && assignment.dias.length > 3" class="day-badge more-days">
                                   +{{ assignment.dias.length - 3 }} más
                                 </span>
                               </div>
@@ -651,6 +641,92 @@
         Volver a Proyectos
       </router-link>
     </div>
+
+    <!-- Modal para Seleccionar Tipo de Asignación Automática -->
+    <div v-if="showAssignmentTypeModal" class="modal-overlay" @click="closeAssignmentTypeModal">
+      <div class="modal-content assignment-type-modal" @click.stop>
+        <div class="modal-header">
+          <h5>
+            <i class="bi bi-robot me-2"></i>Asignación Automática
+          </h5>
+          <button class="btn-close" @click="closeAssignmentTypeModal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-4">Selecciona el tipo de optimización para la asignación automática:</p>
+          
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <div class="card h-100 assignment-option-card" @click="selectAssignmentType('availability')" :class="{ 'selected': selectedAssignmentType === 'availability' }">
+                <div class="card-body text-center">
+                  <div class="assignment-icon mb-3">
+                    <i class="bi bi-clock-history fs-1 text-primary"></i>
+                  </div>
+                  <h6 class="card-title">Por Disponibilidad y Habilidades</h6>
+                  <p class="card-text small text-muted">
+                    Tener el proyecto en menor tiempo posible
+                  </p>
+                  <div class="assignment-features">
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Optimiza tiempo de finalización
+                    </small><br>
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Considera calendario de desarrolladores
+                    </small><br>
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Prioriza habilidades requeridas
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <div class="card h-100 assignment-option-card" @click="selectAssignmentType('cost')" :class="{ 'selected': selectedAssignmentType === 'cost' }">
+                <div class="card-body text-center">
+                  <div class="assignment-icon mb-3">
+                    <i class="bi bi-currency-dollar fs-1 text-success"></i>
+                  </div>
+                  <h6 class="card-title">Por Costo</h6>
+                  <p class="card-text small text-muted">
+                    Un proyecto más barato
+                  </p>
+                  <div class="assignment-features">
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Minimiza costos totales
+                    </small><br>
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Considera tarifas por hora
+                    </small><br>
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Optimiza presupuesto
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" @click="closeAssignmentTypeModal">Cancelar</button>
+          <button 
+            type="button" 
+            class="btn btn-success" 
+            @click="executeSelectedAssignment"
+            :disabled="!selectedAssignmentType || isAssigning"
+          >
+            <span v-if="isAssigning" class="spinner-border spinner-border-sm me-2" role="status"></span>
+            <i v-else class="bi bi-robot me-2"></i>
+            {{ isAssigning ? 'Ejecutando...' : 'Ejecutar Asignación' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -697,8 +773,9 @@ export default {
       assignments: [],
       loadingAssignments: false,
       isAssigning: false,
-      assignmentStatusFilter: '',
-      assignmentDeveloperFilter: ''
+      // Variables para el modal de selección de tipo de asignación
+      showAssignmentTypeModal: false,
+      selectedAssignmentType: null // 'availability' o 'cost'
     };
   },
   computed: {
@@ -750,23 +827,8 @@ export default {
     },
 
     filteredAssignments() {
-      if (!this.assignments || this.assignments.length === 0) return [];
-      
-      let filtered = this.assignments;
-      
-      // Filtrar por estado
-      if (this.assignmentStatusFilter === 'asignado') {
-        filtered = filtered.filter(a => a.asignado);
-      } else if (this.assignmentStatusFilter === 'sin_asignar') {
-        filtered = filtered.filter(a => !a.asignado);
-      }
-      
-      // Filtrar por desarrollador
-      if (this.assignmentDeveloperFilter) {
-        filtered = filtered.filter(a => a.asignado === this.assignmentDeveloperFilter);
-      }
-      
-      return filtered;
+      // En el detalle de proyecto, mostrar todas las asignaciones sin filtros
+      return this.assignments || [];
     },
     
     uniqueDevelopers() {
@@ -1049,8 +1111,16 @@ export default {
     
     formatDate(dateString) {
       if (!dateString) return 'N/A';
-      // Crear la fecha en zona horaria local para evitar problemas de UTC
-      const date = new Date(dateString + 'T00:00:00');
+      
+      // Si ya es una fecha ISO completa, usarla directamente
+      let date;
+      if (dateString.includes('T')) {
+        date = new Date(dateString);
+      } else {
+        // Si es solo fecha (YYYY-MM-DD), agregar hora
+        date = new Date(dateString + 'T00:00:00');
+      }
+      
       // Verificar que la fecha sea válida
       if (isNaN(date.getTime())) return 'N/A';
       return date.toLocaleDateString('es-ES');
@@ -1109,6 +1179,9 @@ export default {
             horasAsignadasTotales: assignment.horasTotales || 0,
             dias: assignment.dias || [],
             
+            // Tipo de asignación (basica o costo)
+            tipoAsignacion: assignment.tipoAsignacion || 'basica',
+            
             // Fecha de asignación
             fechaAsignacion: assignment.creadoEn || new Date().toISOString()
           }));
@@ -1129,6 +1202,114 @@ export default {
         alert('Error ejecutando asignación automática: ' + error.message);
       } finally {
         this.isAssigning = false;
+      }
+    },
+
+    // Métodos para el modal de selección de tipo de asignación
+    openAssignmentTypeModal() {
+      this.selectedAssignmentType = null;
+      this.showAssignmentTypeModal = true;
+    },
+
+    closeAssignmentTypeModal() {
+      this.selectedAssignmentType = null;
+      this.showAssignmentTypeModal = false;
+    },
+
+    selectAssignmentType(type) {
+      this.selectedAssignmentType = type;
+    },
+
+    async executeSelectedAssignment() {
+      if (!this.selectedAssignmentType) return;
+      
+      this.isAssigning = true;
+      
+      try {
+        if (this.selectedAssignmentType === 'availability') {
+          await this.runAvailabilityBasedAssignment();
+        } else if (this.selectedAssignmentType === 'cost') {
+          await this.runCostBasedAssignment();
+        }
+        
+        // Cerrar modal después de ejecutar
+        this.closeAssignmentTypeModal();
+      } catch (error) {
+        console.error('Error ejecutando asignación:', error);
+        const errorMsg = error.response?.data?.error || error.message || 'Error desconocido';
+        
+        // Mostrar mensaje de error específico
+        if (errorMsg.includes('is not defined')) {
+          alert(`⚠️ Error en el servidor\n\nLa funcionalidad de asignación por costo tiene un problema en el backend.\n\nError técnico: ${errorMsg}\n\nPor favor, contacta al desarrollador del backend.`);
+        } else {
+          alert(`Error ejecutando asignación: ${errorMsg}`);
+        }
+      } finally {
+        this.isAssigning = false;
+      }
+    },
+
+    async runAvailabilityBasedAssignment() {
+      const projectId = this.$route.params.id;
+      console.log('🔍 ProyectoDetalle - Iniciando asignación por disponibilidad y habilidades para proyecto:', projectId);
+      
+      try {
+        // Validar tareas del proyecto antes de la asignación automática
+        const validationResults = await this.validateProjectTasksForAssignment(projectId);
+        
+        if (!validationResults.isValid) {
+          alert(`No se puede ejecutar la asignación automática: ${validationResults.message}`);
+          return;
+        }
+        
+        console.log(`✅ Proyecto ${this.project.name}: Todas las tareas pasaron las validaciones`);
+        
+        // Llamar al endpoint de asignación por disponibilidad
+        const resultado = await AssignmentService.runAvailabilityBasedAssignment(projectId);
+        
+        console.log('🔍 ProyectoDetalle - Resultado asignación por disponibilidad:', resultado);
+        
+        // Recargar las tareas para mostrar los cambios
+        await this.loadProjectTasks();
+        
+        // Mostrar mensaje de éxito
+        alert('Asignación automática por disponibilidad completada exitosamente');
+        
+      } catch (error) {
+        console.error('Error ejecutando asignación por disponibilidad:', error);
+        throw error;
+      }
+    },
+
+    async runCostBasedAssignment() {
+      const projectId = this.$route.params.id;
+      console.log('🔍 ProyectoDetalle - Iniciando asignación por costo para proyecto:', projectId);
+      
+      try {
+        // Validar tareas del proyecto antes de la asignación automática
+        const validationResults = await this.validateProjectTasksForAssignment(projectId);
+        
+        if (!validationResults.isValid) {
+          alert(`No se puede ejecutar la asignación automática: ${validationResults.message}`);
+          return;
+        }
+        
+        console.log(`✅ Proyecto ${this.project.name}: Todas las tareas pasaron las validaciones`);
+        
+        // Llamar al endpoint de asignación por costo
+        const resultado = await AssignmentService.runCostBasedAssignment(projectId);
+        
+        console.log('🔍 ProyectoDetalle - Resultado asignación por costo:', resultado);
+        
+        // Recargar las tareas para mostrar los cambios
+        await this.loadProjectTasks();
+        
+        // Mostrar mensaje de éxito
+        alert('Asignación automática por costo completada exitosamente');
+        
+      } catch (error) {
+        console.error('Error ejecutando asignación por costo:', error);
+        throw error;
       }
     },
 
@@ -1249,8 +1430,20 @@ export default {
       }
     },
 
-    filterAssignments() {
-      // El filtrado se hace en computed property
+    getAssignmentTypeClass(tipo) {
+      if (tipo === 'costo') return 'bg-success';
+      return 'bg-primary';
+    },
+    
+    getAssignmentTypeIcon(tipo) {
+      if (tipo === 'costo') return 'bi-currency-dollar me-1';
+      return 'bi-clock-history me-1';
+    },
+    
+    getAssignmentTypeText(tipo) {
+      if (tipo === 'costo') return 'Por Costo';
+      if (tipo === 'basica') return 'Por Disponibilidad';
+      return 'Tipo Desconocido';
     },
 
     async switchToAssignmentsTab() {
@@ -1265,15 +1458,20 @@ export default {
       try {
         console.log('🔍 ProyectoDetalle - Cargando asignaciones existentes para proyecto:', projectId);
         
-        // Intentar cargar asignaciones desde localStorage primero
-        const savedData = localStorage.getItem('lastAssignmentData');
-        if (savedData) {
-          const assignmentData = JSON.parse(savedData);
-          console.log('🔍 ProyectoDetalle - Datos de asignación cargados desde localStorage:', assignmentData);
+        // Cargar asignaciones desde el backend (igual que en AssignmentSummaryView)
+        try {
+          const assignmentsResponse = await AssignmentService.getAssignmentsByProject(projectId);
+          console.log('🔍 ProyectoDetalle - Respuesta del backend:', assignmentsResponse);
           
-          // Verificar si los datos son para este proyecto específico
-          if (assignmentData.proyecto && assignmentData.proyecto._id === projectId) {
-            this.assignments = assignmentData.resumen.map(assignment => ({
+          if (assignmentsResponse.asignaciones && assignmentsResponse.asignaciones.length > 0) {
+            console.log('🔍 ProyectoDetalle - Primera asignación del backend:', assignmentsResponse.asignaciones[0]);
+            console.log('🔍 ProyectoDetalle - Tarea de la primera asignación:', assignmentsResponse.asignaciones[0].tarea);
+            console.log('🔍 ProyectoDetalle - Fechas de la tarea:', {
+              fechaEstimadaInicio: assignmentsResponse.asignaciones[0].tarea?.fechaEstimadaInicio,
+              fechaEstimadaFin: assignmentsResponse.asignaciones[0].tarea?.fechaEstimadaFin
+            });
+            
+            this.assignments = assignmentsResponse.asignaciones.map(assignment => ({
               // ID de la asignación
               asignacionId: assignment.asignacionId,
               
@@ -1301,67 +1499,33 @@ export default {
               horasAsignadasTotales: assignment.horasTotales || 0,
               dias: assignment.dias || [],
               
+              // Tipo de asignación (basica o costo)
+              tipoAsignacion: assignment.tipoAsignacion || 'basica',
+              
               // Fecha de asignación
               fechaAsignacion: assignment.creadoEn || new Date().toISOString()
             }));
             
-            console.log('✅ ProyectoDetalle - Asignaciones cargadas desde localStorage:', this.assignments.length);
-            return;
+            console.log('✅ ProyectoDetalle - Asignaciones mapeadas:', this.assignments);
+            console.log('✅ ProyectoDetalle - Primera asignación mapeada:', this.assignments[0]);
+            console.log('✅ ProyectoDetalle - Tarea de la primera asignación mapeada:', this.assignments[0]?.tarea);
+            console.log('✅ ProyectoDetalle - Fechas de la tarea mapeada:', {
+              fechaEstimadaInicio: this.assignments[0]?.tarea?.fechaEstimadaInicio,
+              fechaEstimadaFin: this.assignments[0]?.tarea?.fechaEstimadaFin
+            });
+          } else {
+            console.log('ℹ️ ProyectoDetalle - No hay asignaciones para este proyecto');
+            this.assignments = [];
           }
-        }
-
-        // Si no hay datos en localStorage, intentar cargar desde el backend
-        console.log('🔍 ProyectoDetalle - Cargando asignaciones desde backend...');
-        const assignmentsResponse = await AssignmentService.getAssignmentsByProject(projectId);
-        
-        if (assignmentsResponse.asignaciones && assignmentsResponse.asignaciones.length > 0) {
-          this.assignments = assignmentsResponse.asignaciones.map(assignment => ({
-            // ID de la asignación
-            asignacionId: assignment.asignacionId,
-            
-            // Información completa de la tarea
-            tarea: {
-              id: assignment.tarea?.id,
-              descripcion: assignment.tarea?.descripcion || 'Tarea no disponible',
-              fechaEstimadaInicio: assignment.tarea?.fechaEstimadaInicio,
-              fechaEstimadaFin: assignment.tarea?.fechaEstimadaFin,
-              tiempoEstimadoHoras: assignment.tarea?.tiempoEstimadoHoras,
-              estado: assignment.tarea?.estado
-            },
-            
-            // Información completa del desarrollador
-            desarrollador: {
-              id: assignment.desarrollador?.id,
-              nombre: assignment.desarrollador?.nombre || 'Desarrollador no disponible',
-              habilidades: assignment.desarrollador?.habilidades || []
-            },
-            
-            // Nombre del desarrollador para compatibilidad
-            asignado: assignment.desarrollador?.nombre || 'Desarrollador no disponible',
-            
-            // Información de días y horas
-            horasAsignadasTotales: assignment.horasTotales || 0,
-            dias: assignment.dias || [],
-            
-            // Fecha de asignación
-            fechaAsignacion: assignment.creadoEn || new Date().toISOString()
-          }));
-          
-          console.log('✅ ProyectoDetalle - Asignaciones cargadas desde backend:', this.assignments.length);
-        } else {
-          console.log('ℹ️ ProyectoDetalle - No hay asignaciones en el backend');
-          this.assignments = [];
-        }
-        
-      } catch (error) {
-        console.error('Error cargando asignaciones:', error);
-        // Si es un error 400, significa que no hay asignaciones para este proyecto (esperado)
-        if (error.response && error.response.status === 400) {
-          console.log('ℹ️ ProyectoDetalle - Proyecto no tiene asignaciones (error 400 esperado)');
-          this.assignments = [];
-        } else {
-          console.error('❌ Error inesperado cargando asignaciones:', error);
-          this.assignments = [];
+        } catch (error) {
+          // Si es un error 400, significa que no hay asignaciones para este proyecto
+          if (error.response && error.response.status === 400) {
+            console.log('ℹ️ ProyectoDetalle - Proyecto no tiene asignaciones (error 400 esperado)');
+            this.assignments = [];
+          } else {
+            console.error('❌ ProyectoDetalle - Error cargando asignaciones:', error);
+            this.assignments = [];
+          }
         }
       } finally {
         this.loadingAssignments = false;
@@ -2133,5 +2297,51 @@ export default {
   .days-grid {
     justify-content: flex-start;
   }
+}
+
+/* Estilos para el modal de selección de tipo de asignación */
+.assignment-type-modal {
+  max-width: 800px;
+}
+
+.assignment-option-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid #e9ecef;
+}
+
+.assignment-option-card:hover {
+  border-color: #0d6efd;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  transform: translateY(-2px);
+}
+
+.assignment-option-card.selected {
+  border-color: #198754;
+  background-color: #f8fff9;
+  box-shadow: 0 0.125rem 0.25rem rgba(25, 135, 84, 0.15);
+}
+
+.assignment-icon {
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.assignment-option-card:hover .assignment-icon {
+  opacity: 1;
+}
+
+.assignment-option-card.selected .assignment-icon {
+  opacity: 1;
+}
+
+.assignment-features {
+  margin-top: 1rem;
+  text-align: left;
+}
+
+.assignment-features small {
+  display: block;
+  margin-bottom: 0.25rem;
 }
 </style>

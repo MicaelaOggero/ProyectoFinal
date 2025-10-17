@@ -734,6 +734,27 @@ export default {
     selectDay(day) {
       if (!day.isCurrentMonth) return;
       
+      // 🔍 Validación del backend: Verificar si hay tareas asignadas a ese día
+      const fechaISO = day.date; // Ya viene en formato "YYYY-MM-DD"
+      const targetDate = new Date(fechaISO);
+      
+      // Buscar tareas asignadas en esta fecha
+      const tareasAsignadas = this.assignedTasks.filter(task => {
+        const startDate = new Date(task.fechaEstimadaInicio);
+        const endDate = new Date(task.fechaEstimadaFin);
+        
+        // Verificar si la fecha está dentro del rango de la tarea
+        // Misma lógica que en el backend (líneas 105-109 de user.service.js)
+        return targetDate >= startDate && targetDate <= endDate;
+      });
+      
+      // Si hay tareas asignadas, NO abrir el modal y mostrar mensaje
+      if (tareasAsignadas.length > 0) {
+        alert(`⚠️ No se puede modificar ${fechaISO}, tiene tareas asignadas.\n\nEste día tiene ${tareasAsignadas.length} tarea(s) en curso y no puede ser modificado.`);
+        return; // No abrir el modal
+      }
+      
+      // Si no hay tareas asignadas, abrir el modal normalmente
       this.selectedDay = day;
       this.editingHours = day.hoursAvailable;
       this.message = '';

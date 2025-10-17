@@ -42,6 +42,11 @@ class UserService {
   removeCalendarEntry(userId, date) {
     return axios.delete(`${API_URL}/user/${userId}/calendario/${date}`);
   }
+
+  // Crear calendario para un usuario específico
+  createCalendar(userId) {
+    return axios.post(`${API_URL}/user/crearCalendario/${userId}`);
+  }
 }
 
 export default new UserService();

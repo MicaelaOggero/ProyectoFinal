@@ -25,11 +25,18 @@
             <div class="row">
               <div class="col-md-6">
                 <p><strong>Fecha de Generación:</strong> {{ formatDate(summaryData?.fechaGeneracion) }}</p>
-                <p><strong>Proyecto:</strong> {{ summaryData?.proyecto?.nombre || 'N/A' }}</p>
+                <p><strong>Proyecto:</strong> {{ selectedProjectName }}</p>
               </div>
               <div class="col-md-6">
-                <p><strong>Total de Tareas:</strong> {{ summaryData?.resumen?.length || 0 }}</p>
-                <p><strong>Tareas Asignadas:</strong> {{ assignedTasksCount }}</p>
+                <p><strong>Total de Tareas:</strong> {{ filteredAssignments.length }}</p>
+                <p><strong>Tareas Asignadas:</strong> {{ filteredAssignedTasksCount }}</p>
+                <p v-if="summaryData?.tipo">
+                  <strong>Tipo de Asignación:</strong> 
+                  <span class="badge" :class="getAssignmentTypeClass(summaryData.tipo)">
+                    <i class="bi" :class="getAssignmentTypeIcon(summaryData.tipo)"></i>
+                    {{ getAssignmentTypeText(summaryData.tipo) }}
+                  </span>
+                </p>
               </div>
             </div>
           </div>
@@ -72,20 +79,15 @@
             <div v-else>
               <!-- Filtros -->
               <div class="row mb-3">
-                <div class="col-md-6">
-                  <label for="statusFilter" class="form-label">Filtrar por Estado</label>
-                  <select class="form-select" id="statusFilter" v-model="statusFilter" @change="filterAssignments">
-                    <option value="">Todos</option>
-                    <option value="asignado">Asignadas</option>
-                    <option value="sin_asignar">Sin Asignar</option>
-                  </select>
-                </div>
-                <div class="col-md-6">
-                  <label for="developerFilter" class="form-label">Filtrar por Desarrollador</label>
-                  <select class="form-select" id="developerFilter" v-model="developerFilter" @change="filterAssignments">
-                    <option value="">Todos los desarrolladores</option>
-                    <option v-for="dev in uniqueDevelopers" :key="dev" :value="dev">
-                      {{ dev }}
+                <div class="col-md-12">
+                  <label for="projectFilter" class="form-label">
+                    <i class="bi bi-folder me-1"></i>
+                    Filtrar por Proyecto
+                  </label>
+                  <select class="form-select" id="projectFilter" v-model="projectFilter" @change="filterAssignments">
+                    <option value="">Todos los proyectos</option>
+                    <option v-for="project in uniqueProjects" :key="project.id" :value="project.id">
+                      {{ project.name }}
                     </option>
                   </select>
                 </div>
@@ -118,6 +120,10 @@
                         <span v-if="assignment.proyecto" class="badge bg-secondary">
                           <i class="bi bi-folder me-1"></i>
                           {{ assignment.proyecto }}
+                        </span>
+                        <span v-if="assignment.tipoAsignacion" class="badge" :class="getAssignmentTypeClass(assignment.tipoAsignacion)">
+                          <i class="bi" :class="getAssignmentTypeIcon(assignment.tipoAsignacion)"></i>
+                          {{ getAssignmentTypeText(assignment.tipoAsignacion) }}
                         </span>
                       </div>
                     </div>
@@ -217,25 +223,25 @@
             <div class="row text-center">
               <div class="col-md-3">
                 <div class="stat-item">
-                  <h3 class="text-primary">{{ assignedTasksCount }}</h3>
+                  <h3 class="text-primary">{{ filteredAssignedTasksCount }}</h3>
                   <p class="text-muted">Tareas Asignadas</p>
                 </div>
               </div>
               <div class="col-md-3">
                 <div class="stat-item">
-                  <h3 class="text-warning">{{ unassignedTasksCount }}</h3>
+                  <h3 class="text-warning">{{ filteredUnassignedTasksCount }}</h3>
                   <p class="text-muted">Sin Asignar</p>
                 </div>
               </div>
               <div class="col-md-3">
                 <div class="stat-item">
-                  <h3 class="text-info">{{ uniqueDevelopers.length }}</h3>
+                  <h3 class="text-info">{{ filteredUniqueDevelopers.length }}</h3>
                   <p class="text-muted">Desarrolladores</p>
                 </div>
               </div>
               <div class="col-md-3">
                 <div class="stat-item">
-                  <h3 class="text-success">{{ totalHoursAssigned }}</h3>
+                  <h3 class="text-success">{{ filteredTotalHoursAssigned }}</h3>
                   <p class="text-muted">Horas Totales</p>
                 </div>
               </div>
@@ -257,8 +263,7 @@ export default {
     return {
       summaryData: null,
       loading: false,
-      statusFilter: '',
-      developerFilter: '',
+      projectFilter: '',
       projects: [],
       allAssignments: []
     };
@@ -269,19 +274,54 @@ export default {
       
       let filtered = this.summaryData.resumen;
       
-      // Filtrar por estado
-      if (this.statusFilter === 'asignado') {
-        filtered = filtered.filter(a => a.asignado);
-      } else if (this.statusFilter === 'sin_asignar') {
-        filtered = filtered.filter(a => !a.asignado);
-      }
-      
-      // Filtrar por desarrollador
-      if (this.developerFilter) {
-        filtered = filtered.filter(a => a.asignado === this.developerFilter);
+      // Filtrar por proyecto
+      if (this.projectFilter) {
+        filtered = filtered.filter(a => a.proyectoId === this.projectFilter);
       }
       
       return filtered;
+    },
+    
+    uniqueProjects() {
+      if (!this.summaryData?.resumen) return [];
+      
+      const projectsMap = new Map();
+      
+      this.summaryData.resumen.forEach(a => {
+        if (a.proyecto && a.proyectoId) {
+          projectsMap.set(a.proyectoId, a.proyecto);
+        }
+      });
+      
+      return Array.from(projectsMap, ([id, name]) => ({ id, name }));
+    },
+    
+    selectedProjectName() {
+      if (!this.projectFilter) return 'Todos los proyectos';
+      
+      const project = this.uniqueProjects.find(p => p.id === this.projectFilter);
+      return project ? project.name : 'Todos los proyectos';
+    },
+    
+    filteredAssignedTasksCount() {
+      return this.filteredAssignments.filter(a => a.asignado).length;
+    },
+    
+    filteredUnassignedTasksCount() {
+      return this.filteredAssignments.filter(a => !a.asignado).length;
+    },
+    
+    filteredUniqueDevelopers() {
+      const developers = this.filteredAssignments
+        .filter(a => a.asignado)
+        .map(a => a.asignado);
+      return [...new Set(developers)];
+    },
+    
+    filteredTotalHoursAssigned() {
+      return this.filteredAssignments
+        .filter(a => a.horasAsignadasTotales)
+        .reduce((total, a) => total + a.horasAsignadasTotales, 0);
     },
     
     assignedTasksCount() {
@@ -353,7 +393,8 @@ export default {
               // Agregar información del proyecto a cada asignación
               const assignmentsWithProject = assignmentsResponse.asignaciones.map(assignment => ({
                 ...assignment,
-                projectName: project.name || project.nombre
+                projectName: project.name || project.nombre,
+                proyectoId: project._id
               }));
               this.allAssignments.push(...assignmentsWithProject);
               console.log(`✅ Asignaciones cargadas para proyecto ${project.name}:`, assignmentsWithProject);
@@ -401,10 +442,14 @@ export default {
                   
                   // Información del proyecto
                   proyecto: assignment.projectName,
+                  proyectoId: assignment.proyectoId,
                   
                   // Información de días y horas
                   horasAsignadasTotales: assignment.horasTotales || 0,
                   dias: assignment.dias || [],
+                  
+                  // Tipo de asignación (basica o costo)
+                  tipoAsignacion: assignment.tipoAsignacion || 'basica',
                   
                   // Fecha de asignación
                   fechaAsignacion: assignment.creadoEn || new Date().toISOString()
@@ -432,6 +477,22 @@ export default {
     
     goBack() {
       this.$router.go(-1);
+    },
+    
+    getAssignmentTypeClass(tipo) {
+      if (tipo === 'costo') return 'bg-success';
+      return 'bg-primary';
+    },
+    
+    getAssignmentTypeIcon(tipo) {
+      if (tipo === 'costo') return 'bi-currency-dollar me-1';
+      return 'bi-clock-history me-1';
+    },
+    
+    getAssignmentTypeText(tipo) {
+      if (tipo === 'costo') return 'Por Costo';
+      if (tipo === 'basica') return 'Por Disponibilidad';
+      return 'Tipo Desconocido';
     }
   }
 };
