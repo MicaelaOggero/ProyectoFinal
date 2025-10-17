@@ -5,6 +5,10 @@ import { asignarTareasConCalendario } from "../criteria/index.js";
 import { asignarTareasPorCosto } from "../criteria/costo.js";
 import { calcularCostoDev } from "../../utils/asignacionCosto/costoTarea.js";
 import Task from "../task/task.model.js";
+import User from "../users/user.model.js";
+import dotenv from "dotenv";
+
+dotenv.config()
 
 export const editarAsignacionService = async (asignacionId, nuevoDevId) => {
   // 1. Buscar la asignación original
@@ -133,3 +137,38 @@ export const asignarPorCostoService = async (projectId) => {
   return await asignarTareasPorCosto(projectId);
 };
 
+import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+export async function sugerirAsignacionConAgente(taskId) {
+  const task = await Task.findById(taskId);
+  const users = await User.find({ rol: 'user' });
+
+  const response = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      {
+        role: "system",
+        content: `
+          Sos un agente asignador de tareas.
+          Tu objetivo es asignar la tarea a la persona con mayor probabilidad de completarla en el menor tiempo posible.
+          Tené en cuenta:
+          - habilidades y nivel de experiencia
+          - disponibilidad horaria (calendario)
+          - dificultad y prioridad de la tarea
+          - evitar sobrecargar desarrolladores
+          Devolvé un resumen JSON con "mejorCandidato", "razon" y "ranking".
+        `
+      },
+      {
+        role: "user",
+        content: JSON.stringify({ task, users })
+      }
+    ],
+    temperature: 0.2,
+  });
+
+  const resultado = JSON.parse(response.choices[0].message.content);
+  return resultado;
+}

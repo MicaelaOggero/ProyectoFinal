@@ -1,4 +1,9 @@
-import { editarAsignacionService, getAsignacionesPorProyectoService, asignarTareasBasico, asignarPorCostoService } from "./assignment.service.js";
+import { editarAsignacionService, getAsignacionesPorProyectoService, asignarTareasBasico, asignarPorCostoService} from "./assignment.service.js";
+import { previsualizarAsignacionPorCosto, confirmarAsignacionPorCosto } from "../criteria/costo.js";
+import {
+  previsualizarAsignacionBasica,
+  confirmarAsignacionBasica,
+} from "../criteria/index.js";
 
 export const editarAsignacion = async (req, res) => {
   try {
@@ -50,3 +55,62 @@ export const asignarPorCosto = async (req, res) => {
   }
 };
 
+
+// PREVISUALIZACIÓN
+export async function previsualizarAsignacionCosto(req, res) {
+  try {
+    const { projectId } = req.params;
+    const resultado = await previsualizarAsignacionPorCosto(projectId);
+    res.json({ message: "Previsualización lista", ...resultado });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// CONFIRMACIÓN
+export async function confirmarAsignacionCosto(req, res) {
+  try {
+    const { projectId } = req.params;
+    const { asignaciones, costoTotalProyecto } = req.body;
+
+    const resultado = await confirmarAsignacionPorCosto(
+      projectId,
+      asignaciones,          // 👈 acá va el array directamente
+      costoTotalProyecto     // 👈 número total
+    );
+
+    res.json({ message: "Asignaciones guardadas", resultado });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+
+/**
+ * Previsualiza la asignación básica
+ */
+export async function previewAsignacionBasica(req, res) {
+  try {
+    const { projectId } = req.params;
+    const resultado = await previsualizarAsignacionBasica(projectId);
+    res.json(resultado);
+  } catch (error) {
+    console.error("Error en previsualizarAsignacionBasica:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+/**
+ * Confirma y guarda la asignación básica
+ */
+export async function confirmAsignacionBasica(req, res) {
+  try {
+    const { projectId } = req.params;
+    const { asignaciones, costoTotalProyecto } = req.body;
+    const resultado = await confirmarAsignacionBasica(projectId, asignaciones, costoTotalProyecto);
+    res.json(resultado);
+  } catch (error) {
+    console.error("Error en confirmarAsignacionBasica:", error);
+    res.status(500).json({ error: error.message });
+  }
+}

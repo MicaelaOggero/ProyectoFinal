@@ -58,7 +58,7 @@ const taskSchema = new mongoose.Schema({
   fechaRealFin: Date,
   fechaRealInicio: Date
 
-  //preferencias por la tarea
+
 });
 
 const Task = mongoose.model('Task', taskSchema);
