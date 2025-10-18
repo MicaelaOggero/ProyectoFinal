@@ -84,7 +84,7 @@
                     <i class="bi bi-folder me-1"></i>
                     Filtrar por Proyecto
                   </label>
-                  <select class="form-select" id="projectFilter" v-model="projectFilter" @change="filterAssignments">
+                  <select class="form-select" id="projectFilter" v-model="projectFilter">
                     <option value="">Todos los proyectos</option>
                     <option v-for="project in uniqueProjects" :key="project.id" :value="project.id">
                       {{ project.name }}
@@ -127,9 +127,20 @@
                         </span>
                       </div>
                     </div>
-                    <div class="assignment-status">
-                      <i v-if="assignment.asignado" class="bi bi-check-circle-fill text-success fs-4"></i>
-                      <i v-else class="bi bi-x-circle-fill text-warning fs-4"></i>
+                    <div class="assignment-actions">
+                      <div class="assignment-status me-3">
+                        <i v-if="assignment.asignado" class="bi bi-check-circle-fill text-success fs-4"></i>
+                        <i v-else class="bi bi-x-circle-fill text-warning fs-4"></i>
+                      </div>
+                      <!-- Botón de editar asignación (solo para tareas asignadas) -->
+                      <button 
+                        v-if="assignment.asignado && assignment.asignacionId"
+                        class="btn btn-sm btn-outline-primary"
+                        @click="editAssignment(assignment)"
+                        title="Editar Asignación"
+                      >
+                        <i class="bi bi-person-gear"></i>
+                      </button>
                     </div>
                   </div>
 
@@ -250,12 +261,97 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal para Editar Asignación -->
+    <div class="modal fade" id="editAssignmentModal" tabindex="-1" aria-labelledby="editAssignmentModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="editAssignmentModalLabel">Editar Asignación</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" v-if="selectedAssignmentForEdit">
+            <div class="mb-3">
+              <label class="form-label"><strong>Tarea:</strong></label>
+              <p class="form-control-plaintext">{{ selectedAssignmentForEdit.tarea?.descripcion || selectedAssignmentForEdit.tarea }}</p>
+            </div>
+            
+            <div class="mb-3">
+              <label class="form-label"><strong>Desarrollador Actual:</strong></label>
+              <p class="form-control-plaintext">{{ selectedAssignmentForEdit.asignado }}</p>
+            </div>
+            
+            <div class="mb-3">
+              <label for="newDeveloperSelect" class="form-label">Nuevo Desarrollador:</label>
+              <select 
+                class="form-select" 
+                id="newDeveloperSelect" 
+                v-model="assignmentForm.newDeveloperId"
+                :disabled="isUpdatingAssignment"
+              >
+                <option value="">Seleccionar desarrollador...</option>
+                <option 
+                  v-for="user in availableUsers" 
+                  :key="user._id" 
+                  :value="user._id"
+                  :disabled="user._id === selectedAssignmentForEdit.desarrollador?.id"
+                >
+                  {{ user.nombre }} {{ user.apellido }}
+                  <span v-if="user._id === selectedAssignmentForEdit.desarrollador?.id">(Actual)</span>
+                </option>
+              </select>
+            </div>
+            
+            <div v-if="selectedNewDeveloper" class="mb-3">
+              <h6>Información del Nuevo Desarrollador:</h6>
+              <div class="row">
+                <div class="col-md-6">
+                  <p><strong>Experiencia:</strong> {{ selectedNewDeveloper.aniosExperiencia }} años</p>
+                  <p><strong>Horas Semanales:</strong> {{ selectedNewDeveloper.horasSemanalMaxima }}h</p>
+                </div>
+                <div class="col-md-6">
+                  <p><strong>Habilidades:</strong></p>
+                  <div class="skills-preview">
+                    <span 
+                      v-for="(habilidad, index) in selectedNewDeveloper.habilidades?.slice(0, 3)" 
+                      :key="index"
+                      class="badge bg-light text-dark me-1 mb-1"
+                    >
+                      {{ typeof habilidad === 'string' ? habilidad : habilidad.nombre }}
+                    </span>
+                    <span v-if="selectedNewDeveloper.habilidades?.length > 3" class="badge bg-secondary">
+                      +{{ selectedNewDeveloper.habilidades.length - 3 }} más
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" :disabled="isUpdatingAssignment">
+              Cancelar
+            </button>
+            <button 
+              type="button" 
+              class="btn btn-primary" 
+              @click="updateAssignment"
+              :disabled="!assignmentForm.newDeveloperId || isUpdatingAssignment"
+            >
+              <span v-if="isUpdatingAssignment" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+              {{ isUpdatingAssignment ? 'Actualizando...' : 'Actualizar Asignación' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import AssignmentService from '@/services/assignment.service.js';
 import ProjectService from '@/services/project.service.js';
+import UserService from '@/services/user.service.js';
+import { Modal } from 'bootstrap';
 
 export default {
   name: 'AssignmentSummaryView',
@@ -265,7 +361,16 @@ export default {
       loading: false,
       projectFilter: '',
       projects: [],
-      allAssignments: []
+      allAssignments: [],
+      
+      // Para edición de asignaciones
+      selectedAssignmentForEdit: null,
+      assignmentForm: {
+        newDeveloperId: ''
+      },
+      isUpdatingAssignment: false,
+      users: [],
+      editAssignmentModalInstance: null
     };
   },
   computed: {
@@ -276,7 +381,9 @@ export default {
       
       // Filtrar por proyecto
       if (this.projectFilter) {
+        console.log('🔍 Filtrando por proyecto:', this.projectFilter);
         filtered = filtered.filter(a => a.proyectoId === this.projectFilter);
+        console.log('🔍 Asignaciones filtradas:', filtered.length);
       }
       
       return filtered;
@@ -293,7 +400,9 @@ export default {
         }
       });
       
-      return Array.from(projectsMap, ([id, name]) => ({ id, name }));
+      const projects = Array.from(projectsMap, ([id, name]) => ({ id, name }));
+      console.log('🔍 Proyectos únicos encontrados:', projects);
+      return projects;
     },
     
     selectedProjectName() {
@@ -316,6 +425,18 @@ export default {
         .filter(a => a.asignado)
         .map(a => a.asignado);
       return [...new Set(developers)];
+    },
+    
+    // Para edición de asignaciones
+    availableUsers() {
+      const filtered = this.users.filter(user => user.rol === 'user');
+      console.log('🔍 Usuarios disponibles para asignación:', filtered);
+      return filtered;
+    },
+    
+    selectedNewDeveloper() {
+      if (!this.assignmentForm.newDeveloperId) return null;
+      return this.users.find(user => user._id === this.assignmentForm.newDeveloperId);
     },
     
     filteredTotalHoursAssigned() {
@@ -351,22 +472,31 @@ export default {
   },
   async mounted() {
     await this.loadSummaryData();
+    await this.loadUsers();
+    // Inicializar modales después de que el DOM esté completamente renderizado
+    this.$nextTick(() => {
+      this.initializeModals();
+    });
   },
   methods: {
-    async loadSummaryData() {
+    async loadSummaryData(forceRefresh = false) {
       this.loading = true;
       try {
-        // Intentar cargar desde localStorage primero
-        const savedData = localStorage.getItem('lastAssignmentData');
-        if (savedData) {
-          this.summaryData = JSON.parse(savedData);
-          console.log('Datos de asignación cargados desde localStorage:', this.summaryData);
-        } else {
-          console.log('No hay datos de asignación guardados en localStorage');
+        // Si no es un refresh forzado, intentar cargar desde localStorage primero
+        if (!forceRefresh) {
+          const savedData = localStorage.getItem('lastAssignmentData');
+          if (savedData) {
+            this.summaryData = JSON.parse(savedData);
+            console.log('Datos de asignación cargados desde localStorage:', this.summaryData);
+          } else {
+            console.log('No hay datos de asignación guardados en localStorage');
+          }
         }
 
-        // También cargar asignaciones desde el backend
+        // Siempre cargar asignaciones desde el backend para obtener datos actualizados
         await this.loadAssignmentsFromBackend();
+        
+        console.log('🔍 Datos del resumen después de la actualización:', this.summaryData);
         
       } catch (error) {
         console.error('Error cargando datos de asignación:', error);
@@ -465,9 +595,6 @@ export default {
       }
     },
     
-    filterAssignments() {
-      // El filtrado se hace en computed property
-    },
     
     formatDate(dateString) {
       if (!dateString) return 'N/A';
@@ -493,6 +620,97 @@ export default {
       if (tipo === 'costo') return 'Por Costo';
       if (tipo === 'basica') return 'Por Disponibilidad';
       return 'Tipo Desconocido';
+    },
+    
+    // Métodos para edición de asignaciones
+    async loadUsers() {
+      try {
+        const response = await UserService.getUsers();
+        this.users = response.data;
+        console.log('🔍 Usuarios cargados:', this.users);
+      } catch (error) {
+        console.error('Error cargando usuarios:', error);
+      }
+    },
+    
+    initializeModals() {
+      const modalElement = document.getElementById('editAssignmentModal');
+      if (modalElement) {
+        this.editAssignmentModalInstance = new Modal(modalElement);
+      } else {
+        console.warn('Modal element not found, retrying...');
+        // Reintentar después de un breve delay
+        setTimeout(() => {
+          const retryElement = document.getElementById('editAssignmentModal');
+          if (retryElement) {
+            this.editAssignmentModalInstance = new Modal(retryElement);
+          }
+        }, 100);
+      }
+    },
+    
+    editAssignment(assignment) {
+      this.selectedAssignmentForEdit = assignment;
+      this.assignmentForm.newDeveloperId = '';
+      
+      // Asegurar que el modal esté inicializado
+      if (!this.editAssignmentModalInstance) {
+        this.initializeModals();
+      }
+      
+      if (this.editAssignmentModalInstance) {
+        this.editAssignmentModalInstance.show();
+      } else {
+        console.error('No se pudo inicializar el modal de edición');
+        alert('Error al abrir el modal de edición. Por favor, recarga la página.');
+      }
+    },
+    
+    closeEditAssignmentModal() {
+      if (this.editAssignmentModalInstance) {
+        this.editAssignmentModalInstance.hide();
+      }
+      this.selectedAssignmentForEdit = null;
+      this.assignmentForm.newDeveloperId = '';
+      this.isUpdatingAssignment = false;
+    },
+    
+    async updateAssignment() {
+      if (!this.selectedAssignmentForEdit || !this.assignmentForm.newDeveloperId) {
+        alert('Por favor selecciona un nuevo desarrollador');
+        return;
+      }
+      
+      try {
+        this.isUpdatingAssignment = true;
+        
+        console.log('🔍 EditAssignment - Asignación:', this.selectedAssignmentForEdit);
+        console.log('🔍 EditAssignment - Nuevo desarrollador ID:', this.assignmentForm.newDeveloperId);
+        
+        // Validar que no sea el mismo desarrollador
+        if (this.assignmentForm.newDeveloperId === this.selectedAssignmentForEdit.desarrollador?.id) {
+          alert('El nuevo desarrollador debe ser diferente al actual');
+          return;
+        }
+        
+        // Llamar al servicio de asignaciones
+        await AssignmentService.editAssignment(
+          this.selectedAssignmentForEdit.asignacionId, 
+          this.assignmentForm.newDeveloperId
+        );
+        
+        // Recargar los datos del resumen forzando la actualización desde el backend
+        await this.loadSummaryData(true);
+        
+        alert('Asignación actualizada correctamente.\n\nLos calendarios de disponibilidad de ambos desarrolladores han sido actualizados automáticamente.');
+        this.closeEditAssignmentModal();
+        
+      } catch (error) {
+        console.error('Error actualizando asignación:', error);
+        alert('Error al actualizar la asignación: ' + (error.response?.data?.error || error.message));
+      } finally {
+        this.isUpdatingAssignment = false;
+      }
     }
   }
 };
@@ -658,5 +876,22 @@ export default {
 
 .bg-primary {
   background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+}
+
+/* Estilos para edición de asignaciones */
+.assignment-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.skills-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.skills-preview .badge {
+  font-size: 0.75rem;
 }
 </style>

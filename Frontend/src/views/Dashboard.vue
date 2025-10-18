@@ -301,8 +301,9 @@ export default {
       // Si no hay datos del backend, mostrar días con 0 horas disponibles
       
       const currentDate = new Date();
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth();
+      // Usar UTC para coincidir con el backend
+      const year = currentDate.getUTCFullYear();
+      const month = currentDate.getUTCMonth();
       
       // Primer día del mes
       const firstDay = new Date(year, month, 1);
@@ -537,9 +538,10 @@ export default {
         console.log('🔍 Dashboard - Iniciando carga del calendario para usuario:', this.currentUser._id);
         this.calendarLoading = true;
         const currentDate = new Date();
-        const monthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+        // Usar UTC para coincidir con el backend
+        const monthStr = `${currentDate.getUTCFullYear()}-${String(currentDate.getUTCMonth() + 1).padStart(2, '0')}`;
         
-        console.log('🔍 Dashboard - Cargando calendario para mes:', monthStr);
+        console.log('🔍 Dashboard - Cargando calendario para mes (UTC):', monthStr);
         const response = await UserService.getUserCalendar(this.currentUser._id, monthStr);
         this.userCalendar = response.data.calendario || [];
         

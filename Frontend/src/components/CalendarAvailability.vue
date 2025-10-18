@@ -373,8 +373,9 @@ export default {
     },
     
     calendarDays() {
-      const year = this.currentDate.getFullYear();
-      const month = this.currentDate.getMonth();
+      // Usar UTC para coincidir con el backend
+      const year = this.currentDate.getUTCFullYear();
+      const month = this.currentDate.getUTCMonth();
       
       // Primer día del mes
       const firstDay = new Date(year, month, 1);
@@ -443,8 +444,9 @@ export default {
   methods: {
     // Inicializar disponibilidad por defecto para días laborales
     initializeDefaultAvailability() {
-      const year = this.currentDate.getFullYear();
-      const month = this.currentDate.getMonth();
+      // Usar UTC para coincidir con el backend
+      const year = this.currentDate.getUTCFullYear();
+      const month = this.currentDate.getUTCMonth();
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       
       const newAvailabilityEntries = [];
@@ -491,9 +493,9 @@ export default {
     },
     
     goToPreviousMonth() {
-      // Crear nueva instancia de Date para forzar reactividad
+      // Crear nueva instancia de Date para forzar reactividad, usando UTC
       const newDate = new Date(this.currentDate);
-      newDate.setMonth(this.currentDate.getMonth() - 1);
+      newDate.setUTCMonth(this.currentDate.getUTCMonth() - 1);
       this.currentDate = newDate;
       
       this.initializeDefaultAvailability();
@@ -502,9 +504,9 @@ export default {
       this.loadCurrentMonthData();
     },
     goToNextMonth() {
-      // Crear nueva instancia de Date para forzar reactividad
+      // Crear nueva instancia de Date para forzar reactividad, usando UTC
       const newDate = new Date(this.currentDate);
-      newDate.setMonth(this.currentDate.getMonth() + 1);
+      newDate.setUTCMonth(this.currentDate.getUTCMonth() + 1);
       this.currentDate = newDate;
       
       this.initializeDefaultAvailability();
@@ -522,8 +524,9 @@ export default {
       if (!this.userId) return;
       
       try {
-        const monthStr = `${this.currentDate.getFullYear()}-${String(this.currentDate.getMonth() + 1).padStart(2, '0')}`;
-        console.log('🔍 CalendarAvailability - Cargando datos del mes actual:', monthStr);
+        // Usar UTC para coincidir con el backend
+        const monthStr = `${this.currentDate.getUTCFullYear()}-${String(this.currentDate.getUTCMonth() + 1).padStart(2, '0')}`;
+        console.log('🔍 CalendarAvailability - Cargando datos del mes actual (UTC):', monthStr);
         
         const response = await UserService.getUserCalendar(this.userId, monthStr);
         const calendarData = response.data.calendario || [];

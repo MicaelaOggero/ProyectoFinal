@@ -177,14 +177,6 @@
                       <i class="bi bi-pencil"></i>
                     </button>
                     <button 
-                      v-if="isUserAdmin && task.desarrolladorAsignado"
-                      class="btn btn-sm btn-outline-info" 
-                      @click="editAssignment(task)" 
-                      title="Cambiar Asignación"
-                    >
-                      <i class="bi bi-person-gear"></i>
-                    </button>
-                    <button 
                       v-if="isUserAdmin"
                       class="btn btn-sm btn-outline-danger" 
                       @click="deleteTask(task)" 
@@ -499,62 +491,6 @@
       </div>
     </div>
 
-    <!-- Modal para Editar Asignación -->
-    <div class="modal fade" id="editAssignmentModal" tabindex="-1" aria-labelledby="editAssignmentModalLabel" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="editAssignmentModalLabel">Cambiar Asignación</h5>
-            <button type="button" class="btn-close" @click="closeEditAssignmentModal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body" v-if="selectedTaskForAssignment">
-            <div class="mb-3">
-              <h6>Tarea: {{ selectedTaskForAssignment.descripcion }}</h6>
-              <p class="text-muted">Desarrollador actual: <strong>{{ getDeveloperName(selectedTaskForAssignment.desarrolladorAsignado) }}</strong></p>
-            </div>
-            
-            <div class="mb-3">
-              <label for="newDeveloper" class="form-label">Nuevo Desarrollador:</label>
-              <select 
-                id="newDeveloper" 
-                class="form-select" 
-                v-model="assignmentForm.newDeveloperId"
-                required
-              >
-                <option value="">Seleccionar desarrollador...</option>
-                <option 
-                  v-for="user in users" 
-                  :key="user._id" 
-                  :value="user._id"
-                  :disabled="user._id === getCurrentDeveloperId(selectedTaskForAssignment.desarrolladorAsignado)"
-                >
-                  {{ user.nombre }} {{ user.apellido }}
-                </option>
-              </select>
-            </div>
-            
-            <div class="alert alert-info" v-if="assignmentForm.newDeveloperId">
-              <small>
-                <i class="bi bi-info-circle"></i>
-                Esta acción cambiará la asignación de la tarea y actualizará las disponibilidades de ambos desarrolladores.
-              </small>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="closeEditAssignmentModal">Cancelar</button>
-            <button 
-              type="button" 
-              class="btn btn-primary" 
-              @click="saveAssignmentChange"
-              :disabled="!assignmentForm.newDeveloperId || isUpdatingAssignment"
-            >
-              <span v-if="isUpdatingAssignment" class="spinner-border spinner-border-sm me-2" role="status"></span>
-              {{ isUpdatingAssignment ? 'Actualizando...' : 'Cambiar Asignación' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- Modal para Seleccionar Tipo de Asignación Automática -->
     <div class="modal fade" id="assignmentTypeModal" tabindex="-1" aria-labelledby="assignmentTypeModalLabel" aria-hidden="true">
@@ -664,7 +600,6 @@ export default {
       // Modales
       taskModalInstance: null,
       viewModalInstance: null,
-      editAssignmentModalInstance: null,
       assignmentTypeModalInstance: null,
       
       // Datos
@@ -711,12 +646,6 @@ export default {
       // Tarea seleccionada para ver detalles
       selectedTask: null,
       
-      // Edición de asignación
-      selectedTaskForAssignment: null,
-      assignmentForm: {
-        newDeveloperId: ''
-      },
-      isUpdatingAssignment: false,
       
       // Asignación automática
       assignmentResults: [],
@@ -748,7 +677,6 @@ export default {
   async mounted() {
     this.taskModalInstance = new Modal(document.getElementById('taskModal'));
     this.viewModalInstance = new Modal(document.getElementById('viewTaskModal'));
-    this.editAssignmentModalInstance = new Modal(document.getElementById('editAssignmentModal'));
     this.assignmentTypeModalInstance = new Modal(document.getElementById('assignmentTypeModal'));
     
     // Cargar usuario actual
@@ -1158,111 +1086,8 @@ export default {
       this.selectedTask = null;
     },
     
-    // Editar asignación
-    editAssignment(task) {
-      this.selectedTaskForAssignment = task;
-      this.assignmentForm.newDeveloperId = '';
-      this.editAssignmentModalInstance.show();
-    },
     
-    closeEditAssignmentModal() {
-      this.editAssignmentModalInstance.hide();
-      this.selectedTaskForAssignment = null;
-      this.assignmentForm.newDeveloperId = '';
-      this.isUpdatingAssignment = false;
-    },
     
-    async saveAssignmentChange() {
-      if (!this.assignmentForm.newDeveloperId) {
-        alert('Por favor selecciona un nuevo desarrollador');
-        return;
-      }
-      
-      try {
-        this.isUpdatingAssignment = true;
-        
-        // Ahora que el backend incluye el asignacionId, podemos usar la ruta correcta
-        const projectId = this.selectedTaskForAssignment.proyecto;
-        console.log('🔍 EditAssignment - Buscando asignación para proyecto:', projectId);
-        console.log('🔍 EditAssignment - Tarea ID:', this.selectedTaskForAssignment._id);
-        console.log('🔍 EditAssignment - Nuevo desarrollador ID:', this.assignmentForm.newDeveloperId);
-        
-        const assignmentsResponse = await AssignmentService.getAssignmentsByProject(projectId);
-        console.log('🔍 EditAssignment - Respuesta completa:', assignmentsResponse);
-        
-        const assignment = assignmentsResponse.asignaciones?.find(a => 
-          a.tarea && a.tarea.id === this.selectedTaskForAssignment._id
-        );
-        
-        console.log('🔍 EditAssignment - Asignación encontrada:', assignment);
-        
-        if (!assignment) {
-          throw new Error('No se encontró la asignación para esta tarea');
-        }
-        
-        if (!assignment.asignacionId) {
-          throw new Error('La asignación no tiene un ID válido');
-        }
-        
-        console.log('🔍 EditAssignment - Usando asignacionId:', assignment.asignacionId);
-        
-        // Validar disponibilidad del nuevo desarrollador
-        const newDeveloper = this.users.find(u => u._id === this.assignmentForm.newDeveloperId);
-        if (!newDeveloper) {
-          throw new Error('No se encontró información del nuevo desarrollador');
-        }
-
-        // Validar disponibilidad del desarrollador para la tarea
-        if (this.selectedTaskForAssignment.fechaEstimadaInicio && 
-            this.selectedTaskForAssignment.fechaEstimadaFin && 
-            this.selectedTaskForAssignment.tiempoEstimadoHoras) {
-          
-          const availabilityValidation = await ValidationService.validateDeveloperAvailability(
-            this.assignmentForm.newDeveloperId,
-            this.selectedTaskForAssignment.fechaEstimadaInicio,
-            this.selectedTaskForAssignment.fechaEstimadaFin,
-            this.selectedTaskForAssignment.tiempoEstimadoHoras
-          );
-
-          if (!availabilityValidation.isValid) {
-            throw new Error(`No se puede asignar la tarea al nuevo desarrollador: ${availabilityValidation.message}`);
-          }
-
-          // Validar habilidades del desarrollador
-          const skillsValidation = ValidationService.validateSkillsMatch(
-            newDeveloper.habilidades || [],
-            this.selectedTaskForAssignment.habilidadesRequeridas || []
-          );
-
-          if (!skillsValidation.isValid) {
-            throw new Error(`El nuevo desarrollador no cumple con los requisitos de habilidades: ${skillsValidation.message}`);
-          }
-        }
-        
-        // Llamar al servicio de asignaciones que actualiza también los calendarios
-        await AssignmentService.editAssignment(assignment.asignacionId, this.assignmentForm.newDeveloperId);
-        
-        // Actualizar la tarea localmente
-        const taskIndex = this.tasks.findIndex(t => t._id === this.selectedTaskForAssignment._id);
-        if (taskIndex !== -1) {
-          // Buscar el nuevo desarrollador en la lista de usuarios
-          const newDeveloper = this.users.find(u => u._id === this.assignmentForm.newDeveloperId);
-          this.tasks[taskIndex].desarrolladorAsignado = newDeveloper || this.assignmentForm.newDeveloperId;
-        }
-        
-        // Actualizar la lista filtrada también
-        this.filterTasks();
-        
-        alert('Asignación actualizada correctamente.\n\nLos calendarios de disponibilidad de ambos desarrolladores han sido actualizados automáticamente.');
-        this.closeEditAssignmentModal();
-        
-      } catch (error) {
-        console.error('Error actualizando asignación:', error);
-        alert('Error al actualizar la asignación: ' + (error.response?.data?.error || error.message));
-      } finally {
-        this.isUpdatingAssignment = false;
-      }
-    },
     
     // Métodos auxiliares
     getCurrentDeveloperId(desarrolladorAsignado) {
