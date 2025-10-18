@@ -3,17 +3,24 @@ import { tieneDisponibilidad } from "../../utils/asignacionBasica/filtroDisponib
 import { findUserById } from "../users/user.dao.js";
 import { asignarTareasConCalendario } from "../criteria/index.js";
 import { asignarTareasPorCosto } from "../criteria/costo.js";
+import { calcularCostoDev } from "../../utils/asignacionCosto/costoTarea.js";
+import Task from "../task/task.model.js";
+import User from "../users/user.model.js";
+import dotenv from "dotenv";
+
+dotenv.config()
 
 export const editarAsignacionService = async (asignacionId, nuevoDevId) => {
   // 1. Buscar la asignación original
   const asignacion = await findAsignacionById(asignacionId);
   if (!asignacion) throw new Error("Asignación no encontrada");
+
   const tarea = asignacion.tarea;
   const devOriginal = asignacion.desarrollador;
   const devNuevo = await findUserById(nuevoDevId);
   if (!devNuevo) throw new Error("Nuevo desarrollador no encontrado");
 
-  // 1b. Verificar si el nuevo dev tiene disponibilidad suficiente
+  // 2. Verificar disponibilidad
   const fechaInicio = new Date(tarea.fechaEstimadaInicio);
   const fechaFin = new Date(tarea.fechaEstimadaFin);
   const horasNecesarias = tarea.tiempoEstimadoHoras;
@@ -23,7 +30,7 @@ export const editarAsignacionService = async (asignacionId, nuevoDevId) => {
     throw new Error("El nuevo desarrollador no tiene disponibilidad suficiente en las fechas de la tarea");
   }
 
-  // 2. Restaurar disponibilidad al dev original
+  // 3. Restaurar horas al dev original
   asignacion.dias.forEach(dia => {
     const reg = devOriginal.calendario.find(d =>
       d.fecha.toISOString().split("T")[0] === new Date(dia.fecha).toISOString().split("T")[0]
@@ -32,11 +39,10 @@ export const editarAsignacionService = async (asignacionId, nuevoDevId) => {
   });
   await saveUser(devOriginal);
 
-  // 3. Actualizar tarea con nuevo dev
+  // 4. Asignar nuevo dev a la tarea
   tarea.desarrolladorAsignado = devNuevo._id;
-  await saveTask(tarea);
 
-  // 4. Descontar horas al nuevo dev
+  // 5. Descontar horas al nuevo dev
   let horasRestantes = horasNecesarias;
   const nuevosDias = [];
 
@@ -62,13 +68,36 @@ export const editarAsignacionService = async (asignacionId, nuevoDevId) => {
 
   await saveUser(devNuevo);
 
-  // 5. Actualizar la asignación
+  // ✅ 6. Calcular nuevo costo de la tarea y actualizarla
+  const costoTarea = calcularCostoDev(devNuevo, tarea.tiempoEstimadoHoras);
+  tarea.costoTarea = costoTarea;
+  await saveTask(tarea);
+
+  // ✅ 7. Recalcular costo total del proyecto
+  const proyecto = tarea.proyecto;
+  const tareasProyecto = await Task.find({ proyecto: proyecto._id }).populate("desarrolladorAsignado");
+
+  let costoTotalProyecto = 0;
+  for (const t of tareasProyecto) {
+    const devTarea = t.desarrolladorAsignado;
+    if (devTarea) {
+      const costo = calcularCostoDev(devTarea, t.tiempoEstimadoHoras);
+      costoTotalProyecto += costo;
+    }
+  }
+
+  proyecto.costoTotal = costoTotalProyecto;
+  await proyecto.save();
+
+  // ✅ 8. Actualizar la asignación
   asignacion.desarrollador = devNuevo._id;
   asignacion.dias = nuevosDias;
+  asignacion.costoTarea = costoTarea; // ← guardar el costo también en la asignación
   await saveAsignacion(asignacion);
 
   return asignacion;
 };
+
 
 export const getAsignacionesPorProyectoService = async (proyectoId) => {
   const asignaciones = await findAsignacionesByProyecto(proyectoId);
@@ -108,3 +137,38 @@ export const asignarPorCostoService = async (projectId) => {
   return await asignarTareasPorCosto(projectId);
 };
 
+import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+export async function sugerirAsignacionConAgente(taskId) {
+  const task = await Task.findById(taskId);
+  const users = await User.find({ rol: 'user' });
+
+  const response = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      {
+        role: "system",
+        content: `
+          Sos un agente asignador de tareas.
+          Tu objetivo es asignar la tarea a la persona con mayor probabilidad de completarla en el menor tiempo posible.
+          Tené en cuenta:
+          - habilidades y nivel de experiencia
+          - disponibilidad horaria (calendario)
+          - dificultad y prioridad de la tarea
+          - evitar sobrecargar desarrolladores
+          Devolvé un resumen JSON con "mejorCandidato", "razon" y "ranking".
+        `
+      },
+      {
+        role: "user",
+        content: JSON.stringify({ task, users })
+      }
+    ],
+    temperature: 0.2,
+  });
+
+  const resultado = JSON.parse(response.choices[0].message.content);
+  return resultado;
+}

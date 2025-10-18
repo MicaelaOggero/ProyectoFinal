@@ -1,6 +1,15 @@
 import Asignacion from "./assignment.model.js";
 
-export const findAsignacionById = (id) => Asignacion.findById(id).populate("tarea").populate("desarrollador");
+export const findAsignacionById = async (id) => {
+  return await Asignacion.findById(id)
+    .populate("tarea")             // ← para traer la info completa de la tarea
+    .populate("desarrollador")     // ← para traer también el dev original
+    .populate({
+      path: "tarea",
+      populate: { path: "proyecto" } // ← para tener acceso a tarea.proyecto
+    });
+};
+
 export const saveAsignacion = (asignacion) => asignacion.save();
 export const saveUser = (user) => user.save();
 export const saveTask = (task) => task.save();

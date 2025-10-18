@@ -15,13 +15,29 @@ import User from "../users/user.model.js";
 
 
 export async function addTask(taskData) {
-  // 1. Verificar que el proyecto exista
+  // 1️⃣ Verificar que el proyecto exista
   const proyectoExistente = await Project.findById(taskData.proyecto);
   if (!proyectoExistente) {
     throw new Error("El proyecto indicado no existe");
   }
 
-  // 2. Verificar que el desarrollador exista (si fue asignado)
+  // 2️⃣ Validar que las fechas de la tarea estén dentro del rango del proyecto
+  const fechaInicioTarea = new Date(taskData.fechaEstimadaInicio);
+  const fechaFinTarea = new Date(taskData.fechaEstimadaFin);
+
+  if (fechaInicioTarea < proyectoExistente.fechaInicioEstimada) {
+    throw new Error(
+      `La fecha de inicio de la tarea (${fechaInicioTarea.toDateString()}) no puede ser anterior al inicio estimado del proyecto (${proyectoExistente.fechaInicioEstimada.toDateString()}).`
+    );
+  }
+
+  if (fechaFinTarea > proyectoExistente.fechaFinEstimada) {
+    throw new Error(
+      `La fecha de fin de la tarea (${fechaFinTarea.toDateString()}) no puede ser posterior a la fecha de fin estimada del proyecto (${proyectoExistente.fechaFinEstimada.toDateString()}).`
+    );
+  }
+
+  // 3️⃣ Verificar que el desarrollador exista (si fue asignado)
   if (taskData.desarrolladorAsignado) {
     const devExistente = await User.findById(taskData.desarrolladorAsignado);
     if (!devExistente) {
@@ -29,9 +45,10 @@ export async function addTask(taskData) {
     }
   }
 
-  // 3. Crear la tarea
+  // 4️⃣ Crear la tarea
   return await createTask(taskData);
 }
+
 
 export async function editTask(taskId, taskData, usuarioId) {
   // 1. Buscar la tarea
