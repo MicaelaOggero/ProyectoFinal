@@ -133,3 +133,36 @@ export const editarCalendarioService = async (userId, cambios) => {
   await userDao.saveUser(dev);
   return dev;
 };
+
+// services/iaAssignment.service.js
+import mongoose from "mongoose";
+import TaskLog from "../task/taskLog.model.js";
+
+/**
+ * Calcula la eficiencia promedio histórica de un desarrollador.
+ * 
+ * @param {string|mongoose.Types.ObjectId} devId
+ * @returns {Promise<number>} Eficiencia promedio (1 = normal, >1 = más eficiente)
+ */
+export async function obtenerEficienciaHistorica(devId) {
+  const resultado = await TaskLog.aggregate([
+    { $match: { desarrollador: new mongoose.Types.ObjectId(devId) } },
+    {
+      $group: {
+        _id: "$desarrollador",
+        eficienciaPromedio: {
+          $avg: {
+            $divide: ["$duracionEstimadaHoras", "$tiempoInvertidoHoras"]
+          }
+        }
+      }
+    }
+  ]);
+
+  if (resultado.length === 0) {
+    // Si el dev no tiene historial, asumimos eficiencia 1 (neutral)
+    return 1;
+  }
+
+  return parseFloat(resultado[0].eficienciaPromedio.toFixed(2));
+}

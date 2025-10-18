@@ -4,6 +4,8 @@ import {
   previsualizarAsignacionBasica,
   confirmarAsignacionBasica,
 } from "../criteria/index.js";
+import { obtenerAsignacionesPorTiempoIA } from "../criteria/tiempo.js";
+
 
 export const editarAsignacion = async (req, res) => {
   try {
@@ -114,3 +116,19 @@ export async function confirmAsignacionBasica(req, res) {
     res.status(500).json({ error: error.message });
   }
 }
+
+export const sugerirAsignacionTiempoIA = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const sugerencias = await obtenerAsignacionesPorTiempoIA(projectId);
+
+    res.status(200).json({
+      success: true,
+      criterio: "tiempo",
+      sugerencias
+    });
+  } catch (error) {
+    console.error("Error en /ia/proyecto/tiempo:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

@@ -95,8 +95,7 @@ preferenciasTarea: {
   calendario: {
     type: [calendarioSchema], // array de días con disponibilidad
     default: [],
-  },
-  
+  }
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
