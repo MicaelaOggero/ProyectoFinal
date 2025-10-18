@@ -15,14 +15,6 @@
           Configurar
         </button>
         <button 
-          class="btn btn-outline-info btn-sm" 
-          @click="toggleView"
-          :title="showMultipleMonths ? 'Vista mensual' : 'Vista múltiples meses'"
-        >
-          <i class="bi" :class="showMultipleMonths ? 'bi-calendar-month' : 'bi-calendar3'"></i>
-          {{ showMultipleMonths ? 'Mensual' : 'Múltiple' }}
-        </button>
-        <button 
           class="btn btn-outline-secondary btn-sm" 
           @click="goToPreviousMonth"
           :disabled="loading"
@@ -52,7 +44,7 @@
     </div>
 
     <!-- Vista Mensual -->
-    <div v-if="!showMultipleMonths" class="calendar-grid">
+    <div class="calendar-grid">
       <!-- Encabezados de días -->
       <div class="calendar-header">
         <div class="calendar-day-header" v-for="day in weekDays" :key="day">
@@ -87,52 +79,6 @@
       </div>
     </div>
 
-    <!-- Vista Múltiples Meses -->
-    <div v-else class="multiple-months-view">
-      <div 
-        v-for="monthOffset in monthsToShow" 
-        :key="monthOffset"
-        class="month-container"
-      >
-        <div class="month-header">
-          <h6 class="month-title">{{ getMonthYear(monthOffset - 1) }}</h6>
-        </div>
-        <div class="calendar-grid small">
-          <!-- Encabezados de días -->
-          <div class="calendar-header">
-            <div class="calendar-day-header" v-for="day in weekDays" :key="day">
-              {{ day }}
-            </div>
-          </div>
-
-          <!-- Días del mes -->
-          <div class="calendar-body">
-            <div 
-              v-for="day in getCalendarDaysForMonth(monthOffset - 1)" 
-              :key="day.date"
-              class="calendar-day"
-              :class="{
-                'other-month': !day.isCurrentMonth,
-                'today': day.isToday,
-                'has-assigned-tasks': day.hoursAvailable < 8 && day.isCurrentMonth
-              }"
-              @click="selectDay(day)"
-            >
-              <div class="day-number">{{ day.dayNumber }}</div>
-              <div class="hours-indicator" v-if="day.isCurrentMonth">
-                <span v-if="day.hoursAvailable > 0" class="hours-text">
-                  {{ day.hoursAvailable }}h
-                </span>
-                <span v-else class="no-hours">0h</span>
-                <div v-if="day.assignedHours > 0" class="assigned-hours">
-                  <small class="text-danger">-{{ day.assignedHours }}h</small>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- Modal para editar disponibilidad del día -->
     <div class="modal fade" id="availabilityModal" tabindex="-1" aria-labelledby="availabilityModalLabel" aria-hidden="true">
@@ -414,9 +360,6 @@ export default {
       },
       // Tareas asignadas al usuario
       assignedTasks: [],
-      // Configuración de vista
-      showMultipleMonths: true,
-      monthsToShow: 3, // Mostrar 3 meses a la vez
       // Datos del calendario por mes
       monthlyCalendarData: {} // Objeto para almacenar datos por mes: { "2025-09": [...], "2025-10": [...] }
     };
@@ -429,10 +372,6 @@ export default {
       });
     },
     
-    // Generar array de números para los meses a mostrar
-    monthsToShowArray() {
-      return Array.from({ length: this.monthsToShow }, (_, i) => i + 1);
-    },
     calendarDays() {
       const year = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth();
@@ -498,10 +437,8 @@ export default {
     
     this.initializeDefaultAvailability();
     this.loadAssignedTasks();
-    // Cargar datos de múltiples meses si está en esa vista
-    if (this.showMultipleMonths) {
-      this.loadMultipleMonthsData();
-    }
+    // Siempre cargar vista mensual
+    this.loadCurrentMonthData();
   },
   methods: {
     // Inicializar disponibilidad por defecto para días laborales
@@ -561,13 +498,8 @@ export default {
       
       this.initializeDefaultAvailability();
       this.loadAssignedTasks();
-      // Si estamos en vista múltiple, recargar datos de múltiples meses
-      if (this.showMultipleMonths) {
-        this.loadMultipleMonthsData();
-      } else {
-        // Si estamos en vista mensual, emitir evento para recargar el mes actual
-        this.loadCurrentMonthData();
-      }
+      // Siempre cargar vista mensual
+      this.loadCurrentMonthData();
     },
     goToNextMonth() {
       // Crear nueva instancia de Date para forzar reactividad
@@ -577,137 +509,13 @@ export default {
       
       this.initializeDefaultAvailability();
       this.loadAssignedTasks();
-      // Si estamos en vista múltiple, recargar datos de múltiples meses
-      if (this.showMultipleMonths) {
-        this.loadMultipleMonthsData();
-      } else {
-        // Si estamos en vista mensual, emitir evento para recargar el mes actual
-        this.loadCurrentMonthData();
-      }
+      // Siempre cargar vista mensual
+      this.loadCurrentMonthData();
     },
     
-    // Alternar entre vista mensual y múltiples meses
-    toggleView() {
-      this.showMultipleMonths = !this.showMultipleMonths;
-      if (this.showMultipleMonths) {
-        this.loadMultipleMonthsData();
-      } else {
-        this.loadCurrentMonthData();
-      }
-    },
     
-    // Obtener el año y mes para un offset específico
-    getMonthYear(monthOffset) {
-      const targetDate = new Date(this.currentDate);
-      targetDate.setMonth(this.currentDate.getMonth() + monthOffset);
-      return targetDate.toLocaleDateString('es-ES', { 
-        year: 'numeric', 
-        month: 'long' 
-      });
-    },
     
-    // Obtener los días del calendario para un mes específico
-    getCalendarDaysForMonth(monthOffset) {
-      const targetDate = new Date(this.currentDate);
-      targetDate.setMonth(this.currentDate.getMonth() + monthOffset);
-      
-      const year = targetDate.getFullYear();
-      const month = targetDate.getMonth();
-      const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
-      
-      // Obtener datos específicos de este mes
-      const monthCalendarData = this.monthlyCalendarData[monthStr] || [];
-      
-      // Primer día del mes
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-      
-      // Días del mes anterior para completar la semana
-      const startDate = new Date(firstDay);
-      startDate.setDate(startDate.getDate() - firstDay.getDay());
-      
-      // Días del mes siguiente para completar la semana
-      const endDate = new Date(lastDay);
-      endDate.setDate(endDate.getDate() + (6 - lastDay.getDay()));
-      
-      const days = [];
-      const today = new Date();
-      
-      for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
-        const dateStr = this.formatDateForAPI(date);
-        const calendarEntry = monthCalendarData.find(entry => {
-          const normalizedBackendDate = this.normalizeBackendDate(entry.fecha);
-          return normalizedBackendDate === dateStr;
-        });
-        
-        // La disponibilidad viene directamente del backend (ya con tareas descontadas)
-        const hoursAvailable = calendarEntry ? calendarEntry.horasDisponibles : 0;
-        
-        // Calcular horas ocupadas por tareas asignadas para mostrar en rojo
-        const assignedHours = this.getAssignedHoursForDate(dateStr);
-        
-        days.push({
-          date: dateStr,
-          dayNumber: date.getDate(),
-          isCurrentMonth: date.getMonth() === month,
-          isToday: date.toDateString() === today.toDateString(),
-          hoursAvailable: hoursAvailable,
-          assignedHours: assignedHours,
-          formattedDate: date.toLocaleDateString('es-ES', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })
-        });
-      }
-      
-      return days;
-    },
     
-    // Cargar datos de múltiples meses
-    async loadMultipleMonthsData() {
-      if (!this.userId) return;
-      
-      try {
-        // Cargar datos para cada mes que se va a mostrar
-        const promises = [];
-        for (let i = 0; i < this.monthsToShow; i++) {
-          const targetDate = new Date(this.currentDate);
-          targetDate.setMonth(this.currentDate.getMonth() + i);
-          const monthStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
-          
-          promises.push(
-            UserService.getUserCalendar(this.userId, monthStr)
-              .then(response => ({
-                month: monthStr,
-                data: response.data.calendario || []
-              }))
-              .catch(error => {
-                console.error(`Error loading calendar for ${monthStr}:`, error);
-                return { month: monthStr, data: [] };
-              })
-          );
-        }
-        
-        const results = await Promise.all(promises);
-        
-        // Almacenar datos por mes
-        this.monthlyCalendarData = {};
-        const allCalendarData = [];
-        results.forEach(result => {
-          this.monthlyCalendarData[result.month] = result.data;
-          allCalendarData.push(...result.data);
-        });
-        
-        // Emitir evento para actualizar el calendario en el componente padre
-        this.$emit('update-calendar-data', allCalendarData);
-        
-        console.log('🔍 CalendarAvailability - Datos de múltiples meses cargados:', this.monthlyCalendarData);
-      } catch (error) {
-        console.error('Error loading multiple months data:', error);
-      }
-    },
     
     // Cargar datos del mes actual para vista mensual
     async loadCurrentMonthData() {

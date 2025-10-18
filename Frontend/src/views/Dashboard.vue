@@ -39,12 +39,6 @@
             <span class="developer-count">{{ developerCount }}</span>
             <span class="info-text">en el equipo</span>
           </div>
-          <div class="card-stats">
-            <div class="stat-item">
-              <span class="stat-number">{{ userCount }}</span>
-              <span class="stat-label">Usuarios</span>
-            </div>
-          </div>
         </div>
       </div>
 
