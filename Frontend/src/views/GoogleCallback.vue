@@ -160,28 +160,43 @@ export default {
     },
 
     async handleProfileCompleted() {
-      console.log('Evento profile-completed recibido');
+      console.log('🔔 Evento profile-completed recibido');
       
       try {
         // Verificar nuevamente el estado del perfil
         const profileCheck = await AuthService.checkProfileCompletion();
-        console.log('Verificación de perfil:', profileCheck);
+        console.log('📋 Verificación de perfil:', profileCheck);
         
         if (profileCheck.isComplete) {
-          console.log('Perfil completo, creando calendario...');
+          console.log('✅ Perfil completo, iniciando creación de calendario...');
           
           // Obtener el usuario actual para crear el calendario
-          const user = await AuthService.getCurrentUserGoogle();
+          const response = await AuthService.getCurrentUserGoogle();
+          console.log('👤 Respuesta completa de getCurrentUserGoogle:', response);
+          
+          // getCurrentUserGoogle devuelve { user, token }, no directamente el usuario
+          const user = response?.user || response;
+          console.log('👤 Usuario extraído:', user);
+          
           if (user && user._id) {
             try {
-              console.log('🔍 Creando calendario para usuario:', user._id);
-              await UserService.createCalendar(user._id);
-              console.log('✅ Calendario creado exitosamente');
+              console.log('🔍 Creando calendario para usuario Google ID:', user._id);
+              console.log('📞 Llamando a UserService.createCalendar...');
+              
+              const calendarResponse = await UserService.createCalendar(user._id);
+              
+              console.log('✅ Calendario creado exitosamente:', calendarResponse.data);
+              console.log('🎉 El usuario de Google ahora tiene calendario en la BD');
             } catch (calendarError) {
               console.error('❌ Error creando calendario:', calendarError);
+              console.error('❌ Detalles del error:', calendarError.response?.data);
+              console.error('❌ Status del error:', calendarError.response?.status);
               // No interrumpir el flujo si falla la creación del calendario
               // El usuario puede crearlo manualmente después
             }
+          } else {
+            console.warn('⚠️ No se pudo obtener el usuario o no tiene _id');
+            console.warn('⚠️ Objeto usuario:', user);
           }
           
           this.needsProfileCompletion = false;
@@ -190,10 +205,10 @@ export default {
           this.profileComplete = true;
           this.startRedirect();
         } else {
-          console.log('Perfil aún incompleto');
+          console.log('⏳ Perfil aún incompleto');
         }
       } catch (error) {
-        console.error('Error en handleProfileCompleted:', error);
+        console.error('💥 Error en handleProfileCompleted:', error);
       }
     },
 
