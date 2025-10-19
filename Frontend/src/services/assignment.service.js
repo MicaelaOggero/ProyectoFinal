@@ -30,56 +30,85 @@ class AssignmentService {
     }
   }
 
-  // Ejecutar asignación automática por disponibilidad y habilidades (método original)
+  // MÉTODOS DEPRECADOS - Usar preview/confirm en su lugar
   async runAutomaticAssignment(projectId) {
     try {
-      console.log('🔍 AssignmentService - Iniciando asignación automática para proyecto:', projectId);
-      console.log('🔍 AssignmentService - URL:', `${API_URL}/assignment/asignar-automatico/${projectId}`);
-      
       const response = await axios.post(`${API_URL}/assignment/asignar-automatico/${projectId}`, {});
-      
-      console.log('🔍 AssignmentService - Respuesta exitosa:', response.data);
       return response.data;
     } catch (error) {
-      console.error('🔍 AssignmentService - Error ejecutando asignación automática:', error);
-      console.error('🔍 AssignmentService - Error response:', error.response?.data);
-      console.error('🔍 AssignmentService - Error status:', error.response?.status);
+      console.error('Error ejecutando asignación automática:', error);
       throw error;
     }
   }
 
-  // Ejecutar asignación automática por disponibilidad y habilidades
   async runAvailabilityBasedAssignment(projectId) {
     try {
-      console.log('🔍 AssignmentService - Iniciando asignación por disponibilidad para proyecto:', projectId);
-      console.log('🔍 AssignmentService - URL:', `${API_URL}/assignment/asignar-automatico/${projectId}`);
-      
       const response = await axios.post(`${API_URL}/assignment/asignar-automatico/${projectId}`, {});
-      
-      console.log('🔍 AssignmentService - Respuesta exitosa:', response.data);
       return response.data;
     } catch (error) {
-      console.error('🔍 AssignmentService - Error ejecutando asignación por disponibilidad:', error);
-      console.error('🔍 AssignmentService - Error response:', error.response?.data);
-      console.error('🔍 AssignmentService - Error status:', error.response?.status);
+      console.error('Error ejecutando asignación por disponibilidad:', error);
       throw error;
     }
   }
 
-  // Ejecutar asignación automática por costo
   async runCostBasedAssignment(projectId) {
     try {
-      console.log('🔍 AssignmentService - Iniciando asignación por costo para proyecto:', projectId);
-      console.log('🔍 AssignmentService - URL:', `${API_URL}/assignment/asignar-costo/${projectId}`);
-      
       const response = await axios.post(`${API_URL}/assignment/asignar-costo/${projectId}`, {});
-      
-      console.log('🔍 AssignmentService - Respuesta exitosa:', response.data);
       return response.data;
     } catch (error) {
-      console.error('🔍 AssignmentService - Error ejecutando asignación por costo:', error);
-      console.error('🔍 AssignmentService - Error response:', error.response?.data);
-      console.error('🔍 AssignmentService - Error status:', error.response?.status);
+      console.error('Error ejecutando asignación por costo:', error);
+      throw error;
+    }
+  }
+
+  // NUEVOS MÉTODOS CON PREVIEW Y CONFIRM
+
+  // Preview de asignación básica (por disponibilidad y habilidades)
+  async previewBasicAssignment(projectId) {
+    try {
+      const response = await axios.get(`${API_URL}/assignment/preview/basica/${projectId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error obteniendo preview de asignación básica:', error);
+      throw error;
+    }
+  }
+
+  // Confirmar asignación básica
+  async confirmBasicAssignment(projectId, asignaciones, costoTotalProyecto) {
+    try {
+      const response = await axios.post(`${API_URL}/assignment/confirm/basica/${projectId}`, {
+        asignaciones,
+        costoTotalProyecto
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error confirmando asignación básica:', error);
+      throw error;
+    }
+  }
+
+  // Preview de asignación por costo
+  async previewCostAssignment(projectId) {
+    try {
+      const response = await axios.get(`${API_URL}/assignment/preview/costo/${projectId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error obteniendo preview de asignación por costo:', error);
+      throw error;
+    }
+  }
+
+  // Confirmar asignación por costo
+  async confirmCostAssignment(projectId, asignaciones, costoTotalProyecto) {
+    try {
+      const response = await axios.post(`${API_URL}/assignment/confirm/costo/${projectId}`, {
+        asignaciones,
+        costoTotalProyecto
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error confirmando asignación por costo:', error);
       throw error;
     }
   }

@@ -447,34 +447,25 @@ export default {
     async loadUserData() {
       try {
         // Cargar todos los proyectos y usuarios para la asignación automática
-        // Para usuarios normales, no podemos cargar todos los proyectos, así que los obtenemos de las tareas
         const usersResponse = await UserService.getUsers();
         this.allUsers = usersResponse.data;
 
         // Cargar tareas del usuario actual
         const tasksResponse = await TaskService.getTasksByDeveloper(this.currentUser._id);
-        console.log('🔍 Dashboard - Respuesta de tareas del usuario:', tasksResponse);
         this.myTasks = tasksResponse || [];
         this.completedTasksCount = this.myTasks.filter(t => t.estado === 'completada').length;
-        
-        console.log('🔍 Dashboard - Tareas del usuario cargadas:', {
-          total: this.myTasks.length,
-          completadas: this.completedTasksCount,
-          tareas: this.myTasks
-        });
 
         // Para usuarios normales, las tareas ya vienen con el proyecto populado desde el backend
         // Extraer proyectos únicos de las tareas (ya vienen con la información completa)
         const uniqueProjects = new Map();
         this.myTasks.forEach(task => {
-          console.log('🔍 Dashboard - Procesando tarea:', task.descripcion, 'Proyecto:', task.proyecto);
           if (task.proyecto && task.proyecto._id) {
             // Mapear el proyecto populado al formato que espera el frontend
             const mappedProject = {
               _id: task.proyecto._id,
-              name: task.proyecto.nombre, // El backend envía 'nombre', lo mapeamos a 'name'
-              nombre: task.proyecto.nombre, // Mantener también el original
-              description: '', // Los proyectos populados solo vienen con nombre
+              name: task.proyecto.nombre,
+              nombre: task.proyecto.nombre,
+              description: '',
               startDate: '',
               endDate: '',
               difficulty: 'Media',
@@ -482,28 +473,16 @@ export default {
               status: 'Activo'
             };
             uniqueProjects.set(task.proyecto._id, mappedProject);
-            console.log('🔍 Dashboard - Proyecto agregado al mapa:', mappedProject);
-          } else {
-            console.log('🔍 Dashboard - Tarea sin proyecto válido:', task);
           }
         });
         
         this.myProjects = Array.from(uniqueProjects.values());
-        
-        console.log('🔍 Dashboard - Proyectos del usuario cargados:', this.myProjects.length);
 
         // Disponibilidad del usuario
         this.myAvailability = this.currentUser.horasSemanalMaxima || 0;
 
         // Cargar calendario del usuario
         await this.loadUserCalendar();
-
-        console.log('🔍 Dashboard - Datos del usuario cargados:', {
-          myProjects: this.myProjects.length,
-          myTasks: this.myTasks.length,
-          completedTasks: this.completedTasksCount,
-          availability: this.myAvailability
-        });
       } catch (error) {
         console.error('Error loading user data:', error);
       }
@@ -530,32 +509,22 @@ export default {
     // Calendar methods
     async loadUserCalendar() {
       if (!this.currentUser?._id) {
-        console.log('🔍 Dashboard - No hay currentUser._id, no se puede cargar calendario');
         return;
       }
       
       try {
-        console.log('🔍 Dashboard - Iniciando carga del calendario para usuario:', this.currentUser._id);
         this.calendarLoading = true;
         const currentDate = new Date();
         // Usar UTC para coincidir con el backend
         const monthStr = `${currentDate.getUTCFullYear()}-${String(currentDate.getUTCMonth() + 1).padStart(2, '0')}`;
         
-        console.log('🔍 Dashboard - Cargando calendario para mes (UTC):', monthStr);
         const response = await UserService.getUserCalendar(this.currentUser._id, monthStr);
         this.userCalendar = response.data.calendario || [];
-        
-        console.log('🔍 Dashboard - Calendario cargado exitosamente:', {
-          userCalendar: this.userCalendar,
-          length: this.userCalendar.length,
-          response: response.data
-        });
       } catch (error) {
-        console.error('🔍 Dashboard - Error loading user calendar:', error);
+        console.error('Error loading user calendar:', error);
         this.userCalendar = [];
       } finally {
         this.calendarLoading = false;
-        console.log('🔍 Dashboard - calendarLoading establecido a false');
       }
     },
     handleUpdateCalendarData(calendarData) {

@@ -494,87 +494,210 @@
 
     <!-- Modal para Seleccionar Tipo de Asignación Automática -->
     <div class="modal fade" id="assignmentTypeModal" tabindex="-1" aria-labelledby="assignmentTypeModalLabel" aria-hidden="true">
-      <div class="modal-dialog">
+      <div class="modal-dialog modal-xl">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="assignmentTypeModalLabel">
               <i class="bi bi-robot me-2"></i>Asignación Automática
+              <span v-if="previewData" class="badge bg-info ms-2">Previsualización</span>
             </h5>
             <button type="button" class="btn-close" @click="closeAssignmentTypeModal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
-            <p class="mb-4">Selecciona el tipo de optimización para la asignación automática:</p>
-            
-            <div class="row">
-              <div class="col-md-6 mb-3">
-                <div class="card h-100 assignment-option-card" @click="selectAssignmentType('availability')" :class="{ 'selected': selectedAssignmentType === 'availability' }">
-                  <div class="card-body text-center">
-                    <div class="assignment-icon mb-3">
-                      <i class="bi bi-clock-history fs-1 text-primary"></i>
-                    </div>
-                    <h6 class="card-title">Por Disponibilidad y Habilidades</h6>
-                    <p class="card-text small text-muted">
-                      Tener el proyecto en menor tiempo posible
-                    </p>
-                    <div class="assignment-features">
-                      <small class="text-success">
-                        <i class="bi bi-check-circle me-1"></i>
-                        Optimiza tiempo de finalización
-                      </small><br>
-                      <small class="text-success">
-                        <i class="bi bi-check-circle me-1"></i>
-                        Considera calendario de desarrolladores
-                      </small><br>
-                      <small class="text-success">
-                        <i class="bi bi-check-circle me-1"></i>
-                        Prioriza habilidades requeridas
-                      </small>
+            <!-- Paso 1: Selección de tipo (si no hay preview) -->
+            <div v-if="!previewData">
+              <p class="mb-4">Selecciona el tipo de optimización para la asignación automática:</p>
+              
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <div class="card h-100 assignment-option-card" @click="selectAssignmentType('availability')" :class="{ 'selected': selectedAssignmentType === 'availability' }">
+                    <div class="card-body text-center">
+                      <div class="assignment-icon mb-3">
+                        <i class="bi bi-clock-history fs-1 text-primary"></i>
+                      </div>
+                      <h6 class="card-title">Por Disponibilidad y Habilidades</h6>
+                      <p class="card-text small text-muted">
+                        Tener el proyecto en menor tiempo posible
+                      </p>
+                      <div class="assignment-features">
+                        <small class="text-success">
+                          <i class="bi bi-check-circle me-1"></i>
+                          Optimiza tiempo de finalización
+                        </small><br>
+                        <small class="text-success">
+                          <i class="bi bi-check-circle me-1"></i>
+                          Considera calendario de desarrolladores
+                        </small><br>
+                        <small class="text-success">
+                          <i class="bi bi-check-circle me-1"></i>
+                          Prioriza habilidades requeridas
+                        </small>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              
-              <div class="col-md-6 mb-3">
-                <div class="card h-100 assignment-option-card" @click="selectAssignmentType('cost')" :class="{ 'selected': selectedAssignmentType === 'cost' }">
-                  <div class="card-body text-center">
-                    <div class="assignment-icon mb-3">
-                      <i class="bi bi-currency-dollar fs-1 text-success"></i>
-                    </div>
-                    <h6 class="card-title">Por Costo</h6>
-                    <p class="card-text small text-muted">
-                      Un proyecto más barato
-                    </p>
-                    <div class="assignment-features">
-                      <small class="text-success">
-                        <i class="bi bi-check-circle me-1"></i>
-                        Minimiza costos totales
-                      </small><br>
-                      <small class="text-success">
-                        <i class="bi bi-check-circle me-1"></i>
-                        Considera tarifas por hora
-                      </small><br>
-                      <small class="text-success">
-                        <i class="bi bi-check-circle me-1"></i>
-                        Optimiza presupuesto
-                      </small>
+                
+                <div class="col-md-6 mb-3">
+                  <div class="card h-100 assignment-option-card" @click="selectAssignmentType('cost')" :class="{ 'selected': selectedAssignmentType === 'cost' }">
+                    <div class="card-body text-center">
+                      <div class="assignment-icon mb-3">
+                        <i class="bi bi-currency-dollar fs-1 text-success"></i>
+                      </div>
+                      <h6 class="card-title">Por Costo</h6>
+                      <p class="card-text small text-muted">
+                        Un proyecto más barato
+                      </p>
+                      <div class="assignment-features">
+                        <small class="text-success">
+                          <i class="bi bi-check-circle me-1"></i>
+                          Minimiza costos totales
+                        </small><br>
+                        <small class="text-success">
+                          <i class="bi bi-check-circle me-1"></i>
+                          Considera tarifas por hora
+                        </small><br>
+                        <small class="text-success">
+                          <i class="bi bi-check-circle me-1"></i>
+                          Optimiza presupuesto
+                        </small>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
+
+            <!-- Paso 2: Preview de asignaciones (si hay preview) -->
+            <div v-else>
+              <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>Previsualización de Asignaciones</strong>
+                <p class="mb-0 mt-2">
+                  {{ previewData.message }}
+                </p>
+              </div>
+
+              <!-- Tabla de preview -->
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>Tarea</th>
+                      <th>Desarrollador Sugerido</th>
+                      <th>Horas Totales</th>
+                      <th>Días Asignados</th>
+                      <th v-if="selectedAssignmentType === 'cost'">Costo por Hora</th>
+                      <th v-if="selectedAssignmentType === 'cost'">Costo Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(asignacion, index) in previewData.asignaciones" :key="index">
+                      <td>
+                        <strong>{{ asignacion.tarea.descripcion }}</strong>
+                      </td>
+                      <td>
+                        <span v-if="asignacion.desarrollador">
+                          <i class="bi bi-person-check text-success me-1"></i>
+                          {{ asignacion.desarrollador.nombre }} {{ asignacion.desarrollador.apellido }}
+                        </span>
+                        <span v-else class="text-warning">
+                          <i class="bi bi-exclamation-triangle me-1"></i>
+                          {{ asignacion.motivo }}
+                        </span>
+                      </td>
+                      <td>
+                        <span v-if="asignacion.horasTotales">
+                          <i class="bi bi-clock me-1"></i>
+                          {{ asignacion.horasTotales }}h
+                        </span>
+                        <span v-else class="text-muted">-</span>
+                      </td>
+                      <td>
+                        <span v-if="asignacion.dias && asignacion.dias.length > 0">
+                          <i class="bi bi-calendar-week me-1"></i>
+                          {{ asignacion.dias.length }} días
+                        </span>
+                        <span v-else class="text-muted">-</span>
+                      </td>
+                      <td v-if="selectedAssignmentType === 'cost'">
+                        <span v-if="asignacion.desarrollador">
+                          ${{ asignacion.desarrollador.costoPorHora }}/h
+                        </span>
+                        <span v-else class="text-muted">-</span>
+                      </td>
+                      <td v-if="selectedAssignmentType === 'cost'">
+                        <span v-if="asignacion.costoTotal" class="fw-bold text-success">
+                          ${{ asignacion.costoTotal.toFixed(2) }}
+                        </span>
+                        <span v-else class="text-muted">-</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Resumen total -->
+              <div class="alert alert-success mt-3" v-if="previewData.costoTotalProyecto">
+                <div class="d-flex justify-content-between align-items-center">
+                  <strong>
+                    <i class="bi bi-currency-dollar me-2"></i>
+                    Costo Total del Proyecto:
+                  </strong>
+                  <h4 class="mb-0 text-success">
+                    ${{ previewData.costoTotalProyecto.toFixed(2) }}
+                  </h4>
+                </div>
+              </div>
+
+              <!-- Pregunta de confirmación -->
+              <div class="alert alert-warning mt-3">
+                <i class="bi bi-question-circle me-2"></i>
+                <strong>¿Desea guardar estas asignaciones?</strong>
+                <p class="mb-0 mt-2 small">
+                  Una vez confirmadas, las tareas serán asignadas a los desarrolladores y sus calendarios se actualizarán automáticamente.
+                </p>
+              </div>
+            </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="closeAssignmentTypeModal">Cancelar</button>
-            <button 
-              type="button" 
-              class="btn btn-success" 
-              @click="executeSelectedAssignment"
-              :disabled="!selectedAssignmentType || isAssigning"
-            >
-              <span v-if="isAssigning" class="spinner-border spinner-border-sm me-2" role="status"></span>
-              <i v-else class="bi bi-robot me-2"></i>
-              {{ isAssigning ? 'Ejecutando...' : 'Ejecutar Asignación' }}
+            <button type="button" class="btn btn-secondary" @click="closeAssignmentTypeModal">
+              {{ previewData ? 'Cancelar' : 'Cerrar' }}
             </button>
+            
+            <!-- Botón para generar preview -->
+            <button 
+              v-if="!previewData"
+              type="button" 
+              class="btn btn-primary" 
+              @click="generatePreview"
+              :disabled="!selectedAssignmentType || isLoadingPreview"
+            >
+              <span v-if="isLoadingPreview" class="spinner-border spinner-border-sm me-2" role="status"></span>
+              <i v-else class="bi bi-eye me-2"></i>
+              {{ isLoadingPreview ? 'Generando...' : 'Ver Previsualización' }}
+            </button>
+            
+            <!-- Botones para confirmar o volver -->
+            <template v-else>
+              <button 
+                type="button" 
+                class="btn btn-outline-primary" 
+                @click="backToSelection"
+              >
+                <i class="bi bi-arrow-left me-2"></i>
+                Volver a Selección
+              </button>
+              <button 
+                type="button" 
+                class="btn btn-success" 
+                @click="confirmAssignment"
+                :disabled="isConfirming"
+              >
+                <span v-if="isConfirming" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                <i v-else class="bi bi-check-circle me-2"></i>
+                {{ isConfirming ? 'Guardando...' : 'Confirmar y Guardar' }}
+              </button>
+            </template>
           </div>
         </div>
       </div>
@@ -650,7 +773,12 @@ export default {
       // Asignación automática
       assignmentResults: [],
       isAssigning: false,
-      selectedAssignmentType: null // 'availability' o 'cost'
+      selectedAssignmentType: null, // 'availability' o 'cost'
+      
+      // Preview y confirmación
+      previewData: null,
+      isLoadingPreview: false,
+      isConfirming: false
     };
   },
   computed: {
@@ -681,8 +809,6 @@ export default {
     
     // Cargar usuario actual
     this.user = await AuthService.getCurrentUser();
-    console.log('🔍 Tareas - Usuario cargado:', this.user);
-    console.log('🔍 Tareas - Es admin?', this.isUserAdmin);
     
     // Cargar datos iniciales
     await this.loadProjects();
@@ -696,9 +822,6 @@ export default {
       try {
         const response = await ProjectService.getProjects();
         this.projects = response.data || [];
-        console.log('🔍 Proyectos cargados desde el backend:', this.projects);
-        console.log('🔍 Primer proyecto:', this.projects[0]);
-        console.log('🔍 Campos del primer proyecto:', this.projects[0] ? Object.keys(this.projects[0]) : 'No hay proyectos');
       } catch (error) {
         console.error('Error cargando proyectos:', error);
         this.projects = [];
@@ -721,7 +844,6 @@ export default {
       try {
         const response = await SkillsService.getSkills();
         this.availableSkills = response.data || [];
-        console.log('🔍 Habilidades cargadas desde el backend:', this.availableSkills);
       } catch (error) {
         console.error('Error cargando habilidades:', error);
         this.availableSkills = [];
@@ -732,37 +854,24 @@ export default {
     async loadTasks() {
       this.loading = true;
       try {
-        console.log('🔍 Usuario es admin?', this.isUserAdmin);
-        
         if (this.isUserAdmin) {
           // Lógica para administradores: cargar todos los proyectos y tareas
           if (this.projects.length === 0) {
-            console.log('🔍 Cargando proyectos primero...');
             await this.loadProjects();
           }
           
-          console.log('🔍 Proyectos disponibles:', this.projects.length);
-          console.log('🔍 Proyecto seleccionado:', this.selectedProject);
-          
           if (this.selectedProject) {
             // Cargar tareas de un proyecto específico
-            console.log('🔍 Cargando tareas SOLO para proyecto:', this.selectedProject);
             const tasks = await TaskService.getTasksByProject(this.selectedProject);
-            console.log('🔍 Tareas cargadas para proyecto específico:', tasks);
             this.tasks = tasks || [];
           } else {
             // Cargar todas las tareas (de todos los proyectos)
-            console.log('🔍 Cargando tareas de TODOS los proyectos');
             this.tasks = [];
             for (const project of this.projects) {
               try {
-                console.log(`🔍 Cargando tareas del proyecto: ${project.name} (${project._id})`);
                 const tasks = await TaskService.getTasksByProject(project._id);
                 if (tasks && tasks.length > 0) {
-                  console.log(`🔍 Encontradas ${tasks.length} tareas para ${project.name}`);
                   this.tasks = this.tasks.concat(tasks);
-                } else {
-                  console.log(`🔍 No hay tareas para ${project.name}`);
                 }
               } catch (error) {
                 console.error(`Error cargando tareas del proyecto ${project._id}:`, error);
@@ -771,43 +880,28 @@ export default {
           }
         } else {
           // Lógica para usuarios normales: cargar solo sus tareas asignadas
-          console.log('🔍 Cargando tareas del usuario actual:', this.user._id);
           const userTasks = await TaskService.getTasksByDeveloper(this.user._id);
-          console.log('🔍 Tareas del usuario cargadas:', userTasks);
-          console.log('🔍 Primera tarea completa:', userTasks && userTasks[0] ? userTasks[0] : 'No hay tareas');
-          console.log('🔍 Campo proyecto de la primera tarea:', userTasks && userTasks[0] ? userTasks[0].proyecto : 'No hay tareas');
           this.tasks = userTasks || [];
           
           // Para usuarios normales, las tareas ya vienen con el proyecto populado desde el backend
-          // Extraer proyectos únicos de las tareas (ya vienen con la información completa)
+          // Extraer proyectos únicos de las tareas
           const uniqueProjects = new Map();
           this.tasks.forEach(task => {
-            console.log('🔍 Procesando tarea:', task.descripcion, 'Proyecto:', task.proyecto);
             if (task.proyecto && task.proyecto._id) {
-              // Mapear el proyecto populado al formato que espera el frontend
               const mappedProject = {
                 _id: task.proyecto._id,
-                name: task.proyecto.nombre, // El backend envía 'nombre', lo mapeamos a 'name'
-                nombre: task.proyecto.nombre // Mantener también el original
+                name: task.proyecto.nombre,
+                nombre: task.proyecto.nombre
               };
               uniqueProjects.set(task.proyecto._id, mappedProject);
-              console.log('🔍 Proyecto agregado al mapa:', mappedProject);
-            } else {
-              console.log('🔍 Tarea sin proyecto válido:', task);
             }
           });
           
           this.projects = Array.from(uniqueProjects.values());
-          console.log('🔍 Proyectos extraídos de las tareas del usuario:', this.projects.length);
-          console.log('🔍 Proyectos finales:', this.projects);
-          console.log('🔍 Proyectos mapeados:', this.projects.map(p => ({ id: p._id, name: p.name || p.nombre })));
         }
-        
-        console.log('🔍 Total de tareas cargadas:', this.tasks.length);
         
         // Ordenar tareas por prioridad y dificultad
         this.tasks = ValidationService.sortTasksByPriority(this.tasks);
-        console.log('🔍 Tareas ordenadas por prioridad y dificultad');
         
         this.filterTasks();
       } catch (error) {
@@ -820,13 +914,11 @@ export default {
     
     // Manejar cambio de proyecto
     onProjectChange() {
-      console.log('🔍 Proyecto seleccionado:', this.selectedProject);
       if (this.isUserAdmin) {
         // Solo los admins pueden filtrar por proyecto específico
         this.loadTasks();
       } else {
         // Para usuarios normales, no aplicar filtro de proyecto (ya que solo ven sus tareas)
-        console.log('🔍 Usuario no admin - ignorando filtro de proyecto');
         this.filterTasks();
       }
     },
@@ -861,11 +953,6 @@ export default {
       this.isEditing = true;
       const today = new Date().toISOString().split('T')[0];
       
-      // Debug: Ver la estructura de la tarea
-      console.log('🔍 EditTask - Tarea recibida:', task);
-      console.log('🔍 EditTask - Desarrollador asignado:', task.desarrolladorAsignado);
-      console.log('🔍 EditTask - Tipo de desarrolladorAsignado:', typeof task.desarrolladorAsignado);
-      
       // Establecer fechas reales automáticamente según el estado actual
       let fechaRealInicio = task.fechaRealInicio ? this.formatDateForInput(task.fechaRealInicio) : '';
       let fechaRealFin = task.fechaRealFin ? this.formatDateForInput(task.fechaRealFin) : '';
@@ -885,13 +972,10 @@ export default {
       if (task.desarrolladorAsignado) {
         if (typeof task.desarrolladorAsignado === 'object' && task.desarrolladorAsignado._id) {
           desarrolladorAsignado = task.desarrolladorAsignado._id;
-          console.log('🔍 EditTask - Desarrollador como objeto, ID extraído:', desarrolladorAsignado);
         } else if (typeof task.desarrolladorAsignado === 'string') {
           desarrolladorAsignado = task.desarrolladorAsignado;
-          console.log('🔍 EditTask - Desarrollador como string:', desarrolladorAsignado);
         }
       }
-      console.log('🔍 EditTask - Desarrollador final para el formulario:', desarrolladorAsignado);
       
       this.taskForm = {
         _id: task._id, // Guardar el ID de la tarea
@@ -973,16 +1057,6 @@ export default {
         }
         
         // Preparar datos para envío
-        console.log('this.taskForm antes de crear taskData:', this.taskForm);
-        const taskData = {
-          ...this.taskForm,
-          nivelDificultad: parseInt(this.taskForm.nivelDificultad),
-          desarrolladorAsignado: this.taskForm.desarrolladorAsignado || null,
-          tiempoEstimadoHoras: this.taskForm.tiempoEstimadoHoras || null,
-          fechaEstimadaFin: this.taskForm.fechaEstimadaFin || null
-        };
-        console.log('taskData creado:', taskData);
-        
         if (this.isEditing) {
           // Actualizar tarea existente - NO incluir el campo proyecto
           const updateData = {
@@ -999,14 +1073,10 @@ export default {
             fechaRealInicio: this.taskForm.fechaRealInicio || null,
             fechaRealFin: this.taskForm.fechaRealFin || null
           };
-          console.log('Actualizando tarea:', this.taskForm._id, updateData);
           await TaskService.updateTask(this.taskForm._id, updateData);
         } else {
           // Crear nueva tarea
-          // Extraer el projectId ANTES de crear taskData
           const projectId = this.taskForm.proyecto;
-          console.log('ProjectId extraído:', projectId);
-          console.log('Tipo de projectId:', typeof projectId);
           
           // Crear taskData sin el campo proyecto (ya que va en la URL)
           const taskDataForAPI = {
@@ -1024,8 +1094,6 @@ export default {
             fechaRealFin: this.taskForm.fechaRealFin || null
           };
           
-          console.log('Creando tarea para proyecto:', projectId);
-          console.log('Datos de la tarea:', taskDataForAPI);
           await TaskService.createTask(projectId, taskDataForAPI);
         }
         
@@ -1133,45 +1201,23 @@ export default {
     
     // Utilidades
     getProjectName(projectId) {
-      console.log('🔍 getProjectName llamado con:', projectId, 'Tipo:', typeof projectId);
-      
       if (!projectId) {
-        console.log('🔍 getProjectName: projectId es null/undefined');
         return 'Sin proyecto';
       }
       
       // Si projectId es un objeto (proyecto populado), usar directamente
       if (typeof projectId === 'object' && projectId._id) {
-        console.log('🔍 getProjectName: proyecto populado encontrado:', projectId);
-        console.log('🔍 Campos del proyecto populado:', Object.keys(projectId));
-        // El backend envía el campo como 'nombre', no 'name'
-        const projectName = projectId.nombre || projectId.name || 'Proyecto sin nombre';
-        console.log('🔍 Nombre del proyecto populado (nombre):', projectId.nombre);
-        console.log('🔍 Nombre del proyecto populado (name):', projectId.name);
-        console.log('🔍 Nombre final del proyecto populado:', projectName);
-        return projectName;
+        return projectId.nombre || projectId.name || 'Proyecto sin nombre';
       }
       
       // Si projectId es un string (ID), buscar en la lista de proyectos
       const project = this.projects.find(p => p._id === projectId);
-      console.log('🔍 getProjectName - búsqueda en projects:', {
-        projectId,
-        projectsCount: this.projects.length,
-        projectFound: !!project,
-        projectName: project?.name || project?.nombre,
-        projectObject: project,
-        allProjects: this.projects,
-        isUserAdmin: this.isUserAdmin
-      });
       
       if (project) {
-        const projectName = project.nombre || project.name || 'Proyecto sin nombre';
-        console.log('🔍 Nombre del proyecto encontrado:', projectName);
-        return projectName;
+        return project.nombre || project.name || 'Proyecto sin nombre';
       }
       
       // Si no se encuentra el proyecto, mostrar el ID como fallback
-      console.log('🔍 Proyecto no encontrado, usando fallback');
       return `Proyecto (${projectId.substring(0, 8)}...)`;
     },
     
@@ -1225,91 +1271,47 @@ export default {
 
     // Métodos de asignación automática
     async runAutoAssignment() {
-      console.log('🔍 Tareas - Iniciando asignación automática con calendario...');
-      console.log('🔍 Tareas - Usuario actual:', this.user);
-      console.log('🔍 Tareas - Es admin?', this.isUserAdmin);
-      
       this.isAssigning = true;
       this.assignmentResults = [];
       
       try {
-        console.log('🔍 Tareas - Proyectos disponibles:', this.projects.length);
-        
         // Determinar qué proyecto procesar
         let projectsToProcess = [];
         
         if (this.selectedProject) {
-          // Si hay un proyecto específico seleccionado, procesar solo ese
           const selectedProj = this.projects.find(p => p._id === this.selectedProject);
           if (selectedProj) {
             projectsToProcess = [selectedProj];
-            console.log('🔍 Tareas - Procesando solo proyecto seleccionado:', selectedProj.name);
           }
         } else {
-          // Si no hay proyecto seleccionado, procesar todos
           projectsToProcess = this.projects;
-          console.log('🔍 Tareas - Procesando todos los proyectos');
         }
         
         // Ejecutar asignación para los proyectos determinados
         for (const project of projectsToProcess) {
-          console.log('🔍 Tareas - Procesando proyecto:', project.name, 'ID:', project._id);
-          
           try {
-            // Validar tareas del proyecto antes de la asignación automática
-            const validationResults = await this.validateProjectTasksForAssignment(project._id);
-            
-            if (!validationResults.isValid) {
-              console.warn(`⚠️ Proyecto ${project.name}: ${validationResults.message}`);
-              continue; // Saltar este proyecto si no pasa las validaciones
-            }
-            
-            console.log(`✅ Proyecto ${project.name}: Todas las tareas pasaron las validaciones`);
-            
-            // Llamar al endpoint del backend para asignación automática usando el nuevo servicio
             const resultado = await AssignmentService.runAutomaticAssignment(project._id);
-            
-            console.log('🔍 Tareas - Resultado asignación proyecto desde backend:', resultado);
-            console.log('🔍 Tareas - Tipo de resultado:', typeof resultado);
-            console.log('🔍 Tareas - resultado.resumen:', resultado.resumen);
-            console.log('🔍 Tareas - resultado.resumen.length:', resultado.resumen?.length);
-            console.log('🔍 Tareas - resultado.message:', resultado.message);
             
             // Agregar resultados del proyecto
             if (resultado.resumen && resultado.resumen.length > 0) {
-              console.log('🔍 Tareas - Agregando resultados al array...');
               this.assignmentResults.push(...resultado.resumen);
-              console.log('🔍 Tareas - assignmentResults después de agregar:', this.assignmentResults);
-            } else {
-              console.log('🔍 Tareas - No hay resultados para agregar para este proyecto');
             }
           } catch (error) {
             console.error('Error en asignación automática para proyecto', project.name, ':', error);
-            // Continuar con el siguiente proyecto aunque uno falle
           }
         }
-
-        console.log('🔍 Tareas - Total asignaciones calculadas:', this.assignmentResults.length);
         
-        // Guardar los datos de asignación en localStorage para la vista detallada
+        // Guardar los datos de asignación en localStorage
         const assignmentData = {
           message: "Asignación automática con calendario diario completada",
           resumen: this.assignmentResults,
           fechaGeneracion: new Date().toISOString(),
-          proyecto: this.projects[0] // Asumimos que se ejecuta para un proyecto específico
+          proyecto: this.projects[0]
         };
-        console.log('🔍 Guardando datos de asignación en localStorage:', assignmentData);
         localStorage.setItem('lastAssignmentData', JSON.stringify(assignmentData));
         
         // Recargar las tareas para mostrar los cambios
         await this.loadTasks();
-        
-        // Mostrar mensaje de éxito
-        if (this.assignmentResults.length > 0) {
-          console.log('✅ Tareas - Asignación automática completada exitosamente');
-        } else {
-          console.log('ℹ️ Tareas - No se encontraron tareas para asignar');
-        }
         
       } catch (error) {
         console.error('Error ejecutando asignación automática:', error);
@@ -1326,11 +1328,17 @@ export default {
     // Métodos para el modal de selección de tipo de asignación
     openAssignmentTypeModal() {
       this.selectedAssignmentType = null;
+      this.previewData = null;
+      this.isLoadingPreview = false;
+      this.isConfirming = false;
       this.assignmentTypeModalInstance.show();
     },
 
     closeAssignmentTypeModal() {
       this.selectedAssignmentType = null;
+      this.previewData = null;
+      this.isLoadingPreview = false;
+      this.isConfirming = false;
       this.assignmentTypeModalInstance.hide();
     },
 
@@ -1338,38 +1346,107 @@ export default {
       this.selectedAssignmentType = type;
     },
 
-    async executeSelectedAssignment() {
-      if (!this.selectedAssignmentType) return;
-      
-      this.isAssigning = true;
-      
+    // Generar previsualización
+    async generatePreview() {
+      if (!this.selectedAssignmentType || !this.selectedProject) {
+        alert('Por favor selecciona un proyecto antes de generar la previsualización');
+        return;
+      }
+
+      this.isLoadingPreview = true;
+
       try {
+        let previewResult;
+        
         if (this.selectedAssignmentType === 'availability') {
-          await this.runAvailabilityBasedAssignment();
+          previewResult = await AssignmentService.previewBasicAssignment(this.selectedProject);
         } else if (this.selectedAssignmentType === 'cost') {
-          await this.runCostBasedAssignment();
+          previewResult = await AssignmentService.previewCostAssignment(this.selectedProject);
         }
-        
-        // Cerrar modal después de ejecutar
-        this.closeAssignmentTypeModal();
+
+        this.previewData = previewResult;
+
+        if (!previewResult.asignaciones || previewResult.asignaciones.length === 0) {
+          alert('No se encontraron tareas para asignar en este proyecto');
+        }
+
       } catch (error) {
-        console.error('Error ejecutando asignación:', error);
+        console.error('Error generando previsualización:', error);
         const errorMsg = error.response?.data?.error || error.message || 'Error desconocido';
-        
-        // Mostrar mensaje de error específico
-        if (errorMsg.includes('is not defined')) {
-          alert(`⚠️ Error en el servidor\n\nLa funcionalidad de asignación por costo tiene un problema en el backend.\n\nError técnico: ${errorMsg}\n\nPor favor, contacta al desarrollador del backend.`);
-        } else {
-          alert(`Error ejecutando asignación: ${errorMsg}`);
-        }
+        alert(`Error generando previsualización: ${errorMsg}`);
       } finally {
-        this.isAssigning = false;
+        this.isLoadingPreview = false;
+      }
+    },
+
+    // Volver a la selección de tipo
+    backToSelection() {
+      this.previewData = null;
+      this.selectedAssignmentType = null;
+    },
+
+    // Confirmar y guardar asignaciones
+    async confirmAssignment() {
+      if (!this.previewData || !this.selectedAssignmentType || !this.selectedProject) {
+        return;
+      }
+
+      this.isConfirming = true;
+
+      try {
+        let confirmResult;
+
+        if (this.selectedAssignmentType === 'availability') {
+          confirmResult = await AssignmentService.confirmBasicAssignment(
+            this.selectedProject,
+            this.previewData.asignaciones,
+            this.previewData.costoTotalProyecto
+          );
+        } else if (this.selectedAssignmentType === 'cost') {
+          confirmResult = await AssignmentService.confirmCostAssignment(
+            this.selectedProject,
+            this.previewData.asignaciones,
+            this.previewData.costoTotalProyecto
+          );
+        }
+
+        // Mostrar mensaje de éxito
+        alert(`✅ ${confirmResult.message}\n\nAsignaciones guardadas correctamente.`);
+
+        // Guardar resultados para mostrar en el resumen
+        this.assignmentResults = this.previewData.asignaciones.map(asig => ({
+          tarea: asig.tarea.descripcion,
+          asignado: asig.desarrollador ? `${asig.desarrollador.nombre} ${asig.desarrollador.apellido}` : null,
+          motivo: asig.motivo || null,
+          horasAsignadasTotales: asig.horasTotales,
+          dias: asig.dias
+        }));
+
+        // Guardar en localStorage
+        const assignmentData = {
+          message: confirmResult.message,
+          resumen: this.assignmentResults,
+          fechaGeneracion: new Date().toISOString(),
+          tipo: this.selectedAssignmentType
+        };
+        localStorage.setItem('lastAssignmentData', JSON.stringify(assignmentData));
+
+        // Recargar tareas
+        await this.loadTasks();
+
+        // Cerrar modal
+        this.closeAssignmentTypeModal();
+
+      } catch (error) {
+        console.error('Error confirmando asignación:', error);
+        const errorMsg = error.response?.data?.error || error.message || 'Error desconocido';
+        alert(`Error confirmando asignación: ${errorMsg}`);
+      } finally {
+        this.isConfirming = false;
       }
     },
 
     async runAvailabilityBasedAssignment() {
-      console.log('🔍 Tareas - Iniciando asignación por disponibilidad y habilidades...');
-      
       this.assignmentResults = [];
       
       try {
@@ -1377,37 +1454,18 @@ export default {
         let projectsToProcess = [];
         
         if (this.selectedProject) {
-          // Si hay un proyecto específico seleccionado, procesar solo ese
           const selectedProj = this.projects.find(p => p._id === this.selectedProject);
           if (selectedProj) {
             projectsToProcess = [selectedProj];
-            console.log('🔍 Tareas - Procesando solo proyecto seleccionado:', selectedProj.name);
           }
         } else {
-          // Si no hay proyecto seleccionado, procesar todos
           projectsToProcess = this.projects;
-          console.log('🔍 Tareas - Procesando todos los proyectos');
         }
         
         // Ejecutar asignación para los proyectos determinados
         for (const project of projectsToProcess) {
-          console.log('🔍 Tareas - Procesando proyecto:', project.name, 'ID:', project._id);
-          
           try {
-            // Validar tareas del proyecto antes de la asignación automática
-            const validationResults = await this.validateProjectTasksForAssignment(project._id);
-            
-            if (!validationResults.isValid) {
-              console.warn(`⚠️ Proyecto ${project.name}: ${validationResults.message}`);
-              continue;
-            }
-            
-            console.log(`✅ Proyecto ${project.name}: Todas las tareas pasaron las validaciones`);
-            
-            // Llamar al endpoint de asignación por disponibilidad
             const resultado = await AssignmentService.runAvailabilityBasedAssignment(project._id);
-            
-            console.log('🔍 Tareas - Resultado asignación por disponibilidad:', resultado);
             
             // Agregar resultados del proyecto
             if (resultado.resumen && resultado.resumen.length > 0) {
@@ -1430,13 +1488,6 @@ export default {
         // Recargar las tareas para mostrar los cambios
         await this.loadTasks();
         
-        // Mostrar mensaje de éxito
-        if (this.assignmentResults.length > 0) {
-          console.log('✅ Tareas - Asignación por disponibilidad completada exitosamente');
-        } else {
-          console.log('ℹ️ Tareas - No se encontraron tareas para asignar');
-        }
-        
       } catch (error) {
         console.error('Error ejecutando asignación por disponibilidad:', error);
         throw error;
@@ -1444,8 +1495,6 @@ export default {
     },
 
     async runCostBasedAssignment() {
-      console.log('🔍 Tareas - Iniciando asignación por costo...');
-      
       this.assignmentResults = [];
       
       try {
@@ -1453,37 +1502,18 @@ export default {
         let projectsToProcess = [];
         
         if (this.selectedProject) {
-          // Si hay un proyecto específico seleccionado, procesar solo ese
           const selectedProj = this.projects.find(p => p._id === this.selectedProject);
           if (selectedProj) {
             projectsToProcess = [selectedProj];
-            console.log('🔍 Tareas - Procesando solo proyecto seleccionado:', selectedProj.name);
           }
         } else {
-          // Si no hay proyecto seleccionado, procesar todos
           projectsToProcess = this.projects;
-          console.log('🔍 Tareas - Procesando todos los proyectos');
         }
         
         // Ejecutar asignación para los proyectos determinados
         for (const project of projectsToProcess) {
-          console.log('🔍 Tareas - Procesando proyecto:', project.name, 'ID:', project._id);
-          
           try {
-            // Validar tareas del proyecto antes de la asignación automática
-            const validationResults = await this.validateProjectTasksForAssignment(project._id);
-            
-            if (!validationResults.isValid) {
-              console.warn(`⚠️ Proyecto ${project.name}: ${validationResults.message}`);
-              continue;
-            }
-            
-            console.log(`✅ Proyecto ${project.name}: Todas las tareas pasaron las validaciones`);
-            
-            // Llamar al endpoint de asignación por costo
             const resultado = await AssignmentService.runCostBasedAssignment(project._id);
-            
-            console.log('🔍 Tareas - Resultado asignación por costo:', resultado);
             
             // Agregar resultados del proyecto
             if (resultado.resumen && resultado.resumen.length > 0) {
@@ -1506,134 +1536,9 @@ export default {
         // Recargar las tareas para mostrar los cambios
         await this.loadTasks();
         
-        // Mostrar mensaje de éxito
-        if (this.assignmentResults.length > 0) {
-          console.log('✅ Tareas - Asignación por costo completada exitosamente');
-        } else {
-          console.log('ℹ️ Tareas - No se encontraron tareas para asignar');
-        }
-        
       } catch (error) {
         console.error('Error ejecutando asignación por costo:', error);
         throw error;
-      }
-    },
-
-    // Validar tareas de un proyecto para asignación automática
-    async validateProjectTasksForAssignment(projectId) {
-      try {
-        // Obtener tareas del proyecto
-        const tasks = await TaskService.getTasksByProject(projectId);
-        
-        if (!tasks || tasks.length === 0) {
-          return { isValid: true, message: 'No hay tareas para validar' };
-        }
-
-        // Obtener todos los desarrolladores
-        const usersResponse = await UserService.getUsers();
-        const developers = usersResponse.data.filter(user => user.rol === 'user');
-
-        if (developers.length === 0) {
-          return { isValid: false, message: 'No hay desarrolladores disponibles para asignación' };
-        }
-
-        let validTasksCount = 0;
-        let invalidTasksCount = 0;
-        const invalidTasks = [];
-
-        // Validar cada tarea
-        for (const task of tasks) {
-          // Solo validar tareas sin asignar
-          if (task.desarrolladorAsignado) {
-            validTasksCount++;
-            continue;
-          }
-
-          // Validar que la tarea tenga fechas y horas estimadas
-          if (!task.fechaEstimadaInicio || !task.fechaEstimadaFin || !task.tiempoEstimadoHoras) {
-            invalidTasksCount++;
-            invalidTasks.push({
-              task: task.descripcion,
-              reason: 'Faltan fechas o tiempo estimado'
-            });
-            continue;
-          }
-
-          // Validar horas del mismo día
-          const sameDayValidation = ValidationService.validateSameDayHours({
-            fechaEstimadaInicio: task.fechaEstimadaInicio,
-            fechaEstimadaFin: task.fechaEstimadaFin,
-            tiempoEstimadoHoras: task.tiempoEstimadoHoras
-          });
-
-          if (!sameDayValidation.isValid) {
-            invalidTasksCount++;
-            invalidTasks.push({
-              task: task.descripcion,
-              reason: sameDayValidation.message
-            });
-            continue;
-          }
-
-          // Verificar si hay al menos un desarrollador disponible
-          let hasAvailableDeveloper = false;
-          for (const developer of developers) {
-            // Validar disponibilidad
-            const availabilityValidation = await ValidationService.validateDeveloperAvailability(
-              developer._id,
-              task.fechaEstimadaInicio,
-              task.fechaEstimadaFin,
-              task.tiempoEstimadoHoras
-            );
-
-            // Validar habilidades
-            const skillsValidation = ValidationService.validateSkillsMatch(
-              developer.habilidades || [],
-              task.habilidadesRequeridas || []
-            );
-
-            if (availabilityValidation.isValid && skillsValidation.isValid) {
-              hasAvailableDeveloper = true;
-              break;
-            }
-          }
-
-          if (hasAvailableDeveloper) {
-            validTasksCount++;
-          } else {
-            invalidTasksCount++;
-            invalidTasks.push({
-              task: task.descripcion,
-              reason: 'No hay desarrolladores disponibles con las habilidades requeridas y disponibilidad'
-            });
-          }
-        }
-
-        if (invalidTasksCount > 0) {
-          const invalidTasksList = invalidTasks.slice(0, 3).map(t => `- ${t.task}: ${t.reason}`).join('\n');
-          const moreTasks = invalidTasks.length > 3 ? `\n... y ${invalidTasks.length - 3} tareas más` : '';
-          
-          return {
-            isValid: false,
-            message: `Se encontraron ${invalidTasksCount} tareas que no pueden ser asignadas:\n${invalidTasksList}${moreTasks}`,
-            validTasks: validTasksCount,
-            invalidTasks: invalidTasksCount
-          };
-        }
-
-        return {
-          isValid: true,
-          message: `Todas las ${validTasksCount} tareas pueden ser asignadas`,
-          validTasks: validTasksCount,
-          invalidTasks: 0
-        };
-
-      } catch (error) {
-        console.error('Error validando tareas del proyecto:', error);
-        return {
-          isValid: false,
-          message: 'Error al validar las tareas del proyecto'
-        };
       }
     },
 

@@ -83,18 +83,31 @@ const router = createRouter({
 });
 
 // Guard de navegación simplificado que funciona sin store
-// router/index.js
 router.beforeEach(async (to, from, next) => {
   // Sólo proteger si la ruta lo pide explícitamente
-  if (!to.meta?.requiresAuth) return next();
+  if (!to.meta?.requiresAuth) {
+    return next();
+  }
 
   // 1) Intento con login normal (token en localStorage)
-  const user = await AuthService.getCurrentUser();
-  if (user) return next();
+  try {
+    const user = await AuthService.getCurrentUser();
+    if (user) {
+      return next();
+    }
+  } catch (error) {
+    // Silently continue to Google auth check
+  }
 
   // 2) Intento con sesión Google (cookie httpOnly)
-  const g = await AuthService.getCurrentUserGoogle();
-  if (g && (g.user || g)) return next();
+  try {
+    const g = await AuthService.getCurrentUserGoogle();
+    if (g && (g.user || g)) {
+      return next();
+    }
+  } catch (error) {
+    // Silently continue to redirect
+  }
 
   return next('/login');
 });

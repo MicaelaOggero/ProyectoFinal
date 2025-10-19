@@ -100,31 +100,37 @@
 
             <!-- Habilidades -->
             <div class="mb-3">
-              <label class="form-label">Habilidades *</label>
+              <label class="form-label">Habilidades Técnicas *</label>
               <div class="skills-container">
                 <div v-for="(skill, index) in userData.habilidades" :key="index" class="skill-item">
                   <div class="row">
                     <div class="col-md-6">
-                      <input 
-                        type="text" 
-                        class="form-control" 
-                        v-model="skill.nombre" 
-                        placeholder="Nombre de la habilidad"
+                      <select 
+                        class="form-select" 
+                        v-model="skill.nombre"
                         required
                       >
+                        <option disabled value="">Seleccione una habilidad</option>
+                        <option v-for="opt in skillOptions" :key="opt" :value="opt">{{ opt }}</option>
+                      </select>
                     </div>
                     <div class="col-md-4">
                       <select class="form-select" v-model="skill.nivel" required>
-                        <option value="">Nivel</option>
-                        <option value="1">Principiante</option>
-                        <option value="2">Básico</option>
-                        <option value="3">Intermedio</option>
-                        <option value="4">Avanzado</option>
-                        <option value="5">Experto</option>
+                        <option disabled value="">Nivel</option>
+                        <option value="1">1 - Principiante</option>
+                        <option value="2">2 - Básico</option>
+                        <option value="3">3 - Intermedio</option>
+                        <option value="4">4 - Avanzado</option>
+                        <option value="5">5 - Experto</option>
                       </select>
                     </div>
                     <div class="col-md-2">
-                      <button type="button" class="btn btn-outline-danger btn-sm" @click="removeSkill(index)">
+                      <button 
+                        type="button" 
+                        class="btn btn-outline-danger btn-sm" 
+                        @click="removeSkill(index)"
+                        v-if="userData.habilidades.length > 1"
+                      >
                         <i class="bi bi-trash"></i>
                       </button>
                     </div>
@@ -161,31 +167,45 @@
 <script>
 import { Modal } from 'bootstrap';
 import AuthService from '@/services/auth.service.js';
+import SkillsService from '@/services/skills.service.js';
+import UserService from '@/services/user.service.js';
 
 export default {
   name: 'CompleteGoogleProfile',
   data() {
     return {
       modalInstance: null,
-             userData: {
-         dni: '',
-         rol: 'user', // Siempre será 'user'
-         aniosExperiencia: 0,
-         horasSemanalMaxima: 40,
-         costoPorHora: 0,
-         preferencias: [],
-         habilidades: []
-       },
+      userData: {
+        dni: '',
+        rol: 'user', // Siempre será 'user'
+        aniosExperiencia: 0,
+        horasSemanalMaxima: 40,
+        costoPorHora: 0,
+        preferencias: [],
+        habilidades: [{ nombre: '', nivel: '' }]
+      },
+      skillOptions: [],
       errorMessage: '',
       loading: false
     };
   },
   mounted() {
     this.modalInstance = new Modal(document.getElementById('completeProfileModal'));
-    // Agregar primera habilidad por defecto
-    this.addSkill();
+    this.loadSkills();
   },
   methods: {
+    // Cargar habilidades desde el backend
+    async loadSkills() {
+      try {
+        const response = await SkillsService.getSkills();
+        // response.data ya es el array de habilidades directamente
+        this.skillOptions = response.data.map(skill => skill.nombre);
+      } catch (error) {
+        console.error('Error loading skills:', error);
+        // Fallback a opciones predefinidas si falla la carga
+        this.skillOptions = ['JavaScript', 'Vue.js', 'Node.js', 'SQL', 'HTML & CSS', 'Python', 'Diseño UI'];
+      }
+    },
     show() {
       this.errorMessage = '';
       this.resetForm();
@@ -194,18 +214,17 @@ export default {
     closeModal() {
       this.modalInstance.hide();
     },
-         resetForm() {
-       this.userData = {
-         dni: '',
-         rol: 'user', // Siempre será 'user'
-         aniosExperiencia: 0,
-         horasSemanalMaxima: 40,
-         costoPorHora: 0,
-         preferencias: [],
-         habilidades: []
-       };
-       this.addSkill(); // Agregar primera habilidad
-     },
+    resetForm() {
+      this.userData = {
+        dni: '',
+        rol: 'user', // Siempre será 'user'
+        aniosExperiencia: 0,
+        horasSemanalMaxima: 40,
+        costoPorHora: 0,
+        preferencias: [],
+        habilidades: [{ nombre: '', nivel: '' }]
+      };
+    },
     addSkill() {
       this.userData.habilidades.push({
         nombre: '',
@@ -244,7 +263,18 @@ export default {
         }
 
         // Completar perfil en el backend
-        await AuthService.completeGoogleProfile(this.userData);
+        const response = await AuthService.completeGoogleProfile(this.userData);
+        
+        // Crear calendario para el usuario de Google
+        if (response.data && response.data.user && response.data.user._id) {
+          try {
+            await UserService.createCalendar(response.data.user._id);
+            console.log('Calendario creado exitosamente para usuario de Google');
+          } catch (calendarError) {
+            console.error('Error creando calendario:', calendarError);
+            // No lanzamos el error para no interrumpir el flujo de registro
+          }
+        }
         
         // Cerrar modal y emitir evento de éxito
         this.closeModal();

@@ -494,6 +494,7 @@ export default {
     },
     loadSkills() {
       SkillsService.getSkills().then(response => {
+        // response.data ya es el array de habilidades directamente
         this.skillOptions = response.data.map(skill => skill.nombre);
       }).catch(error => {
         console.error('Error loading skills:', error);
