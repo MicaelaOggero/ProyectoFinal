@@ -70,4 +70,45 @@ router.post("/bulk/:projectId", async (req, res) => {
   res.json({ message: "Tareas procesadas", resumen });
 });
 
+// TaskLog masivos 
+// routes/taskLog.routes.js
+import TaskLog from "../task/taskLog.model.js";
+import mongoose from "mongoose";
+/**
+ * POST /tasklogs/masivo
+ * Inserta múltiples logs de tareas de manera masiva
+ * Verifica que los IDs de tarea y desarrollador sean válidos
+ */
+router.post("/taskLog/masivo", async (req, res) => {
+  try {
+    const logs = req.body.logs;
+
+    if (!Array.isArray(logs) || logs.length === 0) {
+      return res.status(400).json({ error: "No hay logs para guardar" });
+    }
+
+    // Filtrar logs con IDs inválidos
+    const logsValidos = logs.filter(log => 
+      //mongoose.Types.ObjectId.isValid(log.tarea) &&
+      mongoose.Types.ObjectId.isValid(log.desarrollador)
+    );
+
+    if (logsValidos.length === 0) {
+      return res.status(400).json({ error: "No hay logs con IDs válidos" });
+    }
+
+    // Insertar solo los logs válidos
+    const resultado = await TaskLog.insertMany(logsValidos);
+
+    res.status(201).json({
+      mensaje: "Logs guardados correctamente",
+      cantidad: resultado.length,
+      logs: resultado
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

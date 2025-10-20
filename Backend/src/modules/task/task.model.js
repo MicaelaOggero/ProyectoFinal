@@ -52,7 +52,10 @@ const taskSchema = new mongoose.Schema({
     mensaje: String,
     fecha: { type: Date, default: Date.now }
   }],
-  tiempoEstimadoHoras: Number,
+  tiempoEstimadoHoras: {
+    type: Number,
+    required: true
+  },
   fechaEstimadaFin: Date,
   fechaEstimadaInicio: Date,
   fechaRealFin: Date,
