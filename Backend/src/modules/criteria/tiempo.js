@@ -53,6 +53,7 @@ export const obtenerAsignacionesPorTiempoIA = async (projectId) => {
             experiencia: dev.aniosExperiencia,
             habilidades: dev.habilidades.map(h => ({ nombre: h.nombre, nivel: h.nivel })),
             preferencias: dev.preferencias,
+            costoPorHora: dev.costoPorHora,
             eficienciaPromedio,        // 🔹 agregado
             disponibilidad            // 🔹 agregado
         };
@@ -87,13 +88,17 @@ Distribuye las horas estimadas dentro del rango de fechas de la tarea. No sobrec
 [
   {
     "tareaId": "ID de la tarea",
+    "descripcion": "Descripción de la tarea",
     "desarrolladorId": "ID del desarrollador elegido",
+    "desarrolladorNombre": "Nombre del desarrollador elegido",
     "asignacionHoras": [
       { "fecha": "YYYY-MM-DDT00:00:00.000Z", "horasAsignadas": 4 },
       { "fecha": "YYYY-MM-DDT00:00:00.000Z", "horasAsignadas": 3 }
     ],
-    "razon": "Explicación breve de por qué fue asignado"
-  }
+    "razon": "Explicación detallada de por qué fue asignado".
+    costoEstimado: "costo toal estimado basado el el costo por hora del dev y las horas asignadas"
+  }...
+  costoTotalProyecto: "costo total estimado de todas las tareas asignadas"
 ]
 
 Datos:

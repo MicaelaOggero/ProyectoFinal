@@ -11,7 +11,7 @@ export function obtenerDiasDisponibles(fechaInicio, fechaFin) {
   let fecha = new Date(fechaInicio);
 
   while (fecha <= fechaFin) {
-    const diaSemana = fecha.getDay();
+    const diaSemana = fecha.getUTCDay();
     if (diaSemana >= 1 && diaSemana <= 5) { // Lunes a Viernes
       dias.push(new Date(fecha));
     }
@@ -29,7 +29,7 @@ export function obtenerDisponibilidadEnRango(dev, fechaInicio, fechaFin) {
   while (fechaActual <= fin) {
     const iso = fechaActual.toISOString().split("T")[0];
     const horas = dev.horasDisponiblesPorDia?.[iso] || 0;
-    const esFinDeSemana = [0, 6].includes(fechaActual.getDay());
+    const esFinDeSemana = [0, 6].includes(fechaActual.getUTCDay());
 
     if (horas > 0 && (dev.trabajaFinesDeSemana || !esFinDeSemana)) {
       diasDisponibles.push({ fecha: iso, horas });
