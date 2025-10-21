@@ -1226,18 +1226,14 @@ export default {
     formatDate(dateString) {
       if (!dateString) return 'N/A';
       
-      // Si ya es una fecha ISO completa, usarla directamente
-      let date;
-      if (dateString.includes('T')) {
-        date = new Date(dateString);
-      } else {
-        // Si es solo fecha (YYYY-MM-DD), agregar hora
-        date = new Date(dateString + 'T00:00:00');
-      }
-      
-      // Verificar que la fecha sea válida
+      const date = new Date(dateString);
       if (isNaN(date.getTime())) return 'N/A';
-      return date.toLocaleDateString('es-ES');
+      
+      // Usar métodos UTC para evitar cambios por zona horaria
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      return `${day}/${month}/${year}`;
     },
 
     // Métodos para el tab de asignaciones

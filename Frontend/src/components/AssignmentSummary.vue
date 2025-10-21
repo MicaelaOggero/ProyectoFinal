@@ -334,11 +334,13 @@ export default {
     formatDate(dateString) {
       if (!dateString) return '';
       const date = new Date(dateString);
-      return date.toLocaleDateString('es-ES', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
+      if (isNaN(date.getTime())) return '';
+      
+      // Usar métodos UTC para evitar cambios por zona horaria
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      return `${day}/${month}/${year}`;
     },
     getDayName(dateString) {
       if (!dateString) return '';

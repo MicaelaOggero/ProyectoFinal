@@ -599,7 +599,13 @@ export default {
     formatDate(dateString) {
       if (!dateString) return 'N/A';
       const date = new Date(dateString);
-      return date.toLocaleDateString('es-ES');
+      if (isNaN(date.getTime())) return 'N/A';
+      
+      // Usar métodos UTC para evitar cambios por zona horaria
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      return `${day}/${month}/${year}`;
     },
     
     goBack() {
