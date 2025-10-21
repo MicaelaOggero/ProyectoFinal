@@ -4,7 +4,7 @@ import {
   previsualizarAsignacionBasica,
   confirmarAsignacionBasica,
 } from "../criteria/index.js";
-import { obtenerAsignacionesPorTiempoIA } from "../criteria/tiempo.js";
+import { previewObtenerAsignacionesPorTiempoIA } from "../criteria/tiempo.js";
 
 
 export const editarAsignacion = async (req, res) => {
@@ -120,7 +120,7 @@ export async function confirmAsignacionBasica(req, res) {
 export const sugerirAsignacionTiempoIA = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const sugerencias = await obtenerAsignacionesPorTiempoIA(projectId);
+    const sugerencias = await previewObtenerAsignacionesPorTiempoIA(projectId);
 
     res.status(200).json({
       success: true,
@@ -130,5 +130,37 @@ export const sugerirAsignacionTiempoIA = async (req, res) => {
   } catch (error) {
     console.error("Error en /ia/proyecto/tiempo:", error);
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// controllers/asignacion.controller.js
+import { confirmarAsignacionPorTiempo } from "../criteria/tiempo.js";
+
+export const confirmarAsignacionesPorTiempoController = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { success, criterio, sugerencias } = req.body;
+
+    if (!projectId || !success || criterio !== "tiempo" || !sugerencias) {
+      return res.status(400).json({
+        status: "error",
+        message: "Datos de entrada inválidos o incompletos.",
+      });
+    }
+
+    const resultado = await confirmarAsignacionPorTiempo(projectId, sugerencias);
+
+    return res.status(200).json({
+      status: "success",
+      criterio,
+      ...resultado,
+    });
+  } catch (error) {
+    console.error("❌ Error al confirmar asignaciones por tiempo:", error);
+    return res.status(500).json({
+      status: "error",
+      message: "Error interno al confirmar asignaciones por tiempo",
+      details: error.message,
+    });
   }
 };

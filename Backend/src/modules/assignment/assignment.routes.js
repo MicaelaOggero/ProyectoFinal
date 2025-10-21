@@ -2,7 +2,7 @@ import { Router } from "express";
 import { editarAsignacion, getAsignacionesPorProyecto, asignarAutomaticoBasico, asignarPorCosto, previsualizarAsignacionCosto, confirmarAsignacionCosto, previewAsignacionBasica, confirmAsignacionBasica } from "./assignment.controller.js";
 import Task from "../task/task.model.js";
 import User from "../users/user.model.js";
-import { sugerirAsignacionTiempoIA } from "../assignment/assignment.controller.js";
+import { sugerirAsignacionTiempoIA, confirmarAsignacionesPorTiempoController } from "../assignment/assignment.controller.js";
 
 const router = Router();
 
@@ -26,6 +26,13 @@ router.post("/confirm/costo/:projectId", confirmarAsignacionCosto);
 router.get("/preview/basica/:projectId", previewAsignacionBasica);
 router.post("/confirm/basica/:projectId", confirmAsignacionBasica);
 
+// Previsualizar asignación automática con IA según criterio de tiempo
+router.get("/iapreview/proyecto/:projectId/tiempo", sugerirAsignacionTiempoIA);
+
+// Confirmar asignación automática con IA según criterio de tiempo
+router.post("/iaconfirm/proyecto/:projectId/tiempo", confirmarAsignacionesPorTiempoController);
+
+
 // Asignación con AI
 import OpenAI from "openai";
 import { obtenerDisponibilidadEnRango } from "../../utils/asignacionBasica/diasDisponible.js";
@@ -38,9 +45,6 @@ function extraerJSON(texto) {
   if (match) return match[1].trim();       // devuelve el contenido interno
   return texto.trim();                     // si no hay bloque, devuelve tal cual
 }
-
-// Asignación automática con IA según criterio de tiempo
-router.get("/iapreview/proyecto/:projectId/tiempo", sugerirAsignacionTiempoIA);
 
 // 🔹 Sugerencia IA por proyecto
 router.get("/ia/proyecto/:projectId", async (req, res) => {

@@ -18,10 +18,10 @@ const asignacionSchema = new mongoose.Schema({
 
   tipoAsignacion: {
     type: String,
-    enum: ["basica", "costo"],
+    enum: ["basica", "costo", "tiempo", "calidad"],
     default: "basica"
   },
-
+  razon: { type: String },
   creadoEn: { type: Date, default: Date.now }
 });
 

@@ -122,15 +122,31 @@ export async function asignarTareasConCalendario(projectId) {
  * Previsualiza la asignación básica (sin guardar en BD)
  */
 export async function previsualizarAsignacionBasica(projectId) {
-    const tareas = await Task.find({
+    const tareasPendientes = await Task.find({
         proyecto: projectId,
         desarrolladorAsignado: null,
         estado: "pendiente",
     }).populate("proyecto");
 
-    if (!tareas.length) {
+    if (!tareasPendientes.length) {
         return { message: "No hay tareas pendientes en este proyecto", asignaciones: [] };
     }
+    // 🔹 Obtener IDs de tareas que ya están asignadas en la colección Asignacion
+    const tareasAsignadas = await Asignacion.find(
+        { proyecto: projectId },
+        { tarea: 1, _id: 0 }
+    ).lean();
+
+    const idsTareasAsignadas = tareasAsignadas.map(a => a.tarea.toString());
+
+    // 🔹 Filtrar tareas que aún NO estén asignadas
+    const tareas = tareasPendientes.filter(
+        t => !idsTareasAsignadas.includes(t._id.toString())
+    );
+
+    if (!tareas.length)
+        throw new Error("Todas las tareas del proyecto ya están asignadas");
+
 
     const desarrolladores = await User.find({ rol: "user" });
     const tareasOrdenadas = ordenarTareas(tareas);
@@ -142,11 +158,13 @@ export async function previsualizarAsignacionBasica(projectId) {
         const fechaInicio = new Date(tarea.fechaEstimadaInicio);
         const fechaFin = new Date(tarea.fechaEstimadaFin);
 
+
+
         const candidatos = desarrolladores.filter(
             (dev) =>
                 tieneHabilidadesSuficientes(dev, tarea.habilidadesRequeridas, 0.7) &&
                 tieneDisponibilidad(dev, fechaInicio, fechaFin, tarea.tiempoEstimadoHoras)
-                
+
         );
 
         if (!candidatos.length) {
@@ -240,6 +258,17 @@ export async function confirmarAsignacionBasica(projectId, asignacionesPrevias, 
             if (registro) registro.horasDisponibles -= dia.horasAsignadas;
         }
         await dev.save();
+
+        // 🔹 VALIDACIÓN: evitar duplicar asignaciones de la misma tarea
+        const existeAsignacion = await Asignacion.findOne({ tarea: tareaId });
+        if (existeAsignacion) {
+            resultados.push({
+                tarea: tareaDB.descripcion,
+                estado: "omitida",
+                mensaje: `La tarea "${tareaDB.descripcion}" ya está asignada y no puede reasignarse.`,
+            });
+            continue;
+        }
 
         // 🔹 Crear registro de asignación
         await Asignacion.create({
