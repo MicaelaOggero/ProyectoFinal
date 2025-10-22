@@ -1,5 +1,4 @@
 import express from 'express'
-import mongoose from 'mongoose'
 import dotenv from 'dotenv'
 import session from 'express-session'
 import MongoStore from 'connect-mongo'
@@ -15,6 +14,7 @@ import cors from 'cors'
 import '../src/config/passport.config.js' 
 import '../src/utils/resetDisponibilidad.js'
 import { conectarDB } from "./config/db.js"
+import feedbackRouter from '../src/modules/performanceFeedback/performanceFeedback.routes.js'
 
 dotenv.config()
 const app=express()
@@ -74,6 +74,7 @@ app.use('/api/user', userRouter)
 app.use('/api/skill', skillRouter)
 app.use('/api/task', taskRouter)
 app.use('/api/assignment', assignmentRouter)
+app.use('/api/feedback', feedbackRouter)
 
 // Conectar a la base de datos
 conectarDB()

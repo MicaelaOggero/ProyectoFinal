@@ -5,7 +5,9 @@ import {
   confirmarAsignacionBasica,
 } from "../criteria/index.js";
 import { previewObtenerAsignacionesPorTiempoIA } from "../criteria/tiempo.js";
-
+import { confirmarAsignacionPorTiempo } from "../criteria/tiempo.js";
+import { previewObtenerAsignacionesPorCalidadIA } from "../criteria/calidad.js";
+import { confirmarAsignacionPorCalidad } from "../criteria/calidad.js";
 
 export const editarAsignacion = async (req, res) => {
   try {
@@ -44,8 +46,7 @@ export async function asignarAutomaticoBasico(req, res) {
     console.error("Error en asignación automática por semana:", error);
     res.status(500).json({ error: error.message });
   }
-}
-
+};
 
 export const asignarPorCosto = async (req, res) => {
   try {
@@ -56,7 +57,6 @@ export const asignarPorCosto = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 
 // PREVISUALIZACIÓN
 export async function previsualizarAsignacionCosto(req, res) {
@@ -86,7 +86,6 @@ export async function confirmarAsignacionCosto(req, res) {
     res.status(500).json({ error: error.message });
   }
 }
-
 
 /**
  * Previsualiza la asignación básica
@@ -133,9 +132,6 @@ export const sugerirAsignacionTiempoIA = async (req, res) => {
   }
 };
 
-// controllers/asignacion.controller.js
-import { confirmarAsignacionPorTiempo } from "../criteria/tiempo.js";
-
 export const confirmarAsignacionesPorTiempoController = async (req, res) => {
   try {
     const { projectId } = req.params;
@@ -160,6 +156,52 @@ export const confirmarAsignacionesPorTiempoController = async (req, res) => {
     return res.status(500).json({
       status: "error",
       message: "Error interno al confirmar asignaciones por tiempo",
+      details: error.message,
+    });
+  }
+};
+
+
+export const sugerirAsignacionCalidadIA = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const sugerencias = await previewObtenerAsignacionesPorCalidadIA(projectId);
+
+    res.status(200).json({
+      success: true,
+      criterio: "calidad",
+      sugerencias
+    });
+  } catch (error) {
+    console.error("Error en /ia/proyecto/calidad:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+export const confirmarAsignacionesPorCalidadController = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { asignaciones, costoTotalProyecto } = req.body;
+
+    if (!asignaciones || !costoTotalProyecto ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Datos de entrada inválidos o incompletos.",
+      });
+    }
+
+    const resultado = await confirmarAsignacionPorCalidad(projectId, asignaciones, costoTotalProyecto);
+
+    return res.status(200).json({
+      status: "success",
+      ...resultado,
+    });
+  } catch (error) {
+    console.error("❌ Error al confirmar asignaciones por calidad:", error);
+    return res.status(500).json({
+      status: "error",
+      message: "Error interno al confirmar asignaciones por calidad",
       details: error.message,
     });
   }

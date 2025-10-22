@@ -2,7 +2,7 @@ import { Router } from "express";
 import { editarAsignacion, getAsignacionesPorProyecto, asignarAutomaticoBasico, asignarPorCosto, previsualizarAsignacionCosto, confirmarAsignacionCosto, previewAsignacionBasica, confirmAsignacionBasica } from "./assignment.controller.js";
 import Task from "../task/task.model.js";
 import User from "../users/user.model.js";
-import { sugerirAsignacionTiempoIA, confirmarAsignacionesPorTiempoController } from "../assignment/assignment.controller.js";
+import { sugerirAsignacionTiempoIA, confirmarAsignacionesPorTiempoController, sugerirAsignacionCalidadIA, confirmarAsignacionesPorCalidadController } from "../assignment/assignment.controller.js";
 
 const router = Router();
 
@@ -26,12 +26,19 @@ router.post("/confirm/costo/:projectId", confirmarAsignacionCosto);
 router.get("/preview/basica/:projectId", previewAsignacionBasica);
 router.post("/confirm/basica/:projectId", confirmAsignacionBasica);
 
+// 🔹 Asignación tiempo
 // Previsualizar asignación automática con IA según criterio de tiempo
 router.get("/iapreview/proyecto/:projectId/tiempo", sugerirAsignacionTiempoIA);
 
 // Confirmar asignación automática con IA según criterio de tiempo
 router.post("/iaconfirm/proyecto/:projectId/tiempo", confirmarAsignacionesPorTiempoController);
 
+// 🔹 Asignación calidad
+// Previsualizar asignación automática con IA según criterio de calidad
+router.get("/iapreview/proyecto/:projectId/calidad", sugerirAsignacionCalidadIA);
+
+// Confirmar asignación automática con IA según criterio de calidad
+router.post("/iaconfirm/proyecto/:projectId/calidad", confirmarAsignacionesPorCalidadController);
 
 // Asignación con AI
 import OpenAI from "openai";
