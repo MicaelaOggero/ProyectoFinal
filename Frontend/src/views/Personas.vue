@@ -20,6 +20,7 @@
               <th scope="col">Habilidades</th>
               <th scope="col">Años Exp.</th>
               <th scope="col">Disponibilidad (hs/sem)</th>
+              <th scope="col">Calificación</th>
               <th scope="col">Acciones</th>
             </tr>
           </thead>
@@ -35,8 +36,45 @@
               <td>{{ person.aniosExperiencia || 'N/A' }}</td>
               <td>{{ person.horasSemanalMaxima }}</td>
               <td>
-                <button class="btn btn-sm btn-secondary" @click="openEditModal(person)">Editar</button>
-                <button class="btn btn-sm btn-danger ms-2" @click="deletePerson(person._id)">Eliminar</button>
+                <div v-if="getUserRating(person)">
+                  <div class="d-flex align-items-center">
+                    <div class="rating-display me-2">
+                      <span v-for="i in 5" :key="i" class="star" :class="{ 'filled': i <= getUserRating(person) }">
+                        <i class="bi bi-star-fill"></i>
+                      </span>
+                    </div>
+                    <small class="text-muted">({{ getUserRating(person) }}/5)</small>
+                  </div>
+                  <small class="text-muted d-block">{{ getUserComment(person) }}</small>
+                </div>
+                <div v-else class="text-muted">
+                  <small>Sin calificar</small>
+                </div>
+              </td>
+              <td>
+                <div class="btn-group" role="group">
+                  <button 
+                    class="btn btn-sm btn-outline-secondary" 
+                    @click="openEditModal(person)"
+                    title="Editar usuario"
+                  >
+                    <i class="bi bi-pencil"></i>
+                  </button>
+                  <button 
+                    class="btn btn-sm btn-outline-warning" 
+                    @click="openRatingModal(person)"
+                    title="Calificar usuario"
+                  >
+                    <i class="bi bi-star"></i>
+                  </button>
+                  <button 
+                    class="btn btn-sm btn-outline-danger" 
+                    @click="deletePerson(person._id)"
+                    title="Eliminar usuario"
+                  >
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -258,6 +296,65 @@
       </div>
     </div>
 
+    <!-- Modal para Calificar Usuario -->
+    <div class="modal fade" id="ratingModal" tabindex="-1" aria-labelledby="ratingModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="ratingModalLabel">Calificar Usuario</h5>
+            <button type="button" class="btn-close" @click="closeRatingModal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div v-if="selectedPersonForRating">
+              <div class="mb-3">
+                <label class="form-label"><strong>Usuario:</strong></label>
+                <p class="form-control-plaintext">{{ selectedPersonForRating.nombre }} {{ selectedPersonForRating.apellido }}</p>
+              </div>
+              
+              <div class="mb-3">
+                <label class="form-label"><strong>Calificación:</strong></label>
+                <div class="rating-input">
+                  <span 
+                    v-for="i in 5" 
+                    :key="i" 
+                    class="star-input" 
+                    :class="{ 'filled': i <= ratingForm.rating }"
+                    @click="ratingForm.rating = i"
+                  >
+                    <i class="bi bi-star-fill"></i>
+                  </span>
+                  <span class="ms-2 text-muted">({{ ratingForm.rating }}/5)</span>
+                </div>
+              </div>
+              
+              <div class="mb-3">
+                <label for="ratingComment" class="form-label"><strong>Comentario:</strong></label>
+                <textarea 
+                  class="form-control" 
+                  id="ratingComment" 
+                  v-model="ratingForm.comment" 
+                  rows="3" 
+                  placeholder="Escribe un comentario sobre el desempeño del usuario..."
+                ></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeRatingModal">Cancelar</button>
+            <button 
+              type="button" 
+              class="btn btn-warning" 
+              @click="saveRating"
+              :disabled="ratingForm.rating === 0 || isSubmittingRating"
+            >
+              <span v-if="isSubmittingRating" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+              {{ isSubmittingRating ? 'Guardando...' : 'Guardar Calificación' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -278,11 +375,20 @@ export default {
       skillOptions: [],
       // Validaciones
       validationErrors: {},
-      isSubmitting: false
+      isSubmitting: false,
+      // Para calificaciones
+      selectedPersonForRating: null,
+      ratingForm: {
+        rating: 0,
+        comment: ''
+      },
+      isSubmittingRating: false,
+      ratingModalInstance: null
     };
   },
   mounted() {
     this.modalInstance = new Modal(document.getElementById('personModal'));
+    this.ratingModalInstance = new Modal(document.getElementById('ratingModal'));
     this.loadUsers();
     this.loadSkills();
   },
@@ -699,7 +805,154 @@ export default {
     },
     viewProfile(person) {
       this.$router.push({ name: 'PerfilUsuario', params: { id: person._id } });
+    },
+    
+    // --- Métodos para Calificaciones ---
+    openRatingModal(person) {
+      this.selectedPersonForRating = person;
+      this.ratingForm.rating = this.getUserRating(person) || 0;
+      this.ratingForm.comment = this.getUserComment(person) || '';
+      this.ratingModalInstance.show();
+    },
+    
+    closeRatingModal() {
+      this.ratingModalInstance.hide();
+      this.selectedPersonForRating = null;
+      this.ratingForm.rating = 0;
+      this.ratingForm.comment = '';
+      this.isSubmittingRating = false;
+    },
+    
+    saveRating() {
+      if (this.ratingForm.rating === 0) {
+        alert('Por favor selecciona una calificación');
+        return;
+      }
+      
+      this.isSubmittingRating = true;
+      
+      // Actualizar el usuario con la calificación
+      UserService.updateUser(this.selectedPersonForRating._id, {
+        preferenciasHabilidad: [{
+          habilidad: 'general',
+          puntuacionPromedio: this.ratingForm.rating,
+          vecesCalificado: 1,
+          comentario: this.ratingForm.comment
+        }]
+      }).then(() => {
+        this.loadUsers();
+        this.closeRatingModal();
+        this.$toast?.success('Calificación guardada correctamente') || alert('Calificación guardada correctamente');
+      }).catch(error => {
+        console.error('Error guardando calificación:', error);
+        this.isSubmittingRating = false;
+        const errorMessage = error.response?.data?.error || 'Error al guardar la calificación';
+        this.$toast?.error(errorMessage) || alert(errorMessage);
+      });
+    },
+    
+    getUserRating(person) {
+      // Buscar la calificación general del usuario
+      if (person.preferenciasHabilidad && person.preferenciasHabilidad.length > 0) {
+        const generalRating = person.preferenciasHabilidad.find(pref => pref.habilidad === 'general');
+        return generalRating ? generalRating.puntuacionPromedio : 0;
+      }
+      return 0;
+    },
+    
+    getUserComment(person) {
+      // Buscar el comentario general del usuario
+      if (person.preferenciasHabilidad && person.preferenciasHabilidad.length > 0) {
+        const generalRating = person.preferenciasHabilidad.find(pref => pref.habilidad === 'general');
+        return generalRating ? generalRating.comentario : '';
+      }
+      return '';
     }
   }
 }
 </script>
+
+<style scoped>
+/* Estilos para las estrellas de calificación */
+.rating-display .star {
+  color: #ddd;
+  font-size: 1.2rem;
+  margin-right: 2px;
+}
+
+.rating-display .star.filled {
+  color: #ffc107;
+}
+
+.rating-input .star-input {
+  color: #ddd;
+  font-size: 1.5rem;
+  margin-right: 5px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.rating-input .star-input:hover {
+  color: #ffc107;
+}
+
+.rating-input .star-input.filled {
+  color: #ffc107;
+}
+
+.rating-input .star-input.filled:hover {
+  color: #ff8c00;
+}
+
+/* Estilos para la tabla */
+.table th {
+  background-color: #f8f9fa;
+  border-top: none;
+}
+
+.table td {
+  vertical-align: middle;
+}
+
+/* Estilos para los botones */
+.btn-sm {
+  font-size: 0.875rem;
+  padding: 0.25rem 0.5rem;
+}
+
+/* Estilos para el grupo de botones de acciones */
+.btn-group {
+  gap: 0.25rem;
+}
+
+.btn-group .btn {
+  border-radius: 0.375rem;
+  margin-right: 0.25rem;
+  padding: 0.375rem 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.btn-group .btn:last-child {
+  margin-right: 0;
+}
+
+.btn-group .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-group .btn i {
+  font-size: 0.9rem;
+}
+
+/* Estilos para el modal */
+.modal-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.modal-footer {
+  background-color: #f8f9fa;
+  border-top: 1px solid #dee2e6;
+}
+</style>
