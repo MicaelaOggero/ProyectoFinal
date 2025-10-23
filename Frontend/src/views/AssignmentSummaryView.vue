@@ -168,6 +168,14 @@
                           <i class="bi bi-calendar-check me-1"></i>
                           <strong>Fecha Fin:</strong> {{ formatDate(assignment.tarea.fechaEstimadaFin) }}
                         </p>
+                        <p v-if="assignment.costoTotal && assignment.costoTotal > 0" class="mb-1">
+                          <i class="bi bi-currency-dollar me-1"></i>
+                          <strong>Costo Total:</strong> {{ formatCurrency(assignment.costoTotal) }}
+                        </p>
+                        <p v-if="assignment.costoPorHora && assignment.costoPorHora > 0" class="mb-1">
+                          <i class="bi bi-currency-exchange me-1"></i>
+                          <strong>Costo por Hora:</strong> {{ formatCurrency(assignment.costoPorHora) }}
+                        </p>
                       </div>
                       <div class="col-md-6">
                         <div v-if="assignment.desarrollador?.habilidades && assignment.desarrollador.habilidades.length > 0" class="mb-2">
@@ -232,28 +240,40 @@
           </div>
           <div class="card-body">
             <div class="row text-center">
-              <div class="col-md-3">
+              <div class="col-md-2">
                 <div class="stat-item">
                   <h3 class="text-primary">{{ filteredAssignedTasksCount }}</h3>
                   <p class="text-muted">Tareas Asignadas</p>
                 </div>
               </div>
-              <div class="col-md-3">
+              <div class="col-md-2">
                 <div class="stat-item">
                   <h3 class="text-warning">{{ filteredUnassignedTasksCount }}</h3>
                   <p class="text-muted">Sin Asignar</p>
                 </div>
               </div>
-              <div class="col-md-3">
+              <div class="col-md-2">
                 <div class="stat-item">
                   <h3 class="text-info">{{ filteredUniqueDevelopers.length }}</h3>
                   <p class="text-muted">Desarrolladores</p>
                 </div>
               </div>
-              <div class="col-md-3">
+              <div class="col-md-2">
                 <div class="stat-item">
                   <h3 class="text-success">{{ filteredTotalHoursAssigned }}</h3>
                   <p class="text-muted">Horas Totales</p>
+                </div>
+              </div>
+              <div class="col-md-2" v-if="filteredTotalCost > 0">
+                <div class="stat-item">
+                  <h3 class="text-danger">${{ formatCurrency(filteredTotalCost) }}</h3>
+                  <p class="text-muted">Costo Total</p>
+                </div>
+              </div>
+              <div class="col-md-2" v-if="filteredTotalCost === 0">
+                <div class="stat-item">
+                  <h3 class="text-muted">-</h3>
+                  <p class="text-muted">Sin Costo</p>
                 </div>
               </div>
             </div>
@@ -468,6 +488,12 @@ export default {
       return this.summaryData.resumen
         .filter(a => a.horasAsignadasTotales)
         .reduce((total, a) => total + a.horasAsignadasTotales, 0);
+    },
+    
+    filteredTotalCost() {
+      return this.filteredAssignments
+        .filter(a => a.costoTotal && a.costoTotal > 0)
+        .reduce((total, a) => total + a.costoTotal, 0);
     }
   },
   async mounted() {
@@ -578,6 +604,10 @@ export default {
                   horasAsignadasTotales: assignment.horasTotales || 0,
                   dias: assignment.dias || [],
                   
+                  // Información de costo
+                  costoTotal: assignment.costoTotal || 0,
+                  costoPorHora: assignment.costoPorHora || 0,
+                  
                   // Tipo de asignación (basica o costo)
                   tipoAsignacion: assignment.tipoAsignacion || 'basica',
                   
@@ -606,6 +636,16 @@ export default {
       const month = String(date.getUTCMonth() + 1).padStart(2, '0');
       const day = String(date.getUTCDate()).padStart(2, '0');
       return `${day}/${month}/${year}`;
+    },
+    
+    formatCurrency(amount) {
+      if (!amount || amount === 0) return '0';
+      return new Intl.NumberFormat('es-AR', {
+        style: 'currency',
+        currency: 'ARS',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(amount);
     },
     
     goBack() {
