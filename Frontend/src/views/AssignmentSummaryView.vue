@@ -168,13 +168,13 @@
                           <i class="bi bi-calendar-check me-1"></i>
                           <strong>Fecha Fin:</strong> {{ formatDate(assignment.tarea.fechaEstimadaFin) }}
                         </p>
-                        <p v-if="assignment.costoTotal && assignment.costoTotal > 0" class="mb-1">
+                        <p v-if="getAssignmentCost(assignment) > 0" class="mb-1">
                           <i class="bi bi-currency-dollar me-1"></i>
-                          <strong>Costo Total:</strong> {{ formatCurrency(assignment.costoTotal) }}
+                          <strong>Costo Total:</strong> {{ formatCurrency(getAssignmentCost(assignment)) }}
                         </p>
-                        <p v-if="assignment.costoPorHora && assignment.costoPorHora > 0" class="mb-1">
+                        <p v-if="getAssignmentCostPerHour(assignment) > 0" class="mb-1">
                           <i class="bi bi-currency-exchange me-1"></i>
-                          <strong>Costo por Hora:</strong> {{ formatCurrency(assignment.costoPorHora) }}
+                          <strong>Costo por Hora:</strong> {{ formatCurrency(getAssignmentCostPerHour(assignment)) }}
                         </p>
                       </div>
                       <div class="col-md-6">
@@ -264,16 +264,10 @@
                   <p class="text-muted">Horas Totales</p>
                 </div>
               </div>
-              <div class="col-md-2" v-if="filteredTotalCost > 0">
+              <div class="col-md-2">
                 <div class="stat-item">
                   <h3 class="text-danger">${{ formatCurrency(filteredTotalCost) }}</h3>
                   <p class="text-muted">Costo Total</p>
-                </div>
-              </div>
-              <div class="col-md-2" v-if="filteredTotalCost === 0">
-                <div class="stat-item">
-                  <h3 class="text-muted">-</h3>
-                  <p class="text-muted">Sin Costo</p>
                 </div>
               </div>
             </div>
@@ -492,8 +486,22 @@ export default {
     
     filteredTotalCost() {
       return this.filteredAssignments
-        .filter(a => a.costoTotal && a.costoTotal > 0)
-        .reduce((total, a) => total + a.costoTotal, 0);
+        .filter(a => a.asignado) // Solo asignaciones que tienen desarrollador asignado
+        .reduce((total, a) => {
+          // Si ya tiene costoTotal calculado (asignación por costo), usarlo
+          if (a.costoTotal && a.costoTotal > 0) {
+            return total + a.costoTotal;
+          }
+          
+          // Si no tiene costoTotal pero tiene costoPorHora del desarrollador y horas, calcularlo
+          const costoPorHora = a.costoPorHora || a.desarrollador?.costoPorHora || 0;
+          if (costoPorHora > 0 && a.horasAsignadasTotales && a.horasAsignadasTotales > 0) {
+            return total + (costoPorHora * a.horasAsignadasTotales);
+          }
+          
+          // Si no tiene información de costo, no agregar nada
+          return total;
+        }, 0);
     }
   },
   async mounted() {
@@ -590,7 +598,8 @@ export default {
                   desarrollador: {
                     id: assignment.desarrollador?.id,
                     nombre: assignment.desarrollador?.nombre || 'Desarrollador no disponible',
-                    habilidades: assignment.desarrollador?.habilidades || []
+                    habilidades: assignment.desarrollador?.habilidades || [],
+                    costoPorHora: assignment.desarrollador?.costoPorHora || 0
                   },
                   
                   // Nombre del desarrollador para compatibilidad
@@ -646,6 +655,26 @@ export default {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
       }).format(amount);
+    },
+    
+    getAssignmentCost(assignment) {
+      // Si ya tiene costoTotal calculado (asignación por costo), usarlo
+      if (assignment.costoTotal && assignment.costoTotal > 0) {
+        return assignment.costoTotal;
+      }
+      
+      // Si no tiene costoTotal pero tiene costoPorHora y horas, calcularlo
+      const costoPorHora = assignment.costoPorHora || assignment.desarrollador?.costoPorHora || 0;
+      if (costoPorHora > 0 && assignment.horasAsignadasTotales && assignment.horasAsignadasTotales > 0) {
+        return costoPorHora * assignment.horasAsignadasTotales;
+      }
+      
+      return 0;
+    },
+    
+    getAssignmentCostPerHour(assignment) {
+      // Priorizar costoPorHora de la asignación, luego del desarrollador
+      return assignment.costoPorHora || assignment.desarrollador?.costoPorHora || 0;
     },
     
     goBack() {
