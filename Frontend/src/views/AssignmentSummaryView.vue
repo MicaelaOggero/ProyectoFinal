@@ -168,6 +168,14 @@
                           <i class="bi bi-calendar-check me-1"></i>
                           <strong>Fecha Fin:</strong> {{ formatDate(assignment.tarea.fechaEstimadaFin) }}
                         </p>
+                        <p v-if="getAssignmentCost(assignment) > 0" class="mb-1">
+                          <i class="bi bi-currency-dollar me-1"></i>
+                          <strong>Costo Total:</strong> {{ formatCurrency(getAssignmentCost(assignment)) }}
+                        </p>
+                        <p v-if="getAssignmentCostPerHour(assignment) > 0" class="mb-1">
+                          <i class="bi bi-currency-exchange me-1"></i>
+                          <strong>Costo por Hora:</strong> {{ formatCurrency(getAssignmentCostPerHour(assignment)) }}
+                        </p>
                       </div>
                       <div class="col-md-6">
                         <div v-if="assignment.desarrollador?.habilidades && assignment.desarrollador.habilidades.length > 0" class="mb-2">
@@ -232,28 +240,34 @@
           </div>
           <div class="card-body">
             <div class="row text-center">
-              <div class="col-md-3">
+              <div class="col-md-2">
                 <div class="stat-item">
                   <h3 class="text-primary">{{ filteredAssignedTasksCount }}</h3>
                   <p class="text-muted">Tareas Asignadas</p>
                 </div>
               </div>
-              <div class="col-md-3">
+              <div class="col-md-2">
                 <div class="stat-item">
                   <h3 class="text-warning">{{ filteredUnassignedTasksCount }}</h3>
                   <p class="text-muted">Sin Asignar</p>
                 </div>
               </div>
-              <div class="col-md-3">
+              <div class="col-md-2">
                 <div class="stat-item">
                   <h3 class="text-info">{{ filteredUniqueDevelopers.length }}</h3>
                   <p class="text-muted">Desarrolladores</p>
                 </div>
               </div>
-              <div class="col-md-3">
+              <div class="col-md-2">
                 <div class="stat-item">
                   <h3 class="text-success">{{ filteredTotalHoursAssigned }}</h3>
                   <p class="text-muted">Horas Totales</p>
+                </div>
+              </div>
+              <div class="col-md-2">
+                <div class="stat-item">
+                  <h3 class="text-danger">${{ formatCurrency(filteredTotalCost) }}</h3>
+                  <p class="text-muted">Costo Total</p>
                 </div>
               </div>
             </div>
@@ -468,6 +482,26 @@ export default {
       return this.summaryData.resumen
         .filter(a => a.horasAsignadasTotales)
         .reduce((total, a) => total + a.horasAsignadasTotales, 0);
+    },
+    
+    filteredTotalCost() {
+      return this.filteredAssignments
+        .filter(a => a.asignado) // Solo asignaciones que tienen desarrollador asignado
+        .reduce((total, a) => {
+          // Si ya tiene costoTotal calculado (asignación por costo), usarlo
+          if (a.costoTotal && a.costoTotal > 0) {
+            return total + a.costoTotal;
+          }
+          
+          // Si no tiene costoTotal pero tiene costoPorHora del desarrollador y horas, calcularlo
+          const costoPorHora = a.costoPorHora || a.desarrollador?.costoPorHora || 0;
+          if (costoPorHora > 0 && a.horasAsignadasTotales && a.horasAsignadasTotales > 0) {
+            return total + (costoPorHora * a.horasAsignadasTotales);
+          }
+          
+          // Si no tiene información de costo, no agregar nada
+          return total;
+        }, 0);
     }
   },
   async mounted() {
@@ -564,7 +598,8 @@ export default {
                   desarrollador: {
                     id: assignment.desarrollador?.id,
                     nombre: assignment.desarrollador?.nombre || 'Desarrollador no disponible',
-                    habilidades: assignment.desarrollador?.habilidades || []
+                    habilidades: assignment.desarrollador?.habilidades || [],
+                    costoPorHora: assignment.desarrollador?.costoPorHora || 0
                   },
                   
                   // Nombre del desarrollador para compatibilidad
@@ -577,6 +612,10 @@ export default {
                   // Información de días y horas
                   horasAsignadasTotales: assignment.horasTotales || 0,
                   dias: assignment.dias || [],
+                  
+                  // Información de costo
+                  costoTotal: assignment.costoTotal || 0,
+                  costoPorHora: assignment.costoPorHora || 0,
                   
                   // Tipo de asignación (basica o costo)
                   tipoAsignacion: assignment.tipoAsignacion || 'basica',
@@ -606,6 +645,36 @@ export default {
       const month = String(date.getUTCMonth() + 1).padStart(2, '0');
       const day = String(date.getUTCDate()).padStart(2, '0');
       return `${day}/${month}/${year}`;
+    },
+    
+    formatCurrency(amount) {
+      if (!amount || amount === 0) return '0';
+      return new Intl.NumberFormat('es-AR', {
+        style: 'currency',
+        currency: 'ARS',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(amount);
+    },
+    
+    getAssignmentCost(assignment) {
+      // Si ya tiene costoTotal calculado (asignación por costo), usarlo
+      if (assignment.costoTotal && assignment.costoTotal > 0) {
+        return assignment.costoTotal;
+      }
+      
+      // Si no tiene costoTotal pero tiene costoPorHora y horas, calcularlo
+      const costoPorHora = assignment.costoPorHora || assignment.desarrollador?.costoPorHora || 0;
+      if (costoPorHora > 0 && assignment.horasAsignadasTotales && assignment.horasAsignadasTotales > 0) {
+        return costoPorHora * assignment.horasAsignadasTotales;
+      }
+      
+      return 0;
+    },
+    
+    getAssignmentCostPerHour(assignment) {
+      // Priorizar costoPorHora de la asignación, luego del desarrollador
+      return assignment.costoPorHora || assignment.desarrollador?.costoPorHora || 0;
     },
     
     goBack() {
