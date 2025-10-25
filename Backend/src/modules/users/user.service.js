@@ -160,8 +160,8 @@ export async function obtenerEficienciaHistorica(devId) {
   ]);
 
   if (resultado.length === 0) {
-    // Si el dev no tiene historial, asumimos eficiencia 1 (neutral)
-    return 1;
+    // Si el dev no tiene historial
+    return 0;
   }
 
   return parseFloat(resultado[0].eficienciaPromedio.toFixed(2));

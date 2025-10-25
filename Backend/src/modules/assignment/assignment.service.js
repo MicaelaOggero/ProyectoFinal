@@ -91,6 +91,9 @@ export const editarAsignacionService = async (asignacionId, nuevoDevId) => {
   asignacion.costoTarea = costoTarea; // ← guardar el costo también en la asignación
   await saveAsignacion(asignacion);
 
+  // 🆕 9. Registrar la razón del cambio
+  asignacion.razon = "Desarrollador cambiado manualmente";
+
   return asignacion;
 };
 

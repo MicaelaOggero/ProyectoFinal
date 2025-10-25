@@ -90,8 +90,6 @@ preferenciasTarea: {
     type: String,
     required: function () { return !this.googleId; }
   },
-  // ⏱ Máxima capacidad semanal
-  horasSemanalMaxima: { type: Number, default: 40 },
   calendario: {
     type: [calendarioSchema], // array de días con disponibilidad
     default: [],

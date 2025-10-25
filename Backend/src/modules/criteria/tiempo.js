@@ -72,6 +72,7 @@ export const previewObtenerAsignacionesPorTiempoIA = async (projectId) => {
       return {
         id: dev._id,
         nombre: dev.nombre,
+        apellido: dev.apellido,
         experiencia: dev.aniosExperiencia,
         habilidades: dev.habilidades.map((h) => ({
           nombre: h.nombre,
@@ -101,7 +102,7 @@ considerando:
 - Eficiencia histórica del desarrollador
 - Y por último, las preferencias del desarrollador
 
-Devuelve un JSON **válido** con esta estructura:
+Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
 {
   "asignaciones": [
     {
@@ -115,14 +116,19 @@ Devuelve un JSON **válido** con esta estructura:
       ],
       "horasTotales": numero,
       "tipoAsignacion": "tiempo",
-      "razon": "Explicación detallada de por qué fue asignado"
+      "razon": "Explicación detallada de por qué fue asignado",
+      "costoTotal": "costo total de la tarea según horas y costo por hora"
+      
     }
   ],
-  "costoTotalProyecto": "costo total estimado de todas las tareas asignadas"
+  "costoTotalProyecto": "costo total de todas las tareas asignadas según horas y costo por hora"
 }
 
 Datos:
 ${JSON.stringify({ tareas: tareasData, desarrolladores: devsData }, null, 2)}
+
+- Es muy importante que el desarrollador cumpla con al menos el 50% de las habilidades requeridas por la tarea
+- No asignes horas los fines de semana (sábado y domingo)
 `;
 
   const completion = await client.responses.create({

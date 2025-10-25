@@ -182,19 +182,26 @@ export const sugerirAsignacionCalidadIA = async (req, res) => {
 export const confirmarAsignacionesPorCalidadController = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { asignaciones, costoTotalProyecto } = req.body;
+    const { success, criterio, sugerencias } = req.body;
 
-    if (!asignaciones || !costoTotalProyecto ) {
+    if (!projectId || !success || criterio !== "calidad" || !sugerencias) {
       return res.status(400).json({
         status: "error",
         message: "Datos de entrada inválidos o incompletos.",
       });
     }
 
-    const resultado = await confirmarAsignacionPorCalidad(projectId, asignaciones, costoTotalProyecto);
+    const { asignaciones, costoTotalProyecto } = sugerencias;
+
+    const resultado = await confirmarAsignacionPorCalidad(
+      projectId,
+      asignaciones,
+      costoTotalProyecto
+    );
 
     return res.status(200).json({
       status: "success",
+      criterio,
       ...resultado,
     });
   } catch (error) {

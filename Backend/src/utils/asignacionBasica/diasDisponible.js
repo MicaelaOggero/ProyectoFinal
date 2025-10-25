@@ -29,15 +29,16 @@ export function obtenerDisponibilidadEnRango(dev, fechaInicio, fechaFin) {
   while (fechaActual <= fin) {
     const iso = fechaActual.toISOString().split("T")[0];
     const horas = dev.horasDisponiblesPorDia?.[iso] || 0;
-    const esFinDeSemana = [0, 6].includes(fechaActual.getUTCDay());
+    const diaSemana = fechaActual.getUTCDay(); // 0 = domingo, 6 = sábado
 
-    if (horas > 0 && (dev.trabajaFinesDeSemana || !esFinDeSemana)) {
+    // Solo días de semana: lunes (1) a viernes (5)
+    if (horas > 0 && diaSemana >= 1 && diaSemana <= 5) {
       diasDisponibles.push({ fecha: iso, horas });
     }
 
+    // Avanza un día
     fechaActual.setDate(fechaActual.getDate() + 1);
   }
 
   return diasDisponibles;
 }
-

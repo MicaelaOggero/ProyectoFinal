@@ -88,6 +88,7 @@ export const previewObtenerAsignacionesPorCalidadIA = async (projectId) => {
             return {
                 id: dev._id,
                 nombre: dev.nombre,
+                apellido: dev.apellido,
                 experiencia: dev.aniosExperiencia,
                 habilidades: dev.habilidades.map((h) => ({
                     nombre: h.nombre,
@@ -122,6 +123,7 @@ considerando los siguientes factores:
    - eficiencia = 1: estimó 10h, tardó 10h
    - eficiencia > 1: estimó 10h, tardó 8h
    - eficiencia < 1: estimó 10h, tardó 12h
+   - eficiencia = 0: no tiene historial 
 8. Preferencias y feedback histórico de calidad
    - preferenciasHabilidad: puntuación promedio por habilidad (1-5) y veces calificado
    - preferenciasTarea: puntuación promedio por tarea y veces calificado
@@ -151,16 +153,19 @@ Devuelve un JSON **válido** con la siguiente estructura (Nada más el JSON):
       ],
       "horasTotales": numero,
       "tipoAsignacion": "calidad",
-      "razon": "Explicación detallada de por qué fue asignado, incluyendo calidad y eficiencia"
+      "razon": "Explicación detallada de por qué fue asignado, incluyendo calidad y eficiencia",
+      "costoTotal": "costo total de la tarea según horas y costo por hora"
     }
   ],
-  "costoTotalProyecto": "costo total estimado de todas las tareas asignadas"
+  "costoTotalProyecto": "costo total de todas las tareas asignadas según horas y costo por hora"
 }
 
 Datos:
 ${JSON.stringify({ tareas: tareasData, desarrolladores: devsData }, null, 2)}
 
 Notas:
+- Es muy importante que el desarrollador cumpla con al menos el 50% de las habilidades requeridas por la tarea
+- No asignes horas los fines de semana (sábado y domingo)
 - usa las puntuaciones de preferenciasHabilidad, preferenciasTarea y performanceFeedback para asegurar la calidad
 - si un desarrollador tiene alta puntuación en la habilidad requerida, dale prioridad
 - si un desarrollador tiene baja eficiencia o puntuación histórica, asígnalo solo si no hay otra opción
@@ -273,6 +278,6 @@ export async function confirmarAsignacionPorCalidad(projectId, asig, costoTProye
         message: "Asignaciones confirmadas y guardadas en la base de datos (modo calidad)",
         costoTotalProyecto,
         resultados,
-    };
-    asig
+    }; 
+    
 }
