@@ -112,6 +112,54 @@ class AssignmentService {
       throw error;
     }
   }
+
+  // Preview de asignación por tiempo
+  async previewTimeAssignment(projectId) {
+    try {
+      const response = await axios.get(`${API_URL}/assignment/iapreview/proyecto/${projectId}/tiempo`);
+      return response.data;
+    } catch (error) {
+      console.error('Error obteniendo preview de asignación por tiempo:', error);
+      throw error;
+    }
+  }
+
+  // Confirmar asignación por tiempo
+  async confirmTimeAssignment(projectId, sugerencias) {
+    try {
+      const response = await axios.post(`${API_URL}/assignment/iaconfirm/proyecto/${projectId}/tiempo`, {
+        sugerencias
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error confirmando asignación por tiempo:', error);
+      throw error;
+    }
+  }
+
+  // Preview de asignación por calidad
+  async previewQualityAssignment(projectId) {
+    try {
+      const response = await axios.get(`${API_URL}/assignment/iapreview/proyecto/${projectId}/calidad`);
+      return response.data;
+    } catch (error) {
+      console.error('Error obteniendo preview de asignación por calidad:', error);
+      throw error;
+    }
+  }
+
+  // Confirmar asignación por calidad
+  async confirmQualityAssignment(projectId, sugerencias) {
+    try {
+      const response = await axios.post(`${API_URL}/assignment/iaconfirm/proyecto/${projectId}/calidad`, {
+        sugerencias
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error confirmando asignación por calidad:', error);
+      throw error;
+    }
+  }
 }
 
 export default new AssignmentService();

@@ -564,6 +564,62 @@
                     </div>
                   </div>
                 </div>
+
+                <div class="col-md-6 mb-3">
+                  <div class="card h-100 assignment-option-card" @click="selectAssignmentType('time')" :class="{ 'selected': selectedAssignmentType === 'time' }">
+                    <div class="card-body text-center">
+                      <div class="assignment-icon mb-3">
+                        <i class="bi bi-hourglass-split fs-1 text-warning"></i>
+                      </div>
+                      <h6 class="card-title">Por Tiempo (IA)</h6>
+                      <p class="card-text small text-muted">
+                        Optimiza la asignación para reducir tiempos
+                      </p>
+                      <div class="assignment-features">
+                        <small class="text-success">
+                          <i class="bi bi-check-circle me-1"></i>
+                          IA optimiza tiempos de entrega
+                        </small><br>
+                        <small class="text-success">
+                          <i class="bi bi-check-circle me-1"></i>
+                          Considera experiencia y eficiencia
+                        </small><br>
+                        <small class="text-success">
+                          <i class="bi bi-check-circle me-1"></i>
+                          Asignación inteligente
+                        </small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                  <div class="card h-100 assignment-option-card" @click="selectAssignmentType('quality')" :class="{ 'selected': selectedAssignmentType === 'quality' }">
+                    <div class="card-body text-center">
+                      <div class="assignment-icon mb-3">
+                        <i class="bi bi-star-fill fs-1 text-info"></i>
+                      </div>
+                      <h6 class="card-title">Por Calidad (IA)</h6>
+                      <p class="card-text small text-muted">
+                        Prioriza la calidad del trabajo entregado
+                      </p>
+                      <div class="assignment-features">
+                        <small class="text-success">
+                          <i class="bi bi-check-circle me-1"></i>
+                          IA maximiza calidad de código
+                        </small><br>
+                        <small class="text-success">
+                          <i class="bi bi-check-circle me-1"></i>
+                          Asigna a los mejores perfiles
+                        </small><br>
+                        <small class="text-success">
+                          <i class="bi bi-check-circle me-1"></i>
+                          Entrega de alta calidad
+                        </small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -588,27 +644,28 @@
                       <th>Días Asignados</th>
                       <th v-if="selectedAssignmentType === 'cost'">Costo por Hora</th>
                       <th v-if="selectedAssignmentType === 'cost'">Costo Total</th>
+                      <th v-if="selectedAssignmentType === 'time' || selectedAssignmentType === 'quality'">Razón</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(asignacion, index) in previewData.asignaciones" :key="index">
+                    <tr v-for="(asignacion, index) in (previewData.asignaciones || previewData.sugerencias)" :key="index">
                       <td>
-                        <strong>{{ asignacion.tarea.descripcion }}</strong>
+                        <strong>{{ asignacion.tarea?.descripcion || asignacion.descripcion || 'Tarea sin descripción' }}</strong>
                       </td>
                       <td>
-                        <span v-if="asignacion.desarrollador">
+                        <span v-if="asignacion.desarrollador || asignacion.desarrolladorAsignado">
                           <i class="bi bi-person-check text-success me-1"></i>
-                          {{ asignacion.desarrollador.nombre }} {{ asignacion.desarrollador.apellido }}
+                          {{ asignacion.desarrollador?.nombre || asignacion.desarrolladorAsignado?.nombre || '' }} {{ asignacion.desarrollador?.apellido || asignacion.desarrolladorAsignado?.apellido || '' }}
                         </span>
                         <span v-else class="text-warning">
                           <i class="bi bi-exclamation-triangle me-1"></i>
-                          {{ asignacion.motivo }}
+                          {{ asignacion.motivo || 'Sin asignar' }}
                         </span>
                       </td>
                       <td>
-                        <span v-if="asignacion.horasTotales">
+                        <span v-if="asignacion.horasTotales || asignacion.horasAsignadas">
                           <i class="bi bi-clock me-1"></i>
-                          {{ asignacion.horasTotales }}h
+                          {{ asignacion.horasTotales || asignacion.horasAsignadas }}h
                         </span>
                         <span v-else class="text-muted">-</span>
                       </td>
@@ -628,6 +685,12 @@
                       <td v-if="selectedAssignmentType === 'cost'">
                         <span v-if="asignacion.costoTotal" class="fw-bold text-success">
                           ${{ asignacion.costoTotal.toFixed(2) }}
+                        </span>
+                        <span v-else class="text-muted">-</span>
+                      </td>
+                      <td v-if="selectedAssignmentType === 'time' || selectedAssignmentType === 'quality'">
+                        <span v-if="asignacion.razon" class="small text-muted">
+                          {{ asignacion.razon }}
                         </span>
                         <span v-else class="text-muted">-</span>
                       </td>
@@ -1366,11 +1429,16 @@ export default {
           previewResult = await AssignmentService.previewBasicAssignment(this.selectedProject);
         } else if (this.selectedAssignmentType === 'cost') {
           previewResult = await AssignmentService.previewCostAssignment(this.selectedProject);
+        } else if (this.selectedAssignmentType === 'time') {
+          previewResult = await AssignmentService.previewTimeAssignment(this.selectedProject);
+        } else if (this.selectedAssignmentType === 'quality') {
+          previewResult = await AssignmentService.previewQualityAssignment(this.selectedProject);
         }
 
         this.previewData = previewResult;
 
-        if (!previewResult.asignaciones || previewResult.asignaciones.length === 0) {
+        const hasAssignments = previewResult.asignaciones?.length > 0 || previewResult.sugerencias?.length > 0;
+        if (!hasAssignments) {
           alert('No se encontraron tareas para asignar en este proyecto');
         }
 
@@ -1412,18 +1480,30 @@ export default {
             this.previewData.asignaciones,
             this.previewData.costoTotalProyecto
           );
+        } else if (this.selectedAssignmentType === 'time') {
+          confirmResult = await AssignmentService.confirmTimeAssignment(
+            this.selectedProject,
+            this.previewData.sugerencias || this.previewData.asignaciones
+          );
+        } else if (this.selectedAssignmentType === 'quality') {
+          confirmResult = await AssignmentService.confirmQualityAssignment(
+            this.selectedProject,
+            this.previewData.sugerencias || this.previewData.asignaciones
+          );
         }
 
         // Mostrar mensaje de éxito
         alert(`✅ ${confirmResult.message}\n\nAsignaciones guardadas correctamente.`);
 
         // Guardar resultados para mostrar en el resumen
-        this.assignmentResults = this.previewData.asignaciones.map(asig => ({
-          tarea: asig.tarea.descripcion,
+        // Las respuestas de tiempo y calidad pueden tener estructura diferente
+        const asignacionesToMap = this.previewData.sugerencias || this.previewData.asignaciones || [];
+        this.assignmentResults = asignacionesToMap.map(asig => ({
+          tarea: asig.tarea?.descripcion || asig.tarea || asig.descripcion,
           asignado: asig.desarrollador ? `${asig.desarrollador.nombre} ${asig.desarrollador.apellido}` : null,
           motivo: asig.motivo || null,
-          horasAsignadasTotales: asig.horasTotales,
-          dias: asig.dias
+          horasAsignadasTotales: asig.horasTotales || asig.horasAsignadas || 0,
+          dias: asig.dias || []
         }));
 
         // Guardar en localStorage
