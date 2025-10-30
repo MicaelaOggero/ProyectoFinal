@@ -769,16 +769,40 @@ export default {
         }
         
         // Llamar al servicio de asignaciones
-        await AssignmentService.editAssignment(
+        const response = await AssignmentService.editAssignment(
           this.selectedAssignmentForEdit.asignacionId, 
           this.assignmentForm.newDeveloperId
         );
         
-        // Recargar los datos del resumen forzando la actualización desde el backend
-        await this.loadSummaryData(true);
+        console.log('🔍 Respuesta del backend:', response);
+        
+        // Buscar el nuevo desarrollador en la lista de usuarios
+        const newDeveloper = this.users.find(u => u._id === this.assignmentForm.newDeveloperId);
+        
+        if (newDeveloper && this.summaryData?.resumen) {
+          // Actualizar la asignación en el resumen local
+          const assignmentIndex = this.summaryData.resumen.findIndex(
+            a => a.asignacionId === this.selectedAssignmentForEdit.asignacionId
+          );
+          
+          if (assignmentIndex !== -1) {
+            // Actualizar la asignación con el nuevo desarrollador
+            this.summaryData.resumen[assignmentIndex].desarrollador = {
+              id: newDeveloper._id,
+              nombre: newDeveloper.nombre,
+              habilidades: newDeveloper.habilidades || [],
+              costoPorHora: newDeveloper.costoPorHora || 0
+            };
+            this.summaryData.resumen[assignmentIndex].asignado = newDeveloper.nombre;
+            
+            console.log('🔍 Asignación actualizada en el resumen:', this.summaryData.resumen[assignmentIndex]);
+          }
+        }
+        
+        // Cerrar el modal
+        this.closeEditAssignmentModal();
         
         alert('Asignación actualizada correctamente.\n\nLos calendarios de disponibilidad de ambos desarrolladores han sido actualizados automáticamente.');
-        this.closeEditAssignmentModal();
         
       } catch (error) {
         console.error('Error actualizando asignación:', error);

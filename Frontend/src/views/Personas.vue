@@ -253,7 +253,7 @@
                     :class="{ 'is-invalid': hasFieldError(`skill_${index}_name`) }"
                     v-model="skill.name"
                   >
-                    <option disabled value="">Seleccione una habilidad</option>
+                    <option value="">Seleccione una habilidad</option>
                     <option v-for="opt in skillOptions" :key="opt" :value="opt">{{ opt }}</option>
                   </select>
                   <div class="invalid-feedback" v-if="hasFieldError(`skill_${index}_name`)">
@@ -633,7 +633,7 @@ export default {
         yearsExperience: person.aniosExperiencia || 0,
         skills: (person.habilidades && person.habilidades.length > 0) 
           ? person.habilidades.map(skill => ({
-              name: skill.nombre || '',
+              name: skill.nombre || '', // Guardar exactamente como está en la BD
               level: skill.nivel ? skill.nivel.toString() : '1'
             }))
           : [{ name: '', level: '1' }], // Si no hay habilidades, mostrar una vacía para editar
@@ -646,11 +646,7 @@ export default {
       console.log('🔍 DNI mapeado al frontend:', this.editablePerson.dni);
       console.log('🔍 Habilidades del backend:', person.habilidades);
       console.log('🔍 Habilidades mapeadas al frontend:', this.editablePerson.skills);
-      console.log('🔍 Primera habilidad - name:', this.editablePerson.skills[0]?.name, 'level:', this.editablePerson.skills[0]?.level, 'tipo:', typeof this.editablePerson.skills[0]?.level);
       console.log('🔍 Opciones de habilidades disponibles:', this.skillOptions);
-      console.log('🔍 ¿Coincide "Frontend" con las opciones?', this.skillOptions.includes('Frontend'));
-      console.log('🔍 ¿Coincide "React" con las opciones?', this.skillOptions.includes('React'));
-      console.log('🔍 Campos disponibles en el backend:', Object.keys(person));
       console.log('Datos mapeados para edición:', this.editablePerson);
       
       // Forzar reactividad de Vue

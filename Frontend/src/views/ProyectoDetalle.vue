@@ -663,9 +663,11 @@
           <button class="btn-close" @click="closeAssignmentTypeModal"></button>
         </div>
         <div class="modal-body">
-          <p class="mb-4">Selecciona el tipo de optimización para la asignación automática:</p>
+          <!-- Paso 1: Selección de tipo (si no hay preview) -->
+          <div v-if="!previewData">
+            <p class="mb-4">Selecciona el tipo de optimización para la asignación automática:</p>
           
-          <div class="row">
+            <div class="row">
             <div class="col-md-6 mb-3">
               <div class="card h-100 assignment-option-card" @click="selectAssignmentType('availability')" :class="{ 'selected': selectedAssignmentType === 'availability' }">
                 <div class="card-body text-center">
@@ -721,20 +723,203 @@
                 </div>
               </div>
             </div>
+
+            <div class="col-md-6 mb-3">
+              <div class="card h-100 assignment-option-card" @click="selectAssignmentType('time')" :class="{ 'selected': selectedAssignmentType === 'time' }">
+                <div class="card-body text-center">
+                  <div class="assignment-icon mb-3">
+                    <i class="bi bi-hourglass-split fs-1 text-warning"></i>
+                  </div>
+                  <h6 class="card-title">Por Tiempo (IA)</h6>
+                  <p class="card-text small text-muted">
+                    Optimiza la asignación para reducir tiempos
+                  </p>
+                  <div class="assignment-features">
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      IA optimiza tiempos de entrega
+                    </small><br>
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Considera experiencia y eficiencia
+                    </small><br>
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Asignación inteligente
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-6 mb-3">
+              <div class="card h-100 assignment-option-card" @click="selectAssignmentType('quality')" :class="{ 'selected': selectedAssignmentType === 'quality' }">
+                <div class="card-body text-center">
+                  <div class="assignment-icon mb-3">
+                    <i class="bi bi-star-fill fs-1 text-info"></i>
+                  </div>
+                  <h6 class="card-title">Por Calidad (IA)</h6>
+                  <p class="card-text small text-muted">
+                    Prioriza la calidad del trabajo entregado
+                  </p>
+                  <div class="assignment-features">
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      IA maximiza calidad de código
+                    </small><br>
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Asigna a los mejores perfiles
+                    </small><br>
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Entrega de alta calidad
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+            </div>
+          </div>
+
+          <!-- Paso 2: Preview de asignaciones (si hay preview) -->
+          <div v-else>
+            <div class="alert alert-info">
+              <i class="bi bi-info-circle me-2"></i>
+              <strong>Previsualización de Asignaciones</strong>
+              <p class="mb-0 mt-2">
+                {{ previewData.message }}
+              </p>
+            </div>
+
+            <!-- Tabla de preview -->
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>Tarea</th>
+                    <th>Desarrollador Sugerido</th>
+                    <th>Horas Totales</th>
+                    <th>Días Asignados</th>
+                    <th v-if="selectedAssignmentType === 'cost'">Costo por Hora</th>
+                    <th v-if="selectedAssignmentType === 'cost'">Costo Total</th>
+                    <th v-if="selectedAssignmentType === 'time' || selectedAssignmentType === 'quality'">Razón</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(asignacion, index) in (previewData.asignaciones || previewData.sugerencias)" :key="index">
+                    <td>
+                      <strong>{{ asignacion.tarea?.descripcion || asignacion.descripcion || 'Tarea sin descripción' }}</strong>
+                    </td>
+                    <td>
+                      <span v-if="asignacion.desarrollador || asignacion.desarrolladorAsignado">
+                        <i class="bi bi-person-check text-success me-1"></i>
+                        {{ asignacion.desarrollador?.nombre || asignacion.desarrolladorAsignado?.nombre || '' }} {{ asignacion.desarrollador?.apellido || asignacion.desarrolladorAsignado?.apellido || '' }}
+                      </span>
+                      <span v-else class="text-warning">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        {{ asignacion.motivo || 'Sin asignar' }}
+                      </span>
+                    </td>
+                    <td>
+                      <span v-if="asignacion.horasTotales || asignacion.horasAsignadas">
+                        <i class="bi bi-clock me-1"></i>
+                        {{ asignacion.horasTotales || asignacion.horasAsignadas }}h
+                      </span>
+                      <span v-else class="text-muted">-</span>
+                    </td>
+                    <td>
+                      <span v-if="asignacion.dias && asignacion.dias.length > 0">
+                        <i class="bi bi-calendar-week me-1"></i>
+                        {{ asignacion.dias.length }} días
+                      </span>
+                      <span v-else class="text-muted">-</span>
+                    </td>
+                    <td v-if="selectedAssignmentType === 'cost'">
+                      <span v-if="asignacion.desarrollador">
+                        ${{ asignacion.desarrollador.costoPorHora }}/h
+                      </span>
+                      <span v-else class="text-muted">-</span>
+                    </td>
+                    <td v-if="selectedAssignmentType === 'cost'">
+                      <span v-if="asignacion.costoTotal" class="fw-bold text-success">
+                        ${{ asignacion.costoTotal.toFixed(2) }}
+                      </span>
+                      <span v-else class="text-muted">-</span>
+                    </td>
+                    <td v-if="selectedAssignmentType === 'time' || selectedAssignmentType === 'quality'">
+                      <span v-if="asignacion.razon" class="small text-muted">
+                        {{ asignacion.razon }}
+                      </span>
+                      <span v-else class="text-muted">-</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Resumen total -->
+            <div class="alert alert-success mt-3" v-if="previewData.costoTotalProyecto">
+              <div class="d-flex justify-content-between align-items-center">
+                <strong>
+                  <i class="bi bi-currency-dollar me-2"></i>
+                  Costo Total del Proyecto:
+                </strong>
+                <h4 class="mb-0 text-success">
+                  ${{ previewData.costoTotalProyecto.toFixed(2) }}
+                </h4>
+              </div>
+            </div>
+
+            <!-- Pregunta de confirmación -->
+            <div class="alert alert-warning mt-3">
+              <i class="bi bi-question-circle me-2"></i>
+              <strong>¿Desea guardar estas asignaciones?</strong>
+              <p class="mb-0 mt-2 small">
+                Una vez confirmadas, las tareas serán asignadas a los desarrolladores y sus calendarios se actualizarán automáticamente.
+              </p>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" @click="closeAssignmentTypeModal">Cancelar</button>
-          <button 
-            type="button" 
-            class="btn btn-success" 
-            @click="executeSelectedAssignment"
-            :disabled="!selectedAssignmentType || isAssigning"
-          >
-            <span v-if="isAssigning" class="spinner-border spinner-border-sm me-2" role="status"></span>
-            <i v-else class="bi bi-robot me-2"></i>
-            {{ isAssigning ? 'Ejecutando...' : 'Ejecutar Asignación' }}
+          <button type="button" class="btn btn-secondary" @click="closeAssignmentTypeModal">
+            {{ previewData ? 'Cancelar' : 'Cerrar' }}
           </button>
+          
+          <!-- Botón para generar preview -->
+          <button 
+            v-if="!previewData"
+            type="button" 
+            class="btn btn-primary" 
+            @click="generatePreview"
+            :disabled="!selectedAssignmentType || isLoadingPreview"
+          >
+            <span v-if="isLoadingPreview" class="spinner-border spinner-border-sm me-2" role="status"></span>
+            <i v-else class="bi bi-eye me-2"></i>
+            {{ isLoadingPreview ? 'Generando...' : 'Ver Previsualización' }}
+          </button>
+          
+          <!-- Botones para confirmar o volver -->
+          <template v-else>
+            <button 
+              type="button" 
+              class="btn btn-outline-primary" 
+              @click="backToSelection"
+            >
+              <i class="bi bi-arrow-left me-2"></i>
+              Volver a Selección
+            </button>
+            <button 
+              type="button" 
+              class="btn btn-success" 
+              @click="confirmAssignment"
+              :disabled="isConfirming"
+            >
+              <span v-if="isConfirming" class="spinner-border spinner-border-sm me-2" role="status"></span>
+              <i v-else class="bi bi-check-circle me-2"></i>
+              {{ isConfirming ? 'Guardando...' : 'Confirmar y Guardar' }}
+            </button>
+          </template>
         </div>
       </div>
     </div>
@@ -870,7 +1055,12 @@ export default {
       isAssigning: false,
       // Variables para el modal de selección de tipo de asignación
       showAssignmentTypeModal: false,
-      selectedAssignmentType: null, // 'availability' o 'cost'
+      selectedAssignmentType: null, // 'availability', 'cost', 'time', o 'quality'
+      
+      // Preview y confirmación
+      previewData: null,
+      isLoadingPreview: false,
+      isConfirming: false,
       
       // Para edición de asignaciones
       selectedAssignmentForEdit: null,
@@ -1318,11 +1508,17 @@ export default {
     // Métodos para el modal de selección de tipo de asignación
     openAssignmentTypeModal() {
       this.selectedAssignmentType = null;
+      this.previewData = null;
+      this.isLoadingPreview = false;
+      this.isConfirming = false;
       this.showAssignmentTypeModal = true;
     },
 
     closeAssignmentTypeModal() {
       this.selectedAssignmentType = null;
+      this.previewData = null;
+      this.isLoadingPreview = false;
+      this.isConfirming = false;
       this.showAssignmentTypeModal = false;
     },
 
@@ -1330,32 +1526,102 @@ export default {
       this.selectedAssignmentType = type;
     },
 
-    async executeSelectedAssignment() {
-      if (!this.selectedAssignmentType) return;
-      
-      this.isAssigning = true;
-      
+    // Generar previsualización
+    async generatePreview() {
+      if (!this.selectedAssignmentType) {
+        alert('Por favor selecciona un tipo de asignación');
+        return;
+      }
+
+      this.isLoadingPreview = true;
+
       try {
+        const projectId = this.$route.params.id;
+        let previewResult;
+        
         if (this.selectedAssignmentType === 'availability') {
-          await this.runAvailabilityBasedAssignment();
+          previewResult = await AssignmentService.previewBasicAssignment(projectId);
         } else if (this.selectedAssignmentType === 'cost') {
-          await this.runCostBasedAssignment();
+          previewResult = await AssignmentService.previewCostAssignment(projectId);
+        } else if (this.selectedAssignmentType === 'time') {
+          previewResult = await AssignmentService.previewTimeAssignment(projectId);
+        } else if (this.selectedAssignmentType === 'quality') {
+          previewResult = await AssignmentService.previewQualityAssignment(projectId);
         }
-        
-        // Cerrar modal después de ejecutar
-        this.closeAssignmentTypeModal();
+
+        this.previewData = previewResult;
+
+        const hasAssignments = previewResult.asignaciones?.length > 0 || previewResult.sugerencias?.length > 0;
+        if (!hasAssignments) {
+          alert('No se encontraron tareas para asignar en este proyecto');
+        }
+
       } catch (error) {
-        console.error('Error ejecutando asignación:', error);
+        console.error('Error generando previsualización:', error);
         const errorMsg = error.response?.data?.error || error.message || 'Error desconocido';
-        
-        // Mostrar mensaje de error específico
-        if (errorMsg.includes('is not defined')) {
-          alert(`⚠️ Error en el servidor\n\nLa funcionalidad de asignación por costo tiene un problema en el backend.\n\nError técnico: ${errorMsg}\n\nPor favor, contacta al desarrollador del backend.`);
-        } else {
-          alert(`Error ejecutando asignación: ${errorMsg}`);
-        }
+        alert(`Error generando previsualización: ${errorMsg}`);
       } finally {
-        this.isAssigning = false;
+        this.isLoadingPreview = false;
+      }
+    },
+
+    // Volver a la selección de tipo
+    backToSelection() {
+      this.previewData = null;
+    },
+
+    // Confirmar y guardar asignaciones
+    async confirmAssignment() {
+      if (!this.previewData || !this.selectedAssignmentType) {
+        return;
+      }
+
+      this.isConfirming = true;
+
+      try {
+        const projectId = this.$route.params.id;
+        let confirmResult;
+
+        if (this.selectedAssignmentType === 'availability') {
+          confirmResult = await AssignmentService.confirmBasicAssignment(
+            projectId,
+            this.previewData.asignaciones,
+            this.previewData.costoTotalProyecto
+          );
+        } else if (this.selectedAssignmentType === 'cost') {
+          confirmResult = await AssignmentService.confirmCostAssignment(
+            projectId,
+            this.previewData.asignaciones,
+            this.previewData.costoTotalProyecto
+          );
+        } else if (this.selectedAssignmentType === 'time') {
+          confirmResult = await AssignmentService.confirmTimeAssignment(
+            projectId,
+            this.previewData.sugerencias || this.previewData.asignaciones
+          );
+        } else if (this.selectedAssignmentType === 'quality') {
+          confirmResult = await AssignmentService.confirmQualityAssignment(
+            projectId,
+            this.previewData.sugerencias || this.previewData.asignaciones
+          );
+        }
+
+        // Mostrar mensaje de éxito
+        alert(`✅ ${confirmResult.message}\n\nAsignaciones guardadas correctamente.`);
+
+        // Recargar tareas y asignaciones
+        await this.loadProjectTasks();
+        await this.loadExistingAssignments();
+
+        // Cerrar modal
+        this.closeAssignmentTypeModal();
+
+      } catch (error) {
+        console.error('Error confirmando asignación:', error);
+        const errorMsg = error.response?.data?.error || error.message || 'Error desconocido';
+        alert(`Error confirmando asignación: ${errorMsg}`);
+      } finally {
+        this.isConfirming = false;
       }
     },
 
@@ -1419,6 +1685,70 @@ export default {
         
       } catch (error) {
         console.error('Error ejecutando asignación por costo:', error);
+        throw error;
+      }
+    },
+
+    async runTimeBasedAssignment() {
+      const projectId = this.$route.params.id;
+      console.log('🔍 ProyectoDetalle - Iniciando asignación por tiempo para proyecto:', projectId);
+      
+      try {
+        // Validar tareas del proyecto antes de la asignación automática
+        const validationResults = await this.validateProjectTasksForAssignment(projectId);
+        
+        if (!validationResults.isValid) {
+          alert(`No se puede ejecutar la asignación automática: ${validationResults.message}`);
+          return;
+        }
+        
+        console.log(`✅ Proyecto ${this.project.name}: Todas las tareas pasaron las validaciones`);
+        
+        // Llamar al endpoint de asignación por tiempo
+        const resultado = await AssignmentService.confirmTimeAssignment(projectId, null);
+        
+        console.log('🔍 ProyectoDetalle - Resultado asignación por tiempo:', resultado);
+        
+        // Recargar las tareas para mostrar los cambios
+        await this.loadProjectTasks();
+        
+        // Mostrar mensaje de éxito
+        alert('Asignación automática por tiempo completada exitosamente');
+        
+      } catch (error) {
+        console.error('Error ejecutando asignación por tiempo:', error);
+        throw error;
+      }
+    },
+
+    async runQualityBasedAssignment() {
+      const projectId = this.$route.params.id;
+      console.log('🔍 ProyectoDetalle - Iniciando asignación por calidad para proyecto:', projectId);
+      
+      try {
+        // Validar tareas del proyecto antes de la asignación automática
+        const validationResults = await this.validateProjectTasksForAssignment(projectId);
+        
+        if (!validationResults.isValid) {
+          alert(`No se puede ejecutar la asignación automática: ${validationResults.message}`);
+          return;
+        }
+        
+        console.log(`✅ Proyecto ${this.project.name}: Todas las tareas pasaron las validaciones`);
+        
+        // Llamar al endpoint de asignación por calidad
+        const resultado = await AssignmentService.confirmQualityAssignment(projectId, null);
+        
+        console.log('🔍 ProyectoDetalle - Resultado asignación por calidad:', resultado);
+        
+        // Recargar las tareas para mostrar los cambios
+        await this.loadProjectTasks();
+        
+        // Mostrar mensaje de éxito
+        alert('Asignación automática por calidad completada exitosamente');
+        
+      } catch (error) {
+        console.error('Error ejecutando asignación por calidad:', error);
         throw error;
       }
     },

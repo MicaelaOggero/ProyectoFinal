@@ -228,7 +228,7 @@
               </div>
 
               <div class="row">
-                <div class="col-md-6 mb-3">
+                <div class="col-md-12 mb-3">
                   <label for="taskSkills" class="form-label">Habilidades Requeridas *</label>
                   
                   <!-- Lista de habilidades disponibles -->
@@ -284,15 +284,6 @@
                     </span>
                     </div>
                   </div>
-                </div>
-                <div class="col-md-6 mb-3">
-                  <label for="taskDeveloper" class="form-label">Desarrollador Asignado</label>
-                  <select class="form-select" id="taskDeveloper" v-model="taskForm.desarrolladorAsignado">
-                    <option value="">Sin asignar</option>
-                    <option v-for="user in users" :key="user._id" :value="user._id">
-                      {{ user.nombre || user.email }}
-                    </option>
-                  </select>
                 </div>
               </div>
 
