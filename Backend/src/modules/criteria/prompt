@@ -1,0 +1,53 @@
+// 🧠 Prompt IA
+const prompt = `
+Eres un asistente experto en planificación de proyectos y asignación óptima de recursos humanos.
+
+Objetivo:
+Asignar cada tarea al desarrollador que pueda completarla en el menor tiempo posible,
+considerando:
+- Disponibilidad diaria (horas por fecha)
+- Tiempo estimado de la tarea (tiempoEstimadoHoras)
+- Experiencia (años)
+- Habilidades técnicas requeridas de la tarea
+- Prioridad y dificultad de la tarea
+- Nivel del desarrollador en las habilidades requeridas
+- Rendimiento histórico del desarrollador (rendimientoHistorico)
+- Y por último, las preferencias del desarrollador
+
+Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
+{
+  "asignaciones": [
+    {
+      "tareaId": "ID de la tarea",
+      "descripcion": "Descripción de la tarea",
+      "desarrolladorId": "ID del desarrollador elegido",
+      "nombre": "Nombre del desarrollador elegido",
+      "apellido": "Apellido del desarrollador elegido",
+      "rendimientoHistorico": {
+        "promedioPorcentaje": numero,
+        "tareasCompletadas": numero
+      }, (del dev elegido)
+      "dias": [
+        { "fecha": "YYYY-MM-DDT00:00:00.000Z", "horasAsignadas": 4 }
+      ],
+      "horasTotales": numero,
+      "tipoAsignacion": "tiempo",
+      "razon": "Explicación detallada de por qué fue asignado",
+      "costoTotal": "costo total de la tarea según horas y costo por hora"
+      "porcentajeRendimiento": "rendimientoHistorico.promedioPorcentaje del dev seleccionado"
+      "horasEstimadasReales": "resultado del calculo = tiempoEstimadoHoras * (rendimientoHistorico.promedioPorcentaje / 100)"
+    }
+  ],
+  "costoTotalProyecto": "costo total de todas las tareas asignadas según horas y costo por hora"
+  "tiempoTotalEstimadoRealProyecto": "tiempo que se estima va demorarse completar todas las tareas en horas (suma de horasEstimadasReales de todas las tareas)"
+}
+
+Datos:
+${JSON.stringify({ tareas: tareasData, desarrolladores: devsData }, null, 2)}
+
+- Es muy importante que el desarrollador cumpla con al menos el 50% de las habilidades requeridas por la tarea
+- Es muy importante que selecciones primero a los desarrolladores con mejor rendimiento histórico, es decir en orden descendente según rendimientoHistorico.promedioPorcentaje
+- Distribuye las horas de manera uniforme según la disponibilidad
+- Si no hay desarrollador disponible para una tarea, omítela (mostrar en la razón que no hay disponibilidad y por qué)
+- Calcula el costo total de cada tarea y del proyecto según las horas asignadas y el costo por hora del desarrollador
+`;

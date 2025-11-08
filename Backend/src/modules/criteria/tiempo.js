@@ -4,16 +4,16 @@ import Task from "../task/task.model.js";
 import User from "../users/user.model.js";
 import { obtenerDisponibilidadEnRango } from "../../utils/asignacionBasica/diasDisponible.js";
 import dotenv from "dotenv";
-import { obtenerEficienciaHistorica } from "../users/user.service.js";
 import Asignacion from "../assignment/assignment.model.js";
 
 dotenv.config()
 
 const client = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 export const previewObtenerAsignacionesPorTiempoIA = async (projectId) => {
+  
   const project = await Project.findById(projectId);
   if (!project) throw new Error("Proyecto no encontrado");
 
@@ -50,7 +50,7 @@ export const previewObtenerAsignacionesPorTiempoIA = async (projectId) => {
     descripcion: t.descripcion,
     fechaInicio: t.fechaEstimadaInicio,
     fechaFin: t.fechaEstimadaFin,
-    tiempoEstimadoHoras: t.tiempoEstimadoHoras || 8,
+    tiempoEstimadoHoras: t.tiempoEstimadoHoras,
     habilidades: t.habilidadesRequeridas,
     prioridad: t.prioridad,
     nivelDificultad: t.nivelDificultad,
@@ -59,7 +59,7 @@ export const previewObtenerAsignacionesPorTiempoIA = async (projectId) => {
   // 🔹 Obtener datos de cada dev
   const devsData = await Promise.all(
     desarrolladores.map(async (dev) => {
-      const eficienciaPromedio = await obtenerEficienciaHistorica(dev._id);
+     
       const disponibilidad = tareas.map((tarea) => ({
         tareaId: tarea._id,
         diasDisponibles: obtenerDisponibilidadEnRango(
@@ -80,7 +80,7 @@ export const previewObtenerAsignacionesPorTiempoIA = async (projectId) => {
         })),
         preferencias: dev.preferencias,
         costoPorHora: dev.costoPorHora,
-        eficienciaPromedio,
+        rendimientoHistorico: dev.rendimientoHistorico,
         disponibilidad,
       };
     })
@@ -94,12 +94,12 @@ Objetivo:
 Asignar cada tarea al desarrollador que pueda completarla en el menor tiempo posible,
 considerando:
 - Disponibilidad diaria (horas por fecha)
-- Tiempo estimado de la tarea
+- Tiempo estimado de la tarea (tiempoEstimadoHoras)
 - Experiencia (años)
 - Habilidades técnicas requeridas de la tarea
 - Prioridad y dificultad de la tarea
 - Nivel del desarrollador en las habilidades requeridas
-- Eficiencia histórica del desarrollador
+- Rendimiento histórico del desarrollador (rendimientoHistorico)
 - Y por último, las preferencias del desarrollador
 
 Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
@@ -111,6 +111,10 @@ Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
       "desarrolladorId": "ID del desarrollador elegido",
       "nombre": "Nombre del desarrollador elegido",
       "apellido": "Apellido del desarrollador elegido",
+      "rendimientoHistorico": {
+        "promedioPorcentaje": numero,
+        "tareasCompletadas": numero
+      }, (del dev elegido)
       "dias": [
         { "fecha": "YYYY-MM-DDT00:00:00.000Z", "horasAsignadas": 4 }
       ],
@@ -118,18 +122,25 @@ Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
       "tipoAsignacion": "tiempo",
       "razon": "Explicación detallada de por qué fue asignado",
       "costoTotal": "costo total de la tarea según horas y costo por hora"
-      
+      "porcentajeRendimiento": "rendimientoHistorico.promedioPorcentaje del dev seleccionado"
+      "horasEstimadasReales": "resultado del calculo = tiempoEstimadoHoras * (rendimientoHistorico.promedioPorcentaje / 100)"
     }
   ],
   "costoTotalProyecto": "costo total de todas las tareas asignadas según horas y costo por hora"
+  "tiempoTotalEstimadoRealProyecto": "tiempo que se estima va demorarse completar todas las tareas en horas (suma de horasEstimadasReales de todas las tareas)"
 }
 
 Datos:
 ${JSON.stringify({ tareas: tareasData, desarrolladores: devsData }, null, 2)}
 
-- Es muy importante que el desarrollador cumpla con al menos el 50% de las habilidades requeridas por la tarea
-- No asignes horas los fines de semana (sábado y domingo)
+- Es requisito minimo indispensable que el desarrollador cumpla con al menos el 50% de las habilidades requeridas por la tarea, priorizando aquellos que cumplen con más habilidades
+- Es requisito minimo indispensable que el desarrollador tenga disponibilidad suficiente en su calendario para completar la tarea en el rango de fechas estimado
+- Es muy importante que selecciones primero a los desarrolladores con mejor rendimiento histórico, es decir en orden descendente según rendimientoHistorico.promedioPorcentaje
+- Distribuye las horas de manera uniforme según la disponibilidad
+- Si no hay desarrollador disponible para una tarea, omítela (mostrar en la razón que no hay disponibilidad y por qué)
+- Calcula el costo total de cada tarea y del proyecto según las horas asignadas y el costo por hora del desarrollador
 `;
+
 
   const completion = await client.responses.create({
     model: "gpt-4o-mini",
@@ -149,93 +160,94 @@ ${JSON.stringify({ tareas: tareasData, desarrolladores: devsData }, null, 2)}
 };
 
 export async function confirmarAsignacionPorTiempo(projectId, sugerencias) {
-    const resultados = [];
+  const resultados = [];
 
-    if (!sugerencias || !Array.isArray(sugerencias.asignaciones)) {
-        throw new Error("Formato de sugerencias inválido. Se esperaba un array de asignaciones.");
+  if (!sugerencias || !Array.isArray(sugerencias.asignaciones)) {
+    throw new Error("Formato de sugerencias inválido. Se esperaba un array de asignaciones.");
+  }
+
+  const asignaciones = sugerencias.asignaciones;
+  const costoTotalProyecto = Number(sugerencias.costoTotalProyecto);
+
+  for (const asignacion of asignaciones) {
+    const { tareaId, desarrolladorId, dias, horasTotales, razon } = asignacion;
+
+    const tareaDB = await Task.findById(tareaId);
+    const dev = await User.findById(desarrolladorId);
+    const proyecto = await Project.findById(projectId);
+
+    if (!tareaDB || !dev || !proyecto) {
+      resultados.push({
+        tarea: tareaId,
+        estado: "error",
+        mensaje: "Tarea, desarrollador o proyecto no encontrado",
+      });
+      continue;
     }
 
-    const asignaciones = sugerencias.asignaciones;
-    const costoTotalProyecto = Number(sugerencias.costoTotalProyecto);
+    // 🔹 Actualizar calendario del desarrollador según los días asignados
+    for (const dia of dias) {
+      const diaISO = new Date(dia.fecha).toISOString().split("T")[0];
+      const registro = dev.calendario.find(
+        (c) => c.fecha.toISOString().split("T")[0] === diaISO
+      );
 
-    for (const asignacion of asignaciones) {
-        const { tareaId, desarrolladorId, dias, horasTotales, razon } = asignacion;
+      if (registro) {
+        registro.horasDisponibles -= dia.horasAsignadas;
+        if (registro.horasDisponibles < 0) registro.horasDisponibles = 0;
+      }
+    }
+    await verificarYActualizarCalendario(dev);
+    await dev.save();
 
-        const tareaDB = await Task.findById(tareaId);
-        const dev = await User.findById(desarrolladorId);
-        const proyecto = await Project.findById(projectId);
-
-        if (!tareaDB || !dev || !proyecto) {
-            resultados.push({
-                tarea: tareaId,
-                estado: "error",
-                mensaje: "Tarea, desarrollador o proyecto no encontrado",
-            });
-            continue;
-        }
-
-        // 🔹 Actualizar calendario del desarrollador según los días asignados
-        for (const dia of dias) {
-            const diaISO = new Date(dia.fecha).toISOString().split("T")[0];
-            const registro = dev.calendario.find(
-                (c) => c.fecha.toISOString().split("T")[0] === diaISO
-            );
-
-            if (registro) {
-                registro.horasDisponibles -= dia.horasAsignadas;
-                if (registro.horasDisponibles < 0) registro.horasDisponibles = 0;
-            }
-        }
-        await dev.save();
-
-        // 🔹 VALIDACIÓN: evitar duplicar asignaciones de la misma tarea
-        const existeAsignacion = await Asignacion.findOne({ tarea: tareaId });
-        if (existeAsignacion) {
-            resultados.push({
-                tarea: tareaDB.descripcion,
-                estado: "omitida",
-                mensaje: `La tarea "${tareaDB.descripcion}" ya está asignada y no puede reasignarse.`,
-            });
-            continue;
-        }
-
-        // 🔹 Crear registro de asignación
-        const costoTotal = horasTotales * (dev.costoPorHora || 0);
-
-
-        await Asignacion.create({
-            tarea: tareaDB._id,
-            desarrollador: dev._id,
-            dias,
-            horasTotales,
-            proyecto: proyecto._id,
-            tipoAsignacion: "tiempo",
-            razon,
-            costoPorHora: dev.costoPorHora,
-            costoTotal,
-        });
-
-
-
-        // 🔹 Actualizar tarea
-        tareaDB.desarrolladorAsignado = dev._id;
-        await tareaDB.save();
-
-        resultados.push({
-            tarea: tareaDB.descripcion,
-            desarrollador: `${dev.nombre} ${dev.apellido}`,
-            horasTotales,
-            costoTotal,
-            estado: "ok",
-        });
+    // 🔹 VALIDACIÓN: evitar duplicar asignaciones de la misma tarea
+    const existeAsignacion = await Asignacion.findOne({ tarea: tareaId });
+    if (existeAsignacion) {
+      resultados.push({
+        tarea: tareaDB.descripcion,
+        estado: "omitida",
+        mensaje: `La tarea "${tareaDB.descripcion}" ya está asignada y no puede reasignarse.`,
+      });
+      continue;
     }
 
-    // 🔹 Actualizar costo total estimado del proyecto
-    await Project.findByIdAndUpdate(projectId, { costoTotal: costoTotalProyecto });
+    // 🔹 Crear registro de asignación
+    const costoTotal = horasTotales * (dev.costoPorHora || 0);
 
-    return {
-        message: "Asignaciones confirmadas y guardadas en la base de datos (modo tiempo)",
-        costoTotalProyecto,
-        resultados,
-    };
+
+    await Asignacion.create({
+      tarea: tareaDB._id,
+      desarrollador: dev._id,
+      dias,
+      horasTotales,
+      proyecto: proyecto._id,
+      tipoAsignacion: "tiempo",
+      razon,
+      costoPorHora: dev.costoPorHora,
+      costoTotal,
+    });
+
+
+
+    // 🔹 Actualizar tarea
+    tareaDB.desarrolladorAsignado = dev._id;
+    await tareaDB.save();
+
+    resultados.push({
+      tarea: tareaDB.descripcion,
+      desarrollador: `${dev.nombre} ${dev.apellido}`,
+      horasTotales,
+      costoTotal,
+      estado: "ok",
+    });
+  }
+
+  // 🔹 Actualizar costo total estimado del proyecto
+  await Project.findByIdAndUpdate(projectId, { costoTotal: costoTotalProyecto });
+
+  return {
+    message: "Asignaciones confirmadas y guardadas en la base de datos (modo tiempo)",
+    costoTotalProyecto,
+    resultados,
+  };
 }

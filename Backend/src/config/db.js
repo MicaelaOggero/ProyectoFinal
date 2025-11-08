@@ -7,10 +7,7 @@ const MONGO_URI = process.env.MONGO;
 
 export async function conectarDB() {
   try {
-    await mongoose.connect(MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(MONGO_URI); // ya no hace falta useNewUrlParser ni useUnifiedTopology
     console.log('✅ Conexión a la base de datos establecida');
   } catch (error) {
     console.error('❌ Error al conectar a la base de datos:', error.message);

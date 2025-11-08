@@ -22,7 +22,7 @@ const taskSchema = new mongoose.Schema({
   },
   estado: {
     type: String,
-    enum: ['pendiente', 'en curso', 'completada'],
+    enum: ['pendiente', 'en curso', 'pausada', 'completada'],
     default: 'pendiente'
   },
   proyecto: {
@@ -59,7 +59,8 @@ const taskSchema = new mongoose.Schema({
   fechaEstimadaFin: Date,
   fechaEstimadaInicio: Date,
   fechaRealFin: Date,
-  fechaRealInicio: Date
+  fechaRealInicio: Date,
+  
 
 
 });

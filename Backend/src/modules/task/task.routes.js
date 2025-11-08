@@ -7,7 +7,9 @@ import {
   listarTasksPorProyecto,
   listarTasksPorDesarrollador,
   listarTasksPorProyectoYDev,
-  obtenerTareasOrdenadasController
+  obtenerTareasOrdenadasController,
+  iniciarTareas,
+  pausarOCompletarTareaController
 } from "./task.controller.js";
 import { authAdmin, auth } from "../../middlewares/auth.js";
 import { addTask } from "./task.service.js";
@@ -38,6 +40,12 @@ router.get("/proyecto/:projectId/desarrollador/:developerId", auth, listarTasksP
 
 // Obtener tareas ordenadas por prioridad y dificultad
 router.get("/ordenadas/:projectId", authAdmin, obtenerTareasOrdenadasController);
+
+// Cambiar el estado de una tarea a "en curso"
+router.put("/:taskId/inciar", iniciarTareas)
+
+// Cambiar el estado de una tarea a "pausada-completada"
+router.put("/:taskId/accion", pausarOCompletarTareaController);
 
 // 📌 Ruta para crear varias tareas dentro de un proyecto
 router.post("/bulk/:projectId", async (req, res) => {
@@ -79,6 +87,9 @@ import mongoose from "mongoose";
  * Inserta múltiples logs de tareas de manera masiva
  * Verifica que los IDs de tarea y desarrollador sean válidos
  */
+
+import { actualizarRendimientoDesarrollador } from "../users/user.service.js"; // importa tu función
+
 router.post("/taskLog/masivo", async (req, res) => {
   try {
     const logs = req.body.logs;
@@ -87,28 +98,49 @@ router.post("/taskLog/masivo", async (req, res) => {
       return res.status(400).json({ error: "No hay logs para guardar" });
     }
 
-    // Filtrar logs con IDs inválidos
-    const logsValidos = logs.filter(log => 
-      //mongoose.Types.ObjectId.isValid(log.tarea) &&
-      mongoose.Types.ObjectId.isValid(log.desarrollador)
+    // ✅ Filtrar logs con IDs válidos
+    const logsValidos = logs.filter(
+      (log) =>
+        mongoose.Types.ObjectId.isValid(log.tarea) &&
+        mongoose.Types.ObjectId.isValid(log.desarrollador)
     );
 
     if (logsValidos.length === 0) {
       return res.status(400).json({ error: "No hay logs con IDs válidos" });
     }
 
-    // Insertar solo los logs válidos
+    // ✅ Insertar los logs válidos
     const resultado = await TaskLog.insertMany(logsValidos);
+
+    // ✅ Obtener los IDs únicos de desarrolladores para actualizar su rendimiento
+    const desarrolladoresAActualizar = [
+      ...new Set(logsValidos.map((log) => log.desarrollador.toString())),
+    ];
+
+    // ✅ Actualizar rendimiento de cada desarrollador en paralelo
+    const actualizaciones = await Promise.all(
+      desarrolladoresAActualizar.map(async (devId) => {
+        try {
+          const nuevoPromedio = await actualizarRendimientoDesarrollador(devId);
+          return { devId, nuevoPromedio };
+        } catch (err) {
+          console.error(`Error actualizando rendimiento de ${devId}:`, err);
+          return { devId, error: err.message };
+        }
+      })
+    );
 
     res.status(201).json({
       mensaje: "Logs guardados correctamente",
       cantidad: resultado.length,
-      logs: resultado
+      actualizaciones,
+      logs: resultado,
     });
   } catch (error) {
-    console.error(error);
+    console.error("❌ Error en /taskLog/masivo:", error);
     res.status(500).json({ error: error.message });
   }
 });
+
 
 export default router;

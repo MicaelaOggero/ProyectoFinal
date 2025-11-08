@@ -20,5 +20,13 @@ router.put("/:id", authAdmin, projectController.updateProject);
 // Eliminar un proyecto por ID (solo admins)
 router.delete("/:id", authAdmin, projectController.deleteProject);
 
+// Iniciar un proyecto
+router.put("/:projectId/iniciar", authAdmin, projectController.iniciarProyecto);
+
+// Pausar un proyecto
+router.put("/:projectId/pausar",authAdmin, projectController.pausarProyecto);
+
+// Finalizar un proyecto
+router.put("/:projectId/finalizar", authAdmin, projectController.finalizarProyecto);
 
 export default router;

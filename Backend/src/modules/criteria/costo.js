@@ -168,7 +168,7 @@ export async function previsualizarAsignacionPorCosto(projectId) {
         // ✅ Filtrar desarrolladores disponibles y con habilidades
         const candidatos = desarrolladores.filter(
             (dev) =>
-                tieneHabilidadesSuficientes(dev, tarea.habilidadesRequeridas, 0.7) &&
+                tieneHabilidadesSuficientes(dev, tarea.habilidadesRequeridas, 0.5) &&
                 tieneDisponibilidad(dev, fechaInicio, fechaFin, tarea.tiempoEstimadoHoras)
         );
 
@@ -227,6 +227,7 @@ export async function previsualizarAsignacionPorCosto(projectId) {
             horasTotales: tarea.tiempoEstimadoHoras,
             costoTotal: costoTarea,
             tipoAsignacion: "costo",
+            razon: "Asignado al desarrollador más económico disponible que cumple con los requisitos de habilidades y disponibilidad."
         });
     }
 
@@ -268,6 +269,7 @@ export async function confirmarAsignacionPorCosto(projectId, asignacionesPrevias
             );
             if (registro) registro.horasDisponibles -= dia.horasAsignadas;
         }
+        await verificarYActualizarCalendario(dev);
         await dev.save();
 
         // 🔹 VALIDACIÓN: evitar duplicar asignaciones de la misma tarea

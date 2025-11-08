@@ -257,6 +257,7 @@ export async function confirmarAsignacionBasica(projectId, asignacionesPrevias, 
             );
             if (registro) registro.horasDisponibles -= dia.horasAsignadas;
         }
+        await verificarYActualizarCalendario(dev);
         await dev.save();
 
         // 🔹 VALIDACIÓN: evitar duplicar asignaciones de la misma tarea
@@ -278,6 +279,7 @@ export async function confirmarAsignacionBasica(projectId, asignacionesPrevias, 
             horasTotales: asignacion.horasTotales,
             proyecto: proyecto._id,
             tipoAsignacion: "basica",
+            razon: "Asignación básica automática - El desarrollador cumple con las habilidades y disponibilidad requeridas",
         });
 
         // 🔹 Actualizar tarea
@@ -290,6 +292,8 @@ export async function confirmarAsignacionBasica(projectId, asignacionesPrevias, 
             desarrollador: `${dev.nombre} ${dev.apellido}`,
             estado: "ok",
         });
+
+
     }
 
     // 🔹 Actualizar costo total del proyecto

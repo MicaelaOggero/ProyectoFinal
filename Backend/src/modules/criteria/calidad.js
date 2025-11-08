@@ -4,7 +4,6 @@ import Task from "../task/task.model.js";
 import User from "../users/user.model.js";
 import { obtenerDisponibilidadEnRango } from "../../utils/asignacionBasica/diasDisponible.js";
 import dotenv from "dotenv";
-import { obtenerEficienciaHistorica } from "../users/user.service.js";
 import Asignacion from "../assignment/assignment.model.js";
 import PerformanceFeedback from "../performanceFeedback/performanceFeedback.model.js";
 
@@ -75,7 +74,7 @@ export const previewObtenerAsignacionesPorCalidadIA = async (projectId) => {
     // 🔹 Obtener datos de cada dev
     const devsData = await Promise.all(
         desarrolladores.map(async (dev) => {
-            const eficienciaPromedio = await obtenerEficienciaHistorica(dev._id);
+            
             const disponibilidad = tareas.map((tarea) => ({
                 tareaId: tarea._id,
                 diasDisponibles: obtenerDisponibilidadEnRango(
@@ -227,6 +226,7 @@ export async function confirmarAsignacionPorCalidad(projectId, asig, costoTProye
                 if (registro.horasDisponibles < 0) registro.horasDisponibles = 0;
             }
         }
+        await verificarYActualizarCalendario(dev);
         await dev.save();
 
         // 🔹 VALIDACIÓN: evitar duplicar asignaciones de la misma tarea

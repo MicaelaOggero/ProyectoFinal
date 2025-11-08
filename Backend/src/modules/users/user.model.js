@@ -80,6 +80,10 @@ preferenciasTarea: {
     type: Date,
     default: Date.now
   },
+  rendimientoHistorico: {
+    promedioPorcentaje: { type: Number, default: 0 },
+    tareasCompletadas: { type: Number, default: 0 }
+  },
   email: {
     type: String,
     required: true,

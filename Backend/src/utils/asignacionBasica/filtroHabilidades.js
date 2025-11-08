@@ -5,7 +5,7 @@
  * @param {Number} porcentajeMinimo - Ej: 0.7 = 70%
  * @returns {Boolean}
  */
-export function tieneHabilidadesSuficientes(dev, habilidadesRequeridas, porcentajeMinimo = 1) {
+export function tieneHabilidadesSuficientes(dev, habilidadesRequeridas, porcentajeMinimo = 0.5) {
   if (!habilidadesRequeridas || habilidadesRequeridas.length === 0) return true;
 
   // Normalizar nombres: todo a minúsculas y quitar espacios iniciales/finales
