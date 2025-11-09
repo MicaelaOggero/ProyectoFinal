@@ -121,9 +121,9 @@
                           <i class="bi bi-folder me-1"></i>
                           {{ assignment.proyecto }}
                         </span>
-                        <span v-if="assignment.tipoAsignacion" class="badge" :class="getAssignmentTypeClass(assignment.tipoAsignacion)">
-                          <i class="bi" :class="getAssignmentTypeIcon(assignment.tipoAsignacion)"></i>
-                          {{ getAssignmentTypeText(assignment.tipoAsignacion) }}
+                        <span v-if="assignment.criterio || assignment.tipoAsignacion" class="badge" :class="getAssignmentTypeClass(resolveAssignmentType(assignment))">
+                          <i class="bi" :class="getAssignmentTypeIcon(resolveAssignmentType(assignment))"></i>
+                          {{ getAssignmentTypeText(resolveAssignmentType(assignment)) }}
                         </span>
                       </div>
                     </div>
@@ -175,6 +175,10 @@
                         <p v-if="getAssignmentCostPerHour(assignment) > 0" class="mb-1">
                           <i class="bi bi-currency-exchange me-1"></i>
                           <strong>Costo por Hora:</strong> {{ formatCurrency(getAssignmentCostPerHour(assignment)) }}
+                        </p>
+                        <p v-if="assignment.razon" class="mb-1 text-muted">
+                          <i class="bi bi-chat-left-quote me-1 text-primary"></i>
+                          <strong>Razón:</strong> {{ assignment.razon }}
                         </p>
                       </div>
                       <div class="col-md-6">
@@ -677,24 +681,51 @@ export default {
       return assignment.costoPorHora || assignment.desarrollador?.costoPorHora || 0;
     },
     
+    resolveAssignmentType(assignment) {
+      return assignment?.criterio || assignment?.tipoAsignacion || this.summaryData?.tipo || 'basica';
+    },
+    
     goBack() {
       this.$router.go(-1);
     },
     
     getAssignmentTypeClass(tipo) {
-      if (tipo === 'costo') return 'bg-success';
-      return 'bg-primary';
+      const map = {
+        costo: 'bg-success',
+        basica: 'bg-primary',
+        availability: 'bg-primary',
+        time: 'bg-warning text-dark',
+        tiempo: 'bg-warning text-dark',
+        quality: 'bg-info text-dark',
+        calidad: 'bg-info text-dark'
+      };
+      return map[tipo] || 'bg-secondary';
     },
     
     getAssignmentTypeIcon(tipo) {
-      if (tipo === 'costo') return 'bi-currency-dollar me-1';
-      return 'bi-clock-history me-1';
+      const map = {
+        costo: 'bi-currency-dollar me-1',
+        basica: 'bi-clock-history me-1',
+        availability: 'bi-clock-history me-1',
+        time: 'bi-hourglass-split me-1',
+        tiempo: 'bi-hourglass-split me-1',
+        quality: 'bi-star-fill me-1',
+        calidad: 'bi-star-fill me-1'
+      };
+      return map[tipo] || 'bi-sliders me-1';
     },
     
     getAssignmentTypeText(tipo) {
-      if (tipo === 'costo') return 'Por Costo';
-      if (tipo === 'basica') return 'Por Disponibilidad';
-      return 'Tipo Desconocido';
+      const map = {
+        costo: 'Por Costo',
+        basica: 'Disponibilidad y Habilidades',
+        availability: 'Disponibilidad y Habilidades',
+        time: 'Por Tiempo (IA)',
+        tiempo: 'Por Tiempo (IA)',
+        quality: 'Por Calidad (IA)',
+        calidad: 'Por Calidad (IA)'
+      };
+      return map[tipo] || 'Asignación';
     },
     
     // Métodos para edición de asignaciones
