@@ -639,7 +639,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(asignacion, index) in (previewData.asignaciones || previewData.sugerencias)" :key="index">
+                    <tr v-for="(asignacion, index) in previewData.asignaciones" :key="index">
                       <td>
                         <strong>{{ asignacion.tarea?.descripcion || asignacion.descripcion || 'Tarea sin descripción' }}</strong>
                       </td>
@@ -691,7 +691,7 @@
               </div>
 
               <!-- Resumen total -->
-              <div class="alert alert-success mt-3" v-if="previewData.costoTotalProyecto">
+              <div class="alert alert-success mt-3" v-if="typeof previewData.costoTotalProyecto === 'number'">
                 <div class="d-flex justify-content-between align-items-center">
                   <strong>
                     <i class="bi bi-currency-dollar me-2"></i>
@@ -1426,10 +1426,61 @@ export default {
           previewResult = await AssignmentService.previewQualityAssignment(this.selectedProject);
         }
 
-        this.previewData = previewResult;
+        const asignaciones = Array.isArray(previewResult.asignaciones)
+          ? previewResult.asignaciones
+          : Array.isArray(previewResult.sugerencias?.asignaciones)
+            ? previewResult.sugerencias.asignaciones
+            : Array.isArray(previewResult.sugerencias)
+              ? previewResult.sugerencias
+              : [];
 
-        const hasAssignments = previewResult.asignaciones?.length > 0 || previewResult.sugerencias?.length > 0;
-        if (!hasAssignments) {
+        const costoTotal = typeof previewResult.costoTotalProyecto === 'number'
+          ? previewResult.costoTotalProyecto
+          : typeof previewResult.sugerencias?.costoTotalProyecto === 'number'
+            ? previewResult.sugerencias.costoTotalProyecto
+            : null;
+
+        const defaultMessages = {
+          availability: 'Previsualización generada correctamente.',
+          cost: 'Previsualización por costo generada correctamente.',
+          time: 'Previsualización de IA por tiempo generada correctamente.',
+          quality: 'Previsualización de IA por calidad generada correctamente.'
+        };
+
+        const message = previewResult.message
+          || previewResult.sugerencias?.message
+          || defaultMessages[this.selectedAssignmentType] || 'Previsualización generada.';
+
+        let confirmPayload = null;
+        if (this.selectedAssignmentType === 'time') {
+          confirmPayload = {
+            success: previewResult.success !== undefined ? previewResult.success : true,
+            criterio: 'tiempo',
+            sugerencias: previewResult.sugerencias || {
+              asignaciones,
+              costoTotalProyecto: costoTotal
+            }
+          };
+        } else if (this.selectedAssignmentType === 'quality') {
+          confirmPayload = {
+            success: previewResult.success !== undefined ? previewResult.success : true,
+            criterio: 'calidad',
+            sugerencias: previewResult.sugerencias || {
+              asignaciones,
+              costoTotalProyecto: costoTotal
+            }
+          };
+        }
+
+        this.previewData = {
+          ...previewResult,
+          asignaciones,
+          costoTotalProyecto: costoTotal,
+          message,
+          confirmPayload
+        };
+
+        if (!asignaciones.length) {
           alert('No se encontraron tareas para asignar en este proyecto');
         }
 
@@ -1472,14 +1523,20 @@ export default {
             this.previewData.costoTotalProyecto
           );
         } else if (this.selectedAssignmentType === 'time') {
+          if (!this.previewData.confirmPayload) {
+            throw new Error('No hay sugerencias disponibles para confirmar (tiempo).');
+          }
           confirmResult = await AssignmentService.confirmTimeAssignment(
             this.selectedProject,
-            this.previewData.sugerencias || this.previewData.asignaciones
+            this.previewData.confirmPayload
           );
         } else if (this.selectedAssignmentType === 'quality') {
+          if (!this.previewData.confirmPayload) {
+            throw new Error('No hay sugerencias disponibles para confirmar (calidad).');
+          }
           confirmResult = await AssignmentService.confirmQualityAssignment(
             this.selectedProject,
-            this.previewData.sugerencias || this.previewData.asignaciones
+            this.previewData.confirmPayload
           );
         }
 
@@ -1488,14 +1545,37 @@ export default {
 
         // Guardar resultados para mostrar en el resumen
         // Las respuestas de tiempo y calidad pueden tener estructura diferente
-        const asignacionesToMap = this.previewData.sugerencias || this.previewData.asignaciones || [];
-        this.assignmentResults = asignacionesToMap.map(asig => ({
-          tarea: asig.tarea?.descripcion || asig.tarea || asig.descripcion,
-          asignado: asig.desarrollador ? `${asig.desarrollador.nombre} ${asig.desarrollador.apellido}` : null,
-          motivo: asig.motivo || null,
-          horasAsignadasTotales: asig.horasTotales || asig.horasAsignadas || 0,
-          dias: asig.dias || []
-        }));
+        const asignacionesToMap = this.previewData.asignaciones || [];
+        this.assignmentResults = asignacionesToMap.map(asig => {
+          const developerName = asig.desarrollador
+            ? `${asig.desarrollador.nombre} ${asig.desarrollador.apellido || ''}`.trim()
+            : asig.nombre
+              ? `${asig.nombre} ${asig.apellido || ''}`.trim()
+              : null;
+
+          const costoPorHoraRaw = asig.costoPorHora ?? asig.desarrollador?.costoPorHora ?? asig.costoHora;
+          const costoTotalRaw = asig.costoTotal ?? asig.totalCosto ?? asig.costTotal;
+
+          const costoPorHora = Number.isFinite(Number(costoPorHoraRaw)) ? Number(costoPorHoraRaw) : null;
+          const costoTotal = Number.isFinite(Number(costoTotalRaw)) ? Number(costoTotalRaw) : null;
+
+          return {
+            tarea: asig.tarea?.descripcion || asig.tarea || asig.descripcion,
+            tareaId: asig.tarea?.id || asig.tareaId || null,
+            asignado: developerName,
+            desarrolladorId: asig.desarrollador?.id || asig.desarrolladorId || null,
+            motivo: asig.motivo || null,
+            razon: asig.razon || asig.reason || null,
+            horasAsignadasTotales: asig.horasTotales || asig.horasAsignadas || 0,
+            dias: asig.dias || [],
+            costoPorHora,
+            costoTotal,
+            criterio: this.selectedAssignmentType,
+            tipoAsignacion: asig.tipoAsignacion || this.selectedAssignmentType,
+            proyecto: this.projects.find(p => p._id === this.selectedProject)?.name || null,
+            proyectoId: this.selectedProject || null
+          };
+        });
 
         // Guardar en localStorage
         const assignmentData = {

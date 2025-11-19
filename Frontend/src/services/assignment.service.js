@@ -125,11 +125,21 @@ class AssignmentService {
   }
 
   // Confirmar asignación por tiempo
-  async confirmTimeAssignment(projectId, sugerencias) {
+  async confirmTimeAssignment(projectId, payload) {
     try {
-      const response = await axios.post(`${API_URL}/assignment/iaconfirm/proyecto/${projectId}/tiempo`, {
-        sugerencias
-      });
+      if (!payload) {
+        throw new Error('No se recibieron sugerencias para confirmar (tiempo).');
+      }
+
+      const body = payload.success && payload.criterio && payload.sugerencias
+        ? payload
+        : {
+            success: true,
+            criterio: 'tiempo',
+            sugerencias: payload
+          };
+
+      const response = await axios.post(`${API_URL}/assignment/iaconfirm/proyecto/${projectId}/tiempo`, body);
       return response.data;
     } catch (error) {
       console.error('Error confirmando asignación por tiempo:', error);
@@ -149,11 +159,21 @@ class AssignmentService {
   }
 
   // Confirmar asignación por calidad
-  async confirmQualityAssignment(projectId, sugerencias) {
+  async confirmQualityAssignment(projectId, payload) {
     try {
-      const response = await axios.post(`${API_URL}/assignment/iaconfirm/proyecto/${projectId}/calidad`, {
-        sugerencias
-      });
+      if (!payload) {
+        throw new Error('No se recibieron sugerencias para confirmar (calidad).');
+      }
+
+      const body = payload.success && payload.criterio && payload.sugerencias
+        ? payload
+        : {
+            success: true,
+            criterio: 'calidad',
+            sugerencias: payload
+          };
+
+      const response = await axios.post(`${API_URL}/assignment/iaconfirm/proyecto/${projectId}/calidad`, body);
       return response.data;
     } catch (error) {
       console.error('Error confirmando asignación por calidad:', error);
