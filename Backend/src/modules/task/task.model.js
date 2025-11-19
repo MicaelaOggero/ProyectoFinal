@@ -9,6 +9,7 @@ const taskSchema = new mongoose.Schema({
     type: String,
     required: true
   }],
+  categoria: { type: String, enum: ['frontend', 'backend', 'testing', 'documentacion', 'machine learning'], default: "backend" },
   nivelDificultad: {
     type: Number,
     min: 1,

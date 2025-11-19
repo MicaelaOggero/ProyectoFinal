@@ -127,6 +127,10 @@ export async function asignarTareasPorCosto(projectId) {
 
 /** Previsualizar las asignaciones sin guardar en BD **/
 export async function previsualizarAsignacionPorCosto(projectId) {
+
+    const project = await Project.findById(projectId);
+    if (!project) throw new Error("Proyecto no encontrado");
+
     const tareasPendientes = await Task.find({
         proyecto: projectId,
         desarrolladorAsignado: null,
@@ -153,10 +157,22 @@ export async function previsualizarAsignacionPorCosto(projectId) {
     if (!tareas.length)
         throw new Error("Todas las tareas del proyecto ya están asignadas");
 
-
-
     const desarrolladores = await User.find({ rol: "user" });
-    const tareasOrdenadas = ordenarTareas(tareas);
+
+    feedbacks.forEach(f => {
+        const devId = f.desarrollador.toString();
+        if (!feedbackPorDev[devId]) feedbackPorDev[devId] = [];
+        feedbackPorDev[devId].push({
+            proyecto: f.proyecto,
+            puntuacion: f.puntuacion,
+            comentario: f.comentario,
+            fecha: f.fecha
+        });
+    });
+
+    // ============================================
+
+    /* const tareasOrdenadas = ordenarTareas(tareas);
 
     const asignaciones = [];
     let costoTotalProyecto = 0;
@@ -235,7 +251,9 @@ export async function previsualizarAsignacionPorCosto(projectId) {
         message: "Previsualización completada",
         costoTotalProyecto,
         asignaciones,
-    };
+    }; */
+
+
 }
 
 /**

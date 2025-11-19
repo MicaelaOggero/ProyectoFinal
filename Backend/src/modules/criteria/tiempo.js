@@ -5,6 +5,7 @@ import User from "../users/user.model.js";
 import { obtenerDisponibilidadEnRango } from "../../utils/asignacionBasica/diasDisponible.js";
 import dotenv from "dotenv";
 import Asignacion from "../assignment/assignment.model.js";
+import { verificarYActualizarCalendario } from "../users/user.service.js";
 
 dotenv.config()
 
@@ -121,24 +122,36 @@ Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
       "horasTotales": numero,
       "tipoAsignacion": "tiempo",
       "razon": "Explicación detallada de por qué fue asignado",
-      "costoTotal": "costo total de la tarea según horas y costo por hora"
-      "porcentajeRendimiento": "rendimientoHistorico.promedioPorcentaje del dev seleccionado"
-      "horasEstimadasReales": "resultado del calculo = tiempoEstimadoHoras * (rendimientoHistorico.promedioPorcentaje / 100)"
+      "costoTotal": "costo total de la tarea según horas y costo por hora",
+      "porcentajeRendimiento": "rendimientoHistorico.promedioPorcentaje del dev seleccionado",
+      "horasEstimadasReales": "resultado del calculo = tiempoEstimadoHoras * (rendimientoHistorico.promedioPorcentaje / 100), redondeado a 2 decimales",
+      "calidadTarea": "puntuacion promedio en tareas similares previas (puntuacionPromedio) del dev seleccionado",
+      "feedbackHistorico": {
+        "puntuacionPromedio": numero,
+        "vecesCalificado": numero
+      } (del dev elegido)
     }
   ],
-  "costoTotalProyecto": "costo total de todas las tareas asignadas según horas y costo por hora"
-  "tiempoTotalEstimadoRealProyecto": "tiempo que se estima va demorarse completar todas las tareas en horas (suma de horasEstimadasReales de todas las tareas)"
-}
+  "costoTotalProyecto": "costo total de todas las tareas asignadas según horas y costo por hora",
+  "tiempoTotalEstimadoRealProyecto": "tiempo que se estima va demorarse completar todas las tareas en horas (suma de horasEstimadasReales de todas las tareas), redondeado a 2 decimales",
+  "tiempoTotalAsignadoProyecto": "tiempo total en horas que se asignó a los desarrolladores para completar las tareas segun tiempoEstimadoHoras",
+  "calidadPromedioTareas": "promedio de las puntuaciones históricas de calidad de todas las tareas asignadas (calidadTarea)",
+  "calidadPromedioProyecto": "promedio de las puntuaciones históricas de calidad de todos los desarrolladores asignados"
+  }
 
 Datos:
 ${JSON.stringify({ tareas: tareasData, desarrolladores: devsData }, null, 2)}
 
+Reglas de asignación:
 - Es requisito minimo indispensable que el desarrollador cumpla con al menos el 50% de las habilidades requeridas por la tarea, priorizando aquellos que cumplen con más habilidades
 - Es requisito minimo indispensable que el desarrollador tenga disponibilidad suficiente en su calendario para completar la tarea en el rango de fechas estimado
 - Es muy importante que selecciones primero a los desarrolladores con mejor rendimiento histórico, es decir en orden descendente según rendimientoHistorico.promedioPorcentaje
 - Distribuye las horas de manera uniforme según la disponibilidad
-- Si no hay desarrollador disponible para una tarea, omítela (mostrar en la razón que no hay disponibilidad y por qué)
+- Asigna primero las tareas de mayor prioridad y dificultad
+- Si un desarrollador no tiene historial de rendimiento, asígnale tareas de baja prioridad y dificultad
+- Si no hay desarrollador disponible para una tarea (si no cumple con los requisitos minimos), omítela (mostrar en la razón por qué no se asignó)
 - Calcula el costo total de cada tarea y del proyecto según las horas asignadas y el costo por hora del desarrollador
+- Si varios desarrolladores cumplen los requisitos, usa las preferencias del desarrollador para decidir.
 `;
 
 

@@ -13,7 +13,7 @@ import { ordenarTareas } from '../../utils/asignacionBasica/ordenarTareas.js';
 import Project from "../projects/project.model.js";
 import User from "../users/user.model.js";
 import TaskLog from "../task/taskLog.model.js"; // 👈 importar el modelo
-
+import Task from "../task/task.model.js";
 
 export async function addTask(taskData) {
   // 1️⃣ Verificar que el proyecto exista
@@ -228,4 +228,149 @@ export async function pausarOCompletarTarea(taskId, userId, accion = "pausar") {
     horasTotales: tarea.tiempoInvertidoHoras.toFixed(2),
     rendimientoActualizado: nuevoPromedio.toFixed(2)
   };
+}
+
+/**
+ * Busca los desarrolladores más afines a una tarea,
+ * considerando categoría, habilidades, dificultad, rendimiento previo
+ * y una lista opcional de desarrolladores disponibles.
+ */
+export async function buscarDesarrolladoresSimilares(taskId, devDisponibles = []) {
+  const tareaNueva = await Task.findById(taskId).lean();
+  if (!tareaNueva) throw new Error("Tarea no encontrada");
+
+  // Traer logs de tareas completadas
+  const logs = await TaskLog.find({ estado: "completada" })
+    .populate("tarea desarrollador")
+    .lean();
+
+  const coincidencias = [];
+
+  for (const log of logs) {
+    const tareaAntigua = log.tarea;
+    const dev = log.desarrollador;
+    if (!tareaAntigua || !dev) continue;
+
+    // 🚧 Si se pasó un listado de dev disponibles, filtrar aquí
+    if (devDisponibles.length > 0 && !devDisponibles.includes(dev._id.toString())) {
+      continue;
+    }
+
+    // --- Comparaciones por criterio ---
+
+    // 1️⃣ Categoría (peso fuerte)
+    const mismaCategoria =
+      tareaAntigua.categoria === tareaNueva.categoria ? 1 : 0;
+
+    // 2️⃣ Habilidades técnicas
+    const coincidenciasHabilidades = tareaAntigua.habilidadesRequeridas.filter(
+      (h) => tareaNueva.habilidadesRequeridas.includes(h)
+    ).length;
+    const porcentajeHabilidades =
+      coincidenciasHabilidades / tareaNueva.habilidadesRequeridas.length;
+
+    // 3️⃣ Dificultad
+    const diffDif = Math.abs(
+      (tareaAntigua.dificultad || 0) - (tareaNueva.dificultad || 0)
+    );
+    const similitudDificultad = 1 - diffDif / 5; // normaliza entre 0–1
+
+    // --- Similitud total ponderada ---
+    const similitudTotal =
+      mismaCategoria * 0.5 + porcentajeHabilidades * 0.3 + similitudDificultad * 0.2;
+
+    if (similitudTotal >= 0.3) {
+      coincidencias.push({
+        devId: dev._id.toString(),
+        nombre: dev.nombre,
+        similitud: Number(similitudTotal.toFixed(2)),
+        puntuacion: log.puntuacionCalidad || 0,
+      });
+    }
+  }
+
+  // Agrupar por desarrollador
+  const resumenPorDev = coincidencias.reduce((acc, curr) => {
+    if (!acc[curr.devId]) {
+      acc[curr.devId] = {
+        devId: curr.devId,
+        nombre: curr.nombre,
+        similitudPromedio: curr.similitud,
+        puntuaciones: [curr.puntuacion],
+      };
+    } else {
+      acc[curr.devId].similitudPromedio =
+        (acc[curr.devId].similitudPromedio + curr.similitud) / 2;
+      acc[curr.devId].puntuaciones.push(curr.puntuacion);
+    }
+    return acc;
+  }, {});
+
+  const resultadoFinal = Object.values(resumenPorDev).map((dev) => ({
+    ...dev,
+    puntuacionPromedio:
+      dev.puntuaciones.reduce((a, b) => a + b, 0) / dev.puntuaciones.length,
+  }));
+
+  // 🔹 Ordenar por puntuación promedio y similitud
+  resultadoFinal.sort((a, b) => {
+    if (b.puntuacionPromedio === a.puntuacionPromedio) {
+      return b.similitudPromedio - a.similitudPromedio;
+    }
+    return b.puntuacionPromedio - a.puntuacionPromedio;
+  });
+
+  return resultadoFinal;
+}
+
+
+/**
+ * Actualiza los TaskLog existentes para agregar o asignar el campo 'puntuacionCalidad'.
+ * Si no existe, se agrega; si existe, se deja igual.
+ * También puede asignar un valor automático según el estado de la tarea.
+ */
+export async function actualizarPuntuacionCalidad() {
+  try {
+  
+    // 🔹 Obtener todos los registros
+    const taskLogs = await TaskLog.find();
+    console.log(`🔍 Registros encontrados: ${taskLogs.length}`);
+
+    let actualizados = 0;
+
+    for (const log of taskLogs) {
+      // Si ya tiene puntuación, no se modifica
+      if (log.puntuacionCalidad !== undefined && log.puntuacionCalidad !== null)
+        continue;
+
+      // Asignar valor automático según el estado
+      let puntaje = 3; // valor por defecto
+      switch (log.estado) {
+        case "adelantada":
+          puntaje = 5;
+          break;
+        case "completada":
+          puntaje = 4;
+          break;
+        case "retrasada":
+          puntaje = 2;
+          break;
+        case "cancelada":
+          puntaje = 1;
+          break;
+      }
+
+      log.puntuacionCalidad = puntaje;
+      await log.save();
+      actualizados++;
+    }
+
+    console.log(`✅ TaskLogs actualizados: ${actualizados}`);
+
+  } catch (error) {
+    console.error("❌ Error al actualizar los TaskLogs:", error);
+  } finally {
+    await mongoose.disconnect();
+    console.log("🔌 Desconectado de la base de datos");
+  }
 }

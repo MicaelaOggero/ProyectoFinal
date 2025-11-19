@@ -2,6 +2,7 @@
 import mongoose from "mongoose";
 
 const taskLogSchema = new mongoose.Schema({
+  proyecto: { type: mongoose.Schema.Types.ObjectId, ref: "Project", required: true },
   tarea: { type: mongoose.Schema.Types.ObjectId, ref: "Task", required: true },
   desarrollador: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 
@@ -19,7 +20,8 @@ const taskLogSchema = new mongoose.Schema({
   },
 
   // Auto-timestamp
-  creadoEn: { type: Date, default: Date.now }
+  creadoEn: { type: Date, default: Date.now },
+  puntuacionCalidad: { type: Number, min: 1, max: 5 , default: null },
 });
 
 const TaskLog = mongoose.model("TaskLog", taskLogSchema);
