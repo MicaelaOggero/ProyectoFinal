@@ -38,6 +38,22 @@ export async function addTask(taskData) {
     );
   }
 
+  // 2.1️⃣ Validar que no sea fin de semana (inicio o fin)
+  const diaInicio = fechaInicioTarea.getUTCDay(); // 0 domingo, 6 sábado
+  const diaFin = fechaFinTarea.getUTCDay();
+
+  if (diaInicio === 0 || diaInicio === 6) {
+    throw new Error(
+      `La fecha de inicio (${fechaInicioTarea.toDateString()}) cae en fin de semana, y las tareas no pueden comenzar en sábado o domingo.`
+    );
+  }
+
+  if (diaFin === 0 || diaFin === 6) {
+    throw new Error(
+      `La fecha de fin (${fechaFinTarea.toDateString()}) cae en fin de semana, y las tareas no pueden finalizar en sábado o domingo.`
+    );
+  }
+
   // 3️⃣ Verificar que el desarrollador exista (si fue asignado)
   if (taskData.desarrolladorAsignado) {
     const devExistente = await User.findById(taskData.desarrolladorAsignado);
@@ -373,4 +389,9 @@ export async function actualizarPuntuacionCalidad() {
     await mongoose.disconnect();
     console.log("🔌 Desconectado de la base de datos");
   }
+}
+
+//obtener taskLogs de un desarrollador
+export async function getTaskLogsByDeveloper(developerId) {
+  return await TaskLog.find({ desarrollador: developerId });
 }

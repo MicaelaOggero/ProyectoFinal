@@ -48,7 +48,7 @@ const projectSchema = new mongoose.Schema({
   estado: {
     type: String,
     enum: ["pendiente", "en curso", "pausado", "finalizado"],
-    default: 'activo'
+    default: 'pendiente'
   },
   historial: {
     type: [historialSchema],

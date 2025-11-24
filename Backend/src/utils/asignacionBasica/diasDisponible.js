@@ -20,7 +20,7 @@ export function obtenerDiasDisponibles(fechaInicio, fechaFin) {
 
   return dias;
 }
-
+/* 
 export function obtenerDisponibilidadEnRango(dev, fechaInicio, fechaFin) {
   const diasDisponibles = [];
   const fechaActual = new Date(fechaInicio);
@@ -37,6 +37,33 @@ export function obtenerDisponibilidadEnRango(dev, fechaInicio, fechaFin) {
     }
 
     // Avanza un día
+    fechaActual.setDate(fechaActual.getDate() + 1);
+  }
+
+  return diasDisponibles;
+} */
+
+export function obtenerDisponibilidadEnRango(dev, fechaInicio, fechaFin) {
+  const diasDisponibles = [];
+  const fechaActual = new Date(fechaInicio);
+  const fin = new Date(fechaFin);
+
+  while (fechaActual <= fin) {
+    const iso = fechaActual.toISOString().split("T")[0];
+    const diaSemana = fechaActual.getUTCDay(); // 0=dom, 6=sáb
+
+    // solo días hábiles
+    if (diaSemana >= 1 && diaSemana <= 5) {
+      // buscar en el calendario del dev
+      const reg = dev.calendario.find(d =>
+        d.fecha.toISOString().split("T")[0] === iso
+      );
+
+      if (reg) {
+        diasDisponibles.push({ fecha: iso, horas: reg.horasDisponibles });
+      }
+    }
+
     fechaActual.setDate(fechaActual.getDate() + 1);
   }
 
