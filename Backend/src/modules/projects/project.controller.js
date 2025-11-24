@@ -83,3 +83,59 @@ export const deleteProject = async (req, res) => {
     res.status(500).json({ error: "Error al eliminar proyecto" });
   }
 };
+
+export const iniciarProyecto = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.user._id;
+    const proyecto = await projectService.iniciarProyectoService(projectId, userId);
+    res.json({
+      message: "✅ Proyecto iniciado correctamente",
+      proyecto: {
+        id: proyecto._id,
+        nombre: proyecto.nombre,
+        fechaInicioReal: proyecto.fechaInicioReal,
+        estado: proyecto.estado,
+      }
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const pausarProyecto = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.user._id;
+    const proyecto = await projectService.pausarProyectoService(projectId, userId);
+    res.json({
+      message: "✅ Proyecto pausado correctamente",
+      proyecto: {
+        id: proyecto._id,
+        nombre: proyecto.nombre,
+        estado: proyecto.estado,
+      }
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const finalizarProyecto = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.user._id;
+    const proyecto = await projectService.finalizarProyectoService(projectId, userId);
+    res.json({
+      message: "✅ Proyecto finalizado correctamente",
+      proyecto: {
+        id: proyecto._id,
+        nombre: proyecto.nombre,
+        estado: proyecto.estado,
+        fechaFinReal: proyecto.fechaFinReal,
+      }
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};

@@ -127,6 +127,10 @@ export async function asignarTareasPorCosto(projectId) {
 
 /** Previsualizar las asignaciones sin guardar en BD **/
 export async function previsualizarAsignacionPorCosto(projectId) {
+
+    const project = await Project.findById(projectId);
+    if (!project) throw new Error("Proyecto no encontrado");
+
     const tareasPendientes = await Task.find({
         proyecto: projectId,
         desarrolladorAsignado: null,
@@ -153,10 +157,22 @@ export async function previsualizarAsignacionPorCosto(projectId) {
     if (!tareas.length)
         throw new Error("Todas las tareas del proyecto ya están asignadas");
 
-
-
     const desarrolladores = await User.find({ rol: "user" });
-    const tareasOrdenadas = ordenarTareas(tareas);
+
+    feedbacks.forEach(f => {
+        const devId = f.desarrollador.toString();
+        if (!feedbackPorDev[devId]) feedbackPorDev[devId] = [];
+        feedbackPorDev[devId].push({
+            proyecto: f.proyecto,
+            puntuacion: f.puntuacion,
+            comentario: f.comentario,
+            fecha: f.fecha
+        });
+    });
+
+    // ============================================
+
+    /* const tareasOrdenadas = ordenarTareas(tareas);
 
     const asignaciones = [];
     let costoTotalProyecto = 0;
@@ -168,7 +184,7 @@ export async function previsualizarAsignacionPorCosto(projectId) {
         // ✅ Filtrar desarrolladores disponibles y con habilidades
         const candidatos = desarrolladores.filter(
             (dev) =>
-                tieneHabilidadesSuficientes(dev, tarea.habilidadesRequeridas, 0.7) &&
+                tieneHabilidadesSuficientes(dev, tarea.habilidadesRequeridas, 0.5) &&
                 tieneDisponibilidad(dev, fechaInicio, fechaFin, tarea.tiempoEstimadoHoras)
         );
 
@@ -227,6 +243,7 @@ export async function previsualizarAsignacionPorCosto(projectId) {
             horasTotales: tarea.tiempoEstimadoHoras,
             costoTotal: costoTarea,
             tipoAsignacion: "costo",
+            razon: "Asignado al desarrollador más económico disponible que cumple con los requisitos de habilidades y disponibilidad."
         });
     }
 
@@ -234,7 +251,9 @@ export async function previsualizarAsignacionPorCosto(projectId) {
         message: "Previsualización completada",
         costoTotalProyecto,
         asignaciones,
-    };
+    }; */
+
+
 }
 
 /**
@@ -268,6 +287,7 @@ export async function confirmarAsignacionPorCosto(projectId, asignacionesPrevias
             );
             if (registro) registro.horasDisponibles -= dia.horasAsignadas;
         }
+        await verificarYActualizarCalendario(dev);
         await dev.save();
 
         // 🔹 VALIDACIÓN: evitar duplicar asignaciones de la misma tarea

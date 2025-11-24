@@ -1,5 +1,12 @@
 import mongoose from 'mongoose';
 
+const historialSchema = new mongoose.Schema({
+  accion: { type: String, required: true }, // Ej: "Inicio", "Pausa", "Reanudación", etc.
+  fecha: { type: Date, default: Date.now },
+  usuario: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // quién hizo el cambio
+  descripcion: { type: String } // información adicional opcional
+}, { _id: false });
+
 const projectSchema = new mongoose.Schema({
   nombre: {
     type: String,
@@ -40,8 +47,12 @@ const projectSchema = new mongoose.Schema({
   },
   estado: {
     type: String,
-    enum: ['activo', 'pausado', 'finalizado'],
+    enum: ["pendiente", "en curso", "pausado", "finalizado"],
     default: 'activo'
+  },
+  historial: {
+    type: [historialSchema],
+    default: []
   },
   administrador: {
     type: mongoose.Schema.Types.ObjectId,

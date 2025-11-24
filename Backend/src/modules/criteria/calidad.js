@@ -4,9 +4,9 @@ import Task from "../task/task.model.js";
 import User from "../users/user.model.js";
 import { obtenerDisponibilidadEnRango } from "../../utils/asignacionBasica/diasDisponible.js";
 import dotenv from "dotenv";
-import { obtenerEficienciaHistorica } from "../users/user.service.js";
 import Asignacion from "../assignment/assignment.model.js";
 import PerformanceFeedback from "../performanceFeedback/performanceFeedback.model.js";
+import { buscarDesarrolladoresSimilares} from "../task/task.service.js"
 
 dotenv.config()
 
@@ -21,6 +21,7 @@ export const previewObtenerAsignacionesPorCalidadIA = async (projectId) => {
     // 🔹 Obtener tareas pendientes y sin desarrollador asignado
     const tareasPendientes = await Task.find({
         proyecto: projectId,
+        desarrolladorAsignado: null,
         estado: "pendiente",
     }).populate("proyecto");
 
@@ -49,7 +50,6 @@ export const previewObtenerAsignacionesPorCalidadIA = async (projectId) => {
     const feedbackPorDev = {};
     const feedbacks = await PerformanceFeedback.find().lean();
 
-
     feedbacks.forEach(f => {
         const devId = f.desarrollador.toString();
         if (!feedbackPorDev[devId]) feedbackPorDev[devId] = [];
@@ -75,7 +75,7 @@ export const previewObtenerAsignacionesPorCalidadIA = async (projectId) => {
     // 🔹 Obtener datos de cada dev
     const devsData = await Promise.all(
         desarrolladores.map(async (dev) => {
-            const eficienciaPromedio = await obtenerEficienciaHistorica(dev._id);
+            
             const disponibilidad = tareas.map((tarea) => ({
                 tareaId: tarea._id,
                 diasDisponibles: obtenerDisponibilidadEnRango(
@@ -96,7 +96,6 @@ export const previewObtenerAsignacionesPorCalidadIA = async (projectId) => {
                 })),
                 preferencias: dev.preferencias,
                 costoPorHora: dev.costoPorHora,
-                eficienciaPromedio,
                 disponibilidad,
                 preferenciasHabilidad: dev.preferenciasHabilidad,
                 preferenciasTarea: dev.preferenciasTarea,
@@ -105,12 +104,40 @@ export const previewObtenerAsignacionesPorCalidadIA = async (projectId) => {
         })
     );
 
+    const devsDisponibles = devsData.map(d => d.id);
+
+    // 2️⃣ Lista donde guardaremos los resultados
+  const recomendaciones = [];
+
+  // 3️⃣ Recorrer tareas y obtener los mejores devs
+  for (const tarea of tareasPendientes) {
+    const devsSimilares = await buscarDesarrolladoresSimilares(tarea._id, devsDisponibles);
+
+    // Solo guardar los top 3 (por ejemplo)
+    const topDevs = devsSimilares.slice(0, 3);
+
+    recomendaciones.push({
+      tareaId: tarea._id,
+      nombreTarea: tarea.nombre,
+      categoria: tarea.categoria,
+      dificultad: tarea.dificultad,
+      habilidades: tarea.habilidadesRequeridas,
+      candidatos: topDevs.map((d) => ({
+        devId: d.devId,
+        nombre: d.nombre,
+        similitud: d.similitudPromedio,
+        puntuacion: d.puntuacionPromedio,
+      })),
+    });
+  }
+
+
     // 🧠 Prompt IA
     const prompt = `
 Eres un asistente experto en planificación de proyectos y asignación óptima de recursos humanos.
 
 Objetivo:
-Asignar cada tarea al desarrollador que pueda completarla en el menor tiempo posible y con la mayor calidad,
+Asignar cada tarea al desarrollador que pueda completarla con la mayor calidad posible,
 considerando los siguientes factores:
 
 1. Disponibilidad diaria (horas por fecha)
@@ -119,24 +146,9 @@ considerando los siguientes factores:
 4. Habilidades técnicas requeridas de la tarea
 5. Prioridad y dificultad de la tarea
 6. Nivel del desarrollador en las habilidades requeridas
-7. Eficiencia histórica del desarrollador
-   - eficiencia = 1: estimó 10h, tardó 10h
-   - eficiencia > 1: estimó 10h, tardó 8h
-   - eficiencia < 1: estimó 10h, tardó 12h
-   - eficiencia = 0: no tiene historial 
-8. Preferencias y feedback histórico de calidad
-   - preferenciasHabilidad: puntuación promedio por habilidad (1-5) y veces calificado
-   - preferenciasTarea: puntuación promedio por tarea y veces calificado
-   - performanceFeedback: puntuación promedio general en proyectos anteriores
-9. Preferencias del desarrollador
-
-Reglas de asignación:
-- Primero asegura que el desarrollador tenga disponibilidad suficiente para cubrir las horas de la tarea.
-- Luego, prioriza la asignación a desarrolladores con mayor puntuación promedio histórica en la habilidad o tarea específica.
-- Considera la eficiencia histórica para ajustar tiempos estimados.
-- Evita sobrecargar al mismo desarrollador con demasiadas tareas.
-- Si varios desarrolladores cumplen los requisitos, usa las preferencias del desarrollador para decidir.
-- Cada tarea debe asignarse al desarrollador que ofrezca el mejor balance entre **tiempo y calidad**.
+7. Similitud y promedio de puntuación según recomendaciones previas (topDevs)
+7. PerformanceFeedback: puntuación promedio general en proyectos anteriores como calidad
+8. PreferenciasHabilidad: puntuación promedio por habilidad (1-5) y veces calificado
 
 Devuelve un JSON **válido** con la siguiente estructura (Nada más el JSON):
 
@@ -154,21 +166,35 @@ Devuelve un JSON **válido** con la siguiente estructura (Nada más el JSON):
       "horasTotales": numero,
       "tipoAsignacion": "calidad",
       "razon": "Explicación detallada de por qué fue asignado, incluyendo calidad y eficiencia",
-      "costoTotal": "costo total de la tarea según horas y costo por hora"
+      "costoTotal": "costo total de la tarea según horas y costo por hora",
+      "porcentajeRendimiento": "rendimientoHistorico.promedioPorcentaje del dev seleccionado",
+      "horasEstimadasReales": "resultado del calculo = tiempoEstimadoHoras * (rendimientoHistorico.promedioPorcentaje / 100), redondeado a 2 decimales",
+      "calidadTarea": "puntuacion promedio en tareas similares previas (puntuacionPromedio) del dev seleccionado",
+      "feedbackHistorico": {
+        "puntuacionPromedio": numero,
+        "vecesCalificado": numero
+      } (del dev elegido)
     }
   ],
-  "costoTotalProyecto": "costo total de todas las tareas asignadas según horas y costo por hora"
-}
+    "costoTotalProyecto": "costo total de todas las tareas asignadas según horas y costo por hora"
+    "tiempoTotalEstimadoRealProyecto": "tiempo que se estima va demorarse completar todas las tareas en horas (suma de horasEstimadasReales de todas las tareas), redondeado a 2 decimales"
+    "tiempoTotalAsignadoProyecto": "tiempo total en horas que se asignó a los desarrolladores para completar las tareas segun tiempoEstimadoHoras"
+    "calidadPromedioTareas": "promedio de las puntuaciones históricas de calidad de todas las tareas asignadas (calidadTarea)"
+    "calidadPromedioProyecto": "promedio de las puntuaciones históricas de calidad de todos los desarrolladores asignados"
+  }
 
 Datos:
-${JSON.stringify({ tareas: tareasData, desarrolladores: devsData }, null, 2)}
+${JSON.stringify({ tareas: tareasData, desarrolladores: devsData , devsRecomendados: recomendaciones}, null, 2)}
 
-Notas:
-- Es muy importante que el desarrollador cumpla con al menos el 50% de las habilidades requeridas por la tarea
-- No asignes horas los fines de semana (sábado y domingo)
-- usa las puntuaciones de preferenciasHabilidad, preferenciasTarea y performanceFeedback para asegurar la calidad
-- si un desarrollador tiene alta puntuación en la habilidad requerida, dale prioridad
-- si un desarrollador tiene baja eficiencia o puntuación histórica, asígnalo solo si no hay otra opción
+Reglas de asignación:
+- Es requisito minimo indispensable que el desarrollador cumpla con al menos el 50% de las habilidades requeridas por la tarea, priorizando aquellos que cumplen con más habilidades
+- Es requisito minimo indispensable que el desarrollador tenga disponibilidad suficiente en su calendario para completar la tarea en el rango de fechas estimado
+- Selecciona al desarrollador con mejor similitud: d.similitudPromedio, puntuacion: d.puntuacionPromedio del topDevs para cada tarea
+- Si los desarrolladores tienen la misma similitud y puntuación, tene en cuenta el feedbackHistorico para decidir, es decir, prioriza a quien tenga mejor feedbackHistorico (puntuacionPromedio y vecesCalificado)
+- Distribuye las horas de manera uniforme según la disponibilidad
+- Calcula el costo total de cada tarea y del proyecto según las horas asignadas y el costo por hora del desarrollador
+- Si no hay desarrollador disponible para una tarea (si no cumple con los requisitos minimos), omítela (mostrar en la razón por qué no se asignó)
+- Si varios desarrolladores cumplen los requisitos, usa las preferencias del desarrollador para decidir.
 `;
 
     const completion = await client.responses.create({
@@ -227,6 +253,7 @@ export async function confirmarAsignacionPorCalidad(projectId, asig, costoTProye
                 if (registro.horasDisponibles < 0) registro.horasDisponibles = 0;
             }
         }
+        await verificarYActualizarCalendario(dev);
         await dev.save();
 
         // 🔹 VALIDACIÓN: evitar duplicar asignaciones de la misma tarea

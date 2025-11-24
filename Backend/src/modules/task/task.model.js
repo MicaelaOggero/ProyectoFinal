@@ -9,6 +9,7 @@ const taskSchema = new mongoose.Schema({
     type: String,
     required: true
   }],
+  categoria: { type: String, enum: ['frontend', 'backend', 'testing', 'documentacion', 'machine learning'], default: "backend" },
   nivelDificultad: {
     type: Number,
     min: 1,
@@ -22,7 +23,7 @@ const taskSchema = new mongoose.Schema({
   },
   estado: {
     type: String,
-    enum: ['pendiente', 'en curso', 'completada'],
+    enum: ['pendiente', 'en curso', 'pausada', 'completada'],
     default: 'pendiente'
   },
   proyecto: {
@@ -59,7 +60,8 @@ const taskSchema = new mongoose.Schema({
   fechaEstimadaFin: Date,
   fechaEstimadaInicio: Date,
   fechaRealFin: Date,
-  fechaRealInicio: Date
+  fechaRealInicio: Date,
+  
 
 
 });

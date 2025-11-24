@@ -57,20 +57,6 @@ const userSchema = new mongoose.Schema({
   ],
   default: [] // <-- inicializa como arreglo vacío
 },
-preferenciasTarea: {
-  type: [
-    {
-      habilidad: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'Task',
-          default: null
-        },
-      puntuacionPromedio: { type: Number, min: 1, max: 5 },
-      vecesCalificado: { type: Number, default: 0 }
-    }
-  ],
-  default: [] // <-- inicializa como arreglo vacío
-},
 
   costoPorHora: {
     type: Number,
@@ -79,6 +65,10 @@ preferenciasTarea: {
   fechaCreacion: {
     type: Date,
     default: Date.now
+  },
+  rendimientoHistorico: {
+    promedioPorcentaje: { type: Number, default: 0 },
+    tareasCompletadas: { type: Number, default: 0 }
   },
   email: {
     type: String,

@@ -1,4 +1,3 @@
-import e from "express";
 import {
   addTask,
   editTask,
@@ -7,7 +6,8 @@ import {
   getTasksByDeveloper,
   getTasksByProjectAndDeveloper,
   obtenerTareasOrdenadasPorProyecto,
-  obtenerTodasTareasService
+  obtenerTodasTareasService,
+  iniciarTareaService
 } from "./task.service.js";
 
 export async function crearTask(req, res) {
@@ -104,4 +104,46 @@ export const obtenerTareasOrdenadasController = async (req, res) => {
   }
 };
 
+export const iniciarTareas = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user._id;
+    const tarea = await iniciarTareaService(taskId, userId);
+    res.json({
+      message: "✅ Tarea iniciada correctamente",
+      tarea: {
+        id: tarea._id,
+        descripcion: tarea.descripcion,
+        estado: tarea.estado,
+      }
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
 
+// src/modules/task/task.controller.js
+import { pausarOCompletarTarea } from "./task.service.js";
+
+export const pausarOCompletarTareaController = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { userId, accion } = req.body;
+
+    if (!taskId || !userId) {
+      return res.status(400).json({ error: "Faltan parámetros requeridos (taskId o userId)" });
+    }
+
+    const resultado = await pausarOCompletarTarea(taskId, userId, accion);
+
+    res.status(200).json({
+      success: true,
+      message: resultado.message,
+      horasTotales: resultado.horasTotales,
+      rendimientoActualizado: resultado.rendimientoActualizado,
+    });
+  } catch (error) {
+    console.error("❌ Error en pausarOCompletarTareaController:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
