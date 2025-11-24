@@ -23,7 +23,7 @@ router.get("/preview/costo/:projectId", previsualizarAsignacionCosto);
 router.post("/confirm/costo/:projectId", confirmarAsignacionCosto);
 
 // 🔹 Asignación básica
-router.get("/preview/basica/:projectId", previewAsignacionBasica);
+router.get("/iapreview/proyecto/:projectId/basica", previewAsignacionBasica);
 router.post("/confirm/basica/:projectId", confirmAsignacionBasica);
 
 // 🔹 Asignación tiempo
