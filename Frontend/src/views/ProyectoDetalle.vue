@@ -237,6 +237,14 @@
         <div class="assignments-content">
           <div class="assignments-header">
             <h3>Resumen de Asignaciones</h3>
+            <button 
+              class="btn btn-outline-info btn-sm" 
+              @click="diagnosticarProblemaAsignacion"
+              title="Diagnosticar problemas de asignación"
+            >
+              <i class="bi bi-bug me-1"></i>
+              Diagnosticar Problemas
+            </button>
           </div>
 
           <!-- Información del proyecto -->
@@ -601,7 +609,12 @@
                   type="date" 
                   class="form-control" 
                   v-model="newTask.fechaEstimadaInicio"
+                  :min="project?.startDate"
+                  :max="project?.endDate"
                 >
+                <small class="text-muted" v-if="project?.startDate">
+                  Rango válido: {{ formatDate(project.startDate) }} - {{ formatDate(project.endDate) }}
+                </small>
               </div>
               <div class="col-md-6 mb-3">
                 <label class="form-label">Fecha Estimada de Fin</label>
@@ -609,7 +622,12 @@
                   type="date" 
                   class="form-control" 
                   v-model="newTask.fechaEstimadaFin"
+                  :min="newTask.fechaEstimadaInicio || project?.startDate"
+                  :max="project?.endDate"
                 >
+                <small class="text-muted" v-if="project?.endDate">
+                  Máximo: {{ formatDate(project.endDate) }}
+                </small>
               </div>
             </div>
 
@@ -1608,9 +1626,21 @@ export default {
         }
 
       } catch (error) {
-        console.error('Error generando previsualización:', error);
-        const errorMsg = error.response?.data?.error || error.message || 'Error desconocido';
-        alert(`Error generando previsualización: ${errorMsg}`);
+        const errorMsg = error.response?.data?.error || error.response?.data?.message || error.message || 'Error desconocido';
+        
+        // Detectar el error específico de tareas ya asignadas
+        if (errorMsg.includes('Todas las tareas del proyecto ya están asignadas') || 
+            errorMsg.includes('ya están asignadas')) {
+          const mensajeCompleto = `⚠️ ${errorMsg}\n\n` +
+            `Esto puede deberse a datos inconsistentes en la base de datos.\n\n` +
+            `Solución:\n` +
+            `1. Ve a la pestaña "Asignaciones"\n` +
+            `2. Haz clic en "Diagnosticar Problemas"\n` +
+            `3. Sigue las instrucciones para limpiar los datos inconsistentes`;
+          alert(mensajeCompleto);
+        } else {
+          alert(`Error generando previsualización: ${errorMsg}`);
+        }
       } finally {
         this.isLoadingPreview = false;
       }
@@ -1983,6 +2013,129 @@ export default {
       if (tipo === 'costo') return 'Por Costo';
       if (tipo === 'basica') return 'Por Disponibilidad';
       return 'Tipo Desconocido';
+    },
+
+    async diagnosticarProblemaAsignacion() {
+      const projectId = this.$route.params.id;
+      
+      try {
+        // 1. Obtener información del proyecto
+        const project = await ProjectService.getProjectById(projectId);
+        
+        // 2. Obtener todas las tareas del proyecto
+        const tasks = await TaskService.getTasksByProject(projectId);
+        
+        // 3. Obtener asignaciones existentes
+        let asignaciones = [];
+        try {
+          const assignmentsResponse = await AssignmentService.getAssignmentsByProject(projectId);
+          asignaciones = assignmentsResponse.asignaciones || [];
+        } catch (error) {
+          // Error silencioso al obtener asignaciones
+        }
+        
+        // 4. Analizar tareas
+        const analisis = {
+          totalTareas: tasks.length,
+          tareasPendientes: 0,
+          tareasConDesarrollador: 0,
+          tareasSinDesarrollador: 0,
+          tareasConAsignacion: 0,
+          tareasSinDatos: [],
+          tareasInconsistentes: [],
+          idsTareasAsignadas: asignaciones.map(a => a.tarea?._id || a.tarea)
+        };
+        
+        tasks.forEach(task => {
+          if (task.estado === 'pendiente') {
+            analisis.tareasPendientes++;
+            
+            if (task.desarrolladorAsignado) {
+              analisis.tareasConDesarrollador++;
+            } else {
+              analisis.tareasSinDesarrollador++;
+              
+              // Verificar si tiene registro en Asignacion pero no desarrolladorAsignado
+              if (analisis.idsTareasAsignadas.includes(task._id)) {
+                analisis.tareasInconsistentes.push({
+                  id: task._id,
+                  descripcion: task.descripcion,
+                  problema: 'Tiene registro en Asignacion pero desarrolladorAsignado es null'
+                });
+              }
+              
+              // Verificar datos requeridos
+              if (!task.fechaEstimadaInicio || !task.fechaEstimadaFin || !task.tiempoEstimadoHoras) {
+                analisis.tareasSinDatos.push({
+                  id: task._id,
+                  descripcion: task.descripcion,
+                  faltantes: [
+                    !task.fechaEstimadaInicio ? 'fechaEstimadaInicio' : null,
+                    !task.fechaEstimadaFin ? 'fechaEstimadaFin' : null,
+                    !task.tiempoEstimadoHoras ? 'tiempoEstimadoHoras' : null
+                  ].filter(Boolean)
+                });
+              }
+            }
+          }
+          
+          if (analisis.idsTareasAsignadas.includes(task._id)) {
+            analisis.tareasConAsignacion++;
+          }
+        });
+        
+        // 5. Obtener desarrolladores
+        const usersResponse = await UserService.getUsers();
+        const developers = usersResponse.data.filter(user => user.rol === 'user');
+        
+        // 6. Mostrar diagnóstico
+        const mensaje = `
+🔍 DIAGNÓSTICO DEL PROYECTO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 Proyecto: ${project.data.name || project.data.nombre}
+📝 Total de tareas: ${analisis.totalTareas}
+⏳ Tareas pendientes: ${analisis.tareasPendientes}
+✅ Tareas con desarrollador asignado: ${analisis.tareasConDesarrollador}
+❌ Tareas sin desarrollador: ${analisis.tareasSinDesarrollador}
+📌 Registros en Asignacion: ${analisis.tareasConAsignacion}
+👥 Desarrolladores disponibles: ${developers.length}
+
+${analisis.tareasInconsistentes.length > 0 ? `
+⚠️ PROBLEMA DETECTADO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Hay ${analisis.tareasInconsistentes.length} tarea(s) con datos inconsistentes:
+${analisis.tareasInconsistentes.map(t => `  - "${t.descripcion}": ${t.problema}`).join('\n')}
+
+SOLUCIÓN: Eliminar los registros huérfanos de Asignacion para estas tareas.
+` : ''}
+
+${analisis.tareasSinDatos.length > 0 ? `
+❌ TAREAS SIN DATOS REQUERIDOS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${analisis.tareasSinDatos.map(t => `  - "${t.descripcion}": Faltan ${t.faltantes.join(', ')}`).join('\n')}
+` : ''}
+
+${analisis.tareasPendientes === 0 ? `
+⚠️ No hay tareas pendientes para asignar.
+` : ''}
+
+${analisis.tareasSinDesarrollador === 0 && analisis.tareasPendientes > 0 ? `
+✅ Todas las tareas pendientes ya tienen desarrollador asignado.
+` : ''}
+
+${developers.length === 0 ? `
+❌ No hay desarrolladores disponibles (rol: user).
+` : ''}
+        `.trim();
+        
+        alert(mensaje);
+        
+        return analisis;
+        
+      } catch (error) {
+        alert(`Error al diagnosticar: ${error.message}`);
+        throw error;
+      }
     },
 
     async switchToAssignmentsTab() {
