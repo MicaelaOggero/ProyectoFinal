@@ -14,6 +14,42 @@
         </div>
       </div>
       <div class="project-actions">
+        <button 
+          v-if="project?.status === 'Pendiente'" 
+          class="btn btn-success me-2" 
+          @click="iniciarProyecto"
+          title="Iniciar proyecto"
+        >
+          <i class="bi bi-play-fill me-1"></i>
+          Iniciar Proyecto
+        </button>
+        <button 
+          v-if="project?.status === 'En Curso'" 
+          class="btn btn-warning me-2" 
+          @click="pausarProyecto"
+          title="Pausar proyecto"
+        >
+          <i class="bi bi-pause-fill me-1"></i>
+          Pausar
+        </button>
+        <button 
+          v-if="project?.status === 'Pausado'" 
+          class="btn btn-success me-2" 
+          @click="iniciarProyecto"
+          title="Reanudar proyecto"
+        >
+          <i class="bi bi-play-fill me-1"></i>
+          Reanudar
+        </button>
+        <button 
+          v-if="project?.status === 'En Curso'" 
+          class="btn btn-secondary me-2" 
+          @click="finalizarProyecto"
+          title="Finalizar proyecto"
+        >
+          <i class="bi bi-check-circle me-1"></i>
+          Finalizar
+        </button>
         <button class="btn btn-primary add-task-btn" @click="showAddTaskModal = true">
           <i class="bi bi-plus-circle me-2"></i>
           Agregar Tarea
@@ -572,6 +608,7 @@
                 <select class="form-select" v-model="newTask.estado">
                   <option value="pendiente">Pendiente</option>
                   <option value="en curso">En Curso</option>
+                  <option value="pausada">Pausada</option>
                   <option value="completada">Completada</option>
                 </select>
               </div>
@@ -2249,9 +2286,11 @@ ${developers.length === 0 ? `
     },
     
     getStatusClass(status) {
-      if (status === 'Activo') return 'status-active';
+      if (status === 'En Curso') return 'status-active';
+      if (status === 'Pendiente') return 'status-pending';
       if (status === 'Pausado') return 'status-paused';
-      return 'status-finished';
+      if (status === 'Finalizado') return 'status-finished';
+      return 'status-pending';
     },
     
     getTaskPriorityClass(priority) {
@@ -2269,12 +2308,14 @@ ${developers.length === 0 ? `
     getTaskStatusClass(status) {
       if (status === 'completada') return 'status-completed';
       if (status === 'en curso') return 'status-in-progress';
+      if (status === 'pausada') return 'status-paused';
       return 'status-pending';
     },
     
     getTaskStatusText(status) {
       if (status === 'completada') return 'Completada';
       if (status === 'en curso') return 'En Progreso';
+      if (status === 'pausada') return 'Pausada';
       return 'Pendiente';
     },
     
@@ -2372,6 +2413,65 @@ ${developers.length === 0 ? `
         alert('Error al actualizar la asignación: ' + (error.response?.data?.error || error.message));
       } finally {
         this.isUpdatingAssignment = false;
+      }
+    },
+    
+    // Métodos para iniciar, pausar y finalizar proyecto
+    async iniciarProyecto() {
+      if (!this.project?._id) return;
+      
+      if (window.confirm('¿Estás seguro de que quieres iniciar este proyecto?')) {
+        try {
+          await ProjectService.iniciarProyecto(this.project._id);
+          alert('✅ Proyecto iniciado correctamente');
+          await this.loadProject();
+        } catch (error) {
+          console.error('Error iniciando proyecto:', error);
+          const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
+          
+          if (error.response?.status === 400) {
+            alert(`⚠️ No se puede iniciar el proyecto:\n\n${errorMessage}\n\nRequisitos:\n- El proyecto debe tener tareas asociadas\n- Todas las tareas deben estar asignadas a un desarrollador`);
+          } else {
+            alert(`❌ Error al iniciar el proyecto:\n\n${errorMessage}`);
+          }
+        }
+      }
+    },
+    
+    async pausarProyecto() {
+      if (!this.project?._id) return;
+      
+      if (window.confirm('¿Estás seguro de que quieres pausar este proyecto?')) {
+        try {
+          await ProjectService.pausarProyecto(this.project._id);
+          alert('✅ Proyecto pausado correctamente');
+          await this.loadProject();
+        } catch (error) {
+          console.error('Error pausando proyecto:', error);
+          const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
+          alert(`❌ Error al pausar el proyecto:\n\n${errorMessage}`);
+        }
+      }
+    },
+    
+    async finalizarProyecto() {
+      if (!this.project?._id) return;
+      
+      if (window.confirm('¿Estás seguro de que quieres finalizar este proyecto?')) {
+        try {
+          await ProjectService.finalizarProyecto(this.project._id);
+          alert('✅ Proyecto finalizado correctamente');
+          await this.loadProject();
+        } catch (error) {
+          console.error('Error finalizando proyecto:', error);
+          const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
+          
+          if (error.response?.status === 400) {
+            alert(`⚠️ No se puede finalizar el proyecto:\n\n${errorMessage}\n\nRequisitos:\n- Todas las tareas deben estar completadas`);
+          } else {
+            alert(`❌ Error al finalizar el proyecto:\n\n${errorMessage}`);
+          }
+        }
       }
     }
   }
@@ -2546,6 +2646,11 @@ ${developers.length === 0 ? `
 .status-active {
   background: #d4edda;
   color: #155724;
+}
+
+.status-pending {
+  background: #e2e3e5;
+  color: #495057;
 }
 
 .status-paused {

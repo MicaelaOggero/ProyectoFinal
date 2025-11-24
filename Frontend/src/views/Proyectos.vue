@@ -66,6 +66,38 @@
               <td>{{ formatCreationDate(project.fechaCreacion) }}</td>
               <td>
                 <router-link :to="{ name: 'ProyectoDetalle', params: { id: project._id } }" class="btn btn-sm btn-info text-white">Ver</router-link>
+                <button 
+                  v-if="isUserAdmin && project.status === 'Pendiente'" 
+                  class="btn btn-sm btn-success ms-2" 
+                  @click="iniciarProyecto(project._id)"
+                  title="Iniciar proyecto"
+                >
+                  <i class="bi bi-play-fill"></i> Iniciar
+                </button>
+                <button 
+                  v-if="isUserAdmin && project.status === 'En Curso'" 
+                  class="btn btn-sm btn-warning ms-2" 
+                  @click="pausarProyecto(project._id)"
+                  title="Pausar proyecto"
+                >
+                  <i class="bi bi-pause-fill"></i> Pausar
+                </button>
+                <button 
+                  v-if="isUserAdmin && project.status === 'Pausado'" 
+                  class="btn btn-sm btn-success ms-2" 
+                  @click="iniciarProyecto(project._id)"
+                  title="Reanudar proyecto"
+                >
+                  <i class="bi bi-play-fill"></i> Reanudar
+                </button>
+                <button 
+                  v-if="isUserAdmin && project.status === 'En Curso'" 
+                  class="btn btn-sm btn-secondary ms-2" 
+                  @click="finalizarProyecto(project._id)"
+                  title="Finalizar proyecto"
+                >
+                  <i class="bi bi-check-circle"></i> Finalizar
+                </button>
                 <button v-if="isUserAdmin" class="btn btn-sm btn-secondary ms-2" @click="openEditModal(project)">Editar</button>
                 <button v-if="isUserAdmin" class="btn btn-sm btn-danger ms-2" @click="deleteProject(project._id)">Eliminar</button>
               </td>
@@ -189,7 +221,7 @@ export default {
       alertClass: '',
       // Opciones para los selectores
       difficultyOptions: ['Baja', 'Media', 'Alta'],
-      statusOptions: ['Activo', 'Pausado', 'Finalizado'],
+      statusOptions: ['Pendiente', 'En Curso', 'Pausado', 'Finalizado'],
       priorityOptions: ['Baja', 'Media', 'Alta'],
       dateErrors: {
         startDate: '',
@@ -230,9 +262,10 @@ export default {
       });
     },
     getStatusClass(status) {
-      if (status === 'Activo') return 'bg-success';
+      if (status === 'En Curso') return 'bg-success';
+      if (status === 'Pendiente') return 'bg-secondary';
       if (status === 'Pausado') return 'bg-warning text-dark';
-      if (status === 'Finalizado') return 'bg-secondary';
+      if (status === 'Finalizado') return 'bg-dark';
       return 'bg-light';
     },
     getPriorityClass(priority) {
@@ -355,7 +388,7 @@ export default {
       this.isEditMode = false;
       this.editableProject = {
         name: '', description: '', startDate: '', endDate: '', 
-        difficulty: 'Media', status: 'Activo', priority: 'Media'
+          difficulty: 'Media', status: 'Pendiente', priority: 'Media'
       };
       this.modalInstance.show();
     },
@@ -505,6 +538,82 @@ export default {
         
         if (this.editableProject.startDate < todayString) {
           this.dateErrors.startDate = 'La fecha de inicio no puede ser anterior a hoy.';
+        }
+      }
+    },
+    async iniciarProyecto(projectId) {
+      if (!this.isUserAdmin) {
+        this.showAlert('Solo los administradores pueden iniciar proyectos', 'alert-warning');
+        return;
+      }
+
+      if (window.confirm('¿Estás seguro de que quieres iniciar este proyecto?')) {
+        try {
+          await ProjectService.iniciarProyecto(projectId);
+          this.showAlert('Proyecto iniciado correctamente', 'alert-success');
+          this.loadProjects();
+        } catch (error) {
+          console.error('Error iniciando proyecto:', error);
+          const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
+          
+          if (error.response?.status === 401) {
+            this.showAlert('No tienes permisos para iniciar proyectos', 'alert-danger');
+          } else if (error.response?.status === 400) {
+            // Mostrar el mensaje específico del backend
+            this.showAlert(`No se puede iniciar el proyecto: ${errorMessage}`, 'alert-warning');
+          } else {
+            this.showAlert(`Error al iniciar el proyecto: ${errorMessage}`, 'alert-danger');
+          }
+        }
+      }
+    },
+    async pausarProyecto(projectId) {
+      if (!this.isUserAdmin) {
+        this.showAlert('Solo los administradores pueden pausar proyectos', 'alert-warning');
+        return;
+      }
+
+      if (window.confirm('¿Estás seguro de que quieres pausar este proyecto?')) {
+        try {
+          await ProjectService.pausarProyecto(projectId);
+          this.showAlert('Proyecto pausado correctamente', 'alert-success');
+          this.loadProjects();
+        } catch (error) {
+          console.error('Error pausando proyecto:', error);
+          const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
+          
+          if (error.response?.status === 401) {
+            this.showAlert('No tienes permisos para pausar proyectos', 'alert-danger');
+          } else if (error.response?.status === 400) {
+            this.showAlert(`No se puede pausar el proyecto: ${errorMessage}`, 'alert-warning');
+          } else {
+            this.showAlert(`Error al pausar el proyecto: ${errorMessage}`, 'alert-danger');
+          }
+        }
+      }
+    },
+    async finalizarProyecto(projectId) {
+      if (!this.isUserAdmin) {
+        this.showAlert('Solo los administradores pueden finalizar proyectos', 'alert-warning');
+        return;
+      }
+
+      if (window.confirm('¿Estás seguro de que quieres finalizar este proyecto?')) {
+        try {
+          await ProjectService.finalizarProyecto(projectId);
+          this.showAlert('Proyecto finalizado correctamente', 'alert-success');
+          this.loadProjects();
+        } catch (error) {
+          console.error('Error finalizando proyecto:', error);
+          const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
+          
+          if (error.response?.status === 401) {
+            this.showAlert('No tienes permisos para finalizar proyectos', 'alert-danger');
+          } else if (error.response?.status === 400) {
+            this.showAlert(`No se puede finalizar el proyecto: ${errorMessage}`, 'alert-warning');
+          } else {
+            this.showAlert(`Error al finalizar el proyecto: ${errorMessage}`, 'alert-danger');
+          }
         }
       }
     }

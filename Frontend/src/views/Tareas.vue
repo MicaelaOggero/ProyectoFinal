@@ -39,6 +39,7 @@
           <option value="">Todos los estados</option>
           <option value="pendiente">Pendiente</option>
           <option value="en curso">En Curso</option>
+          <option value="pausada">Pausada</option>
           <option value="completada">Completada</option>
         </select>
       </div>
@@ -165,6 +166,30 @@
                 </td>
                 <td>
                   <div class="btn-group" role="group">
+                    <button 
+                      v-if="task.estado === 'pendiente'"
+                      class="btn btn-sm btn-success" 
+                      @click="iniciarTarea(task)" 
+                      title="Iniciar tarea"
+                    >
+                      <i class="bi bi-play-fill"></i> Iniciar
+                    </button>
+                    <button 
+                      v-if="task.estado === 'en curso'"
+                      class="btn btn-sm btn-warning" 
+                      @click="pausarOCompletarTarea(task)" 
+                      title="Pausar o completar tarea"
+                    >
+                      <i class="bi bi-pause-fill"></i> Pausar/Completar
+                    </button>
+                    <button 
+                      v-if="task.estado === 'pausada'"
+                      class="btn btn-sm btn-success" 
+                      @click="iniciarTarea(task)" 
+                      title="Reanudar tarea"
+                    >
+                      <i class="bi bi-play-fill"></i> Reanudar
+                    </button>
                     <button class="btn btn-sm btn-outline-info" @click="viewTask(task)" title="Ver detalles">
                       <i class="bi bi-eye"></i>
                     </button>
@@ -313,6 +338,7 @@
                   <select class="form-select" id="taskStatus" v-model="taskForm.estado">
                     <option value="pendiente">Pendiente</option>
                     <option value="en curso">En Curso</option>
+                    <option value="pausada">Pausada</option>
                     <option value="completada">Completada</option>
                   </select>
                 </div>
@@ -1279,6 +1305,7 @@ export default {
       const classes = {
         'pendiente': 'bg-secondary',
         'en curso': 'bg-warning text-dark',
+        'pausada': 'bg-info',
         'completada': 'bg-success'
       };
       return classes[status] || 'bg-light';
@@ -1288,6 +1315,7 @@ export default {
       const texts = {
         'pendiente': 'Pendiente',
         'en curso': 'En Curso',
+        'pausada': 'Pausada',
         'completada': 'Completada'
       };
       return texts[status] || status;
@@ -1700,6 +1728,84 @@ export default {
     viewDetailedSummary() {
       // Navegar a la vista de resumen detallado
       this.$router.push('/asignacion-resumen');
+    },
+    
+    // Métodos para iniciar y pausar/completar tareas
+    async iniciarTarea(task) {
+      // Validar que task existe
+      if (!task) {
+        console.error('Error: task es undefined o null', task);
+        alert('Error: No se pudo obtener la información de la tarea. Por favor, recarga la página.');
+        return;
+      }
+      
+      // Validar que task tiene _id
+      if (!task._id) {
+        console.error('Error: task._id es undefined', task);
+        alert('Error: La tarea no tiene un ID válido. Por favor, recarga la página.');
+        return;
+      }
+      
+      if (window.confirm('¿Estás seguro de que quieres iniciar esta tarea?')) {
+        try {
+          await TaskService.iniciarTarea(task._id);
+          alert('✅ Tarea iniciada correctamente');
+          await this.loadTasks();
+        } catch (error) {
+          console.error('Error iniciando tarea:', error);
+          console.error('Error completo:', error.response?.data);
+          
+          let errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
+          
+          // Si el error es sobre _id undefined, es un problema de autenticación en el backend
+          if (errorMessage.includes("Cannot read properties of undefined (reading '_id')")) {
+            errorMessage = 'Error de autenticación en el servidor. Por favor, cierra sesión y vuelve a iniciar sesión.';
+          }
+          
+          if (error.response?.status === 400) {
+            // Mostrar el mensaje específico del backend
+            alert(`⚠️ No se puede iniciar la tarea:\n\n${errorMessage}\n\nRequisitos:\n- La tarea debe estar en estado "pendiente"\n- Debes estar autenticado como desarrollador`);
+          } else if (error.response?.status === 401) {
+            alert('❌ No tienes permisos para iniciar esta tarea. Por favor, inicia sesión nuevamente.');
+          } else {
+            alert(`❌ Error al iniciar la tarea:\n\n${errorMessage}`);
+          }
+        }
+      }
+    },
+    
+    async pausarOCompletarTarea(task) {
+      // Validar que task existe
+      if (!task) {
+        console.error('Error: task es undefined o null', task);
+        alert('Error: No se pudo obtener la información de la tarea. Por favor, recarga la página.');
+        return;
+      }
+      
+      // Validar que task tiene _id
+      if (!task._id) {
+        console.error('Error: task._id es undefined', task);
+        alert('Error: La tarea no tiene un ID válido. Por favor, recarga la página.');
+        return;
+      }
+      
+      const action = task.estado === 'en curso' ? 'pausar o completar' : 'completar';
+      if (window.confirm(`¿Estás seguro de que quieres ${action} esta tarea?`)) {
+        try {
+          await TaskService.pausarOCompletarTarea(task._id);
+          alert('✅ Tarea actualizada correctamente');
+          await this.loadTasks();
+        } catch (error) {
+          console.error('Error actualizando tarea:', error);
+          const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
+          
+          if (error.response?.status === 400) {
+            alert(`⚠️ No se puede actualizar la tarea:\n\n${errorMessage}`);
+          } else {
+            alert(`❌ Error al actualizar la tarea:\n\n${errorMessage}`);
+          }
+        }
+      }
     }
   }
 }

@@ -16,9 +16,11 @@ class ProjectService {
     };
     
     const statusMap = {
-      'Activo': 'activo',
+      'Pendiente': 'pendiente',
+      'En Curso': 'en curso',
       'Pausado': 'pausado', 
-      'Finalizado': 'finalizado'
+      'Finalizado': 'finalizado',
+      'Activo': 'activo' // Para compatibilidad con proyectos que tienen estado "activo"
     };
 
     const priorityMap = {
@@ -34,7 +36,7 @@ class ProjectService {
       fechaFinEstimada: project.endDate,
       nivelDificultad: difficultyMap[project.difficulty] || 3,
       prioridad: priorityMap[project.priority] || 'media',
-      estado: statusMap[project.status] || 'activo',
+      estado: statusMap[project.status] || 'pendiente',
       equipo: project.team || []
     };
   }
@@ -50,10 +52,17 @@ class ProjectService {
     };
     
     const statusMap = {
-      'activo': 'Activo',
+      'pendiente': 'Pendiente',
+      'en curso': 'En Curso',
       'pausado': 'Pausado',
-      'finalizado': 'Finalizado'
+      'finalizado': 'Finalizado',
+      'activo': 'En Curso' // El backend usa "activo" como estado inicial, lo mapeamos a "En Curso"
     };
+    
+    // Debug: verificar el estado que viene del backend
+    if (project.estado && !statusMap[project.estado]) {
+      console.warn('⚠️ Estado desconocido del backend:', project.estado, 'para proyecto:', project.nombre);
+    }
 
     const priorityMap = {
       'baja': 'Baja',
@@ -69,7 +78,7 @@ class ProjectService {
       endDate: project.fechaFinEstimada ? project.fechaFinEstimada.split('T')[0] : '',
       difficulty: difficultyMap[project.nivelDificultad] || 'Media',
       priority: priorityMap[project.prioridad] || 'Media',
-      status: statusMap[project.estado] || 'Activo',
+      status: statusMap[project.estado] || 'Pendiente',
       team: project.equipo || [],
       fechaCreacion: project.fechaCreacion
     };
@@ -133,6 +142,39 @@ class ProjectService {
       return response;
     } catch (error) {
       console.error('Error en deleteProject:', error);
+      throw error;
+    }
+  }
+
+  // Iniciar un proyecto
+  async iniciarProyecto(projectId) {
+    try {
+      const response = await axios.put(`${API_URL}/project/${projectId}/iniciar`);
+      return response;
+    } catch (error) {
+      console.error('Error en iniciarProyecto:', error);
+      throw error;
+    }
+  }
+
+  // Pausar un proyecto
+  async pausarProyecto(projectId) {
+    try {
+      const response = await axios.put(`${API_URL}/project/${projectId}/pausar`);
+      return response;
+    } catch (error) {
+      console.error('Error en pausarProyecto:', error);
+      throw error;
+    }
+  }
+
+  // Finalizar un proyecto
+  async finalizarProyecto(projectId) {
+    try {
+      const response = await axios.put(`${API_URL}/project/${projectId}/finalizar`);
+      return response;
+    } catch (error) {
+      console.error('Error en finalizarProyecto:', error);
       throw error;
     }
   }
