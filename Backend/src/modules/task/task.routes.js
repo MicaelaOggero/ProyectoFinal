@@ -42,10 +42,10 @@ router.get("/proyecto/:projectId/desarrollador/:developerId", auth, listarTasksP
 router.get("/ordenadas/:projectId", authAdmin, obtenerTareasOrdenadasController);
 
 // Cambiar el estado de una tarea a "en curso"
-router.put("/:taskId/inciar", iniciarTareas)
+router.put("/:taskId/inciar", auth, iniciarTareas)
 
 // Cambiar el estado de una tarea a "pausada-completada"
-router.put("/:taskId/accion", pausarOCompletarTareaController);
+router.put("/:taskId/accion", auth, pausarOCompletarTareaController);
 
 // 📌 Ruta para crear varias tareas dentro de un proyecto
 router.post("/bulk/:projectId", async (req, res) => {
@@ -88,7 +88,7 @@ import mongoose from "mongoose";
  * Verifica que los IDs de tarea y desarrollador sean válidos
  */
 
-import { actualizarRendimientoDesarrollador } from "../users/user.service.js"; // importa tu función
+import { actualizarRendimientoDesarrollador, actualizarPuntuacionCalidadDesarrollador } from "../users/user.service.js"; // importa tu función
 
 router.post("/taskLog/masivo", async (req, res) => {
   try {
@@ -101,7 +101,7 @@ router.post("/taskLog/masivo", async (req, res) => {
     // ✅ Filtrar logs con IDs válidos
     const logsValidos = logs.filter(
       (log) =>
-        mongoose.Types.ObjectId.isValid(log.tarea) &&
+        /* mongoose.Types.ObjectId.isValid(log.tarea) && */
         mongoose.Types.ObjectId.isValid(log.desarrollador)
     );
 
@@ -130,10 +130,24 @@ router.post("/taskLog/masivo", async (req, res) => {
       })
     );
 
+    // Actualizar puntuación de calidad de cada desarrollador en paralelo
+    const actualizacionesCalidad = await Promise.all(
+      desarrolladoresAActualizar.map(async (devId) => {
+        try {
+          const nuevaPuntuacion = await actualizarPuntuacionCalidadDesarrollador(devId);
+          return { devId, nuevaPuntuacion };
+        } catch (err) {
+          console.error(`Error actualizando puntuación de calidad de ${devId}:`, err);
+          return { devId, error: err.message };
+        }
+      })
+    );
+
     res.status(201).json({
       mensaje: "Logs guardados correctamente",
       cantidad: resultado.length,
       actualizaciones,
+      actualizacionesCalidad,
       logs: resultado,
     });
   } catch (error) {

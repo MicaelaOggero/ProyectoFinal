@@ -4,6 +4,7 @@ import Task from "../task/task.model.js";
 // services/iaAssignment.service.js
 import TaskLog from "../task/taskLog.model.js";
 import User from "./user.model.js";
+import PerformanceFeedback from "../performanceFeedback/performanceFeedback.model.js";
 
 
 // Obtener todos los usuarios (si es admin devuelve los 'user', si es user devuelve lista vacía)
@@ -209,3 +210,110 @@ export async function actualizarRendimientoDesarrollador(userId) {
 }
 
 
+export async function actualizarCalendariosDeTodosLosDesarrolladores() {
+  try {
+    const desarrolladores = await User.find({ rol: "user" });
+
+    for (const dev of desarrolladores) {
+      await verificarYActualizarCalendario(dev);
+      await dev.save(); // guardar si hubo cambios
+    }
+
+    return { success: true, totalActualizados: desarrolladores.length };
+  } catch (error) {
+    console.error("Error actualizando calendarios:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/* (async () => {
+  await actualizarCalendariosDeTodosLosDesarrolladores();
+})(); */
+
+export async function actualizarPuntuacionCalidadDesarrollador(userId) {
+  // Obtener todos los logs del desarrollador
+  const logs = await TaskLog.find({ desarrollador: userId });
+  if (logs.length === 0) return; // No hay tareas registradas aún
+
+  // Calcular el promedio de puntuación de calidad
+  let sumaPuntuaciones = 0;
+  for (const log of logs) {
+    sumaPuntuaciones += log.puntuacionCalidad;
+  }
+  const promedioCalidad = sumaPuntuaciones / logs.length;
+
+  // Guardar en el usuario
+  await User.findByIdAndUpdate(userId, {
+    $set: {
+      "puntuacionPromedioCalidad.puntuacionPromedio": promedioCalidad,
+      "puntuacionPromedioCalidad.tareasCalificadas": logs.length,
+    },
+  });
+  return promedioCalidad;
+}
+
+export async function actualizarPuntuacionesCalidadDeTodosLosDesarrolladores() {
+  try {
+    const desarrolladores = await User.find({ rol: "user" });
+    for (const dev of desarrolladores) {
+      await actualizarPuntuacionCalidadDesarrollador(dev._id);
+    }
+    return { success: true, totalActualizados: desarrolladores.length };
+  }
+  catch (error) {
+    console.error("Error actualizando puntuaciones de calidad:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+ /* (async () => {
+  await actualizarPuntuacionesCalidadDeTodosLosDesarrolladores();
+})();   */
+import mongoose from "mongoose";
+
+export async function actualizarFeedbackHistoricoDesarrollador(userId) {
+  // agregamos todos los feedbacks del desarrollador y calculamos promedio
+  const resultado = await PerformanceFeedback.aggregate([
+    { $match: { desarrollador: new mongoose.Types.ObjectId(userId) } },
+    {
+      $group: {
+        _id: "$desarrollador",
+        promedio: { $avg: "$puntuacion" },
+        vecesCalificado: { $sum: 1 }
+      }
+    }
+  ]);
+
+  if (!resultado.length) return; // no hay feedbacks
+
+  const { promedio, vecesCalificado } = resultado[0];
+
+  // guardar en el usuario
+  await User.findByIdAndUpdate(userId, {
+    $set: {
+      "feedbackHistorico.puntuacionPromedio": promedio,
+      "feedbackHistorico.vecesCalificado": vecesCalificado
+    }
+  });
+
+  return promedio;
+}
+
+// actualizar feedback historico de todos los desarrolladores
+export async function actualizarFeedbackHistoricoDeTodosLosDesarrolladores() {
+  try {
+    const desarrolladores = await User.find({ rol: "user" });
+    for (const dev of desarrolladores) {
+      await actualizarFeedbackHistoricoDesarrollador(dev._id);
+    }
+    return { success: true, totalActualizados: desarrolladores.length };
+  } catch (error) {
+    console.error("Error actualizando feedback historico:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+
+/*    (async () => {
+  await actualizarFeedbackHistoricoDeTodosLosDesarrolladores();
+})();      */

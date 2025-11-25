@@ -5,21 +5,61 @@ import { asignarTareasConCalendario } from "../criteria/index.js";
 import { asignarTareasPorCosto } from "../criteria/costo.js";
 import { calcularCostoDev } from "../../utils/asignacionCosto/costoTarea.js";
 import Task from "../task/task.model.js";
+import SimulacionAsignacion from "../simulationAssignment/simulationAssignment.model.js";
 
-export const editarAsignacionService = async (asignacionId, nuevoDevId) => {
+// 🔧 Helper para registrar cambios automáticamente
+function registrarCambio(tarea, campo, valorAnterior, valorNuevo, userId = null) {
+  // Evitar registrar si no cambió realmente
+  if (JSON.stringify(valorAnterior) === JSON.stringify(valorNuevo)) return;
+
+  tarea.historial.push({
+    campo,
+    valorAnterior,
+    valorNuevo,
+    cambiadoPor: userId, // si después agregás autenticación real se completa
+    fechaCambio: new Date()
+  });
+}
+
+
+
+export const editarAsignacionService = async (asignacionId, nuevoDevId, userId) => {
+
   // 1. Buscar la asignación original
   const asignacion = await findAsignacionById(asignacionId);
   if (!asignacion) throw new Error("Asignación no encontrada");
 
+  // Obtener la simulación a la que pertenece esta asignación
+  const simulacion = await SimulacionAsignacion.findOne({
+    asignaciones: asignacionId
+  }).populate("asignaciones");
+
+  if (!simulacion) throw new Error("No se encontró la simulación asociada a esta asignación");
+
   const tarea = asignacion.tarea;
   const devOriginal = asignacion.desarrollador;
   const devNuevo = await findUserById(nuevoDevId);
+
+  //verificar que el devNuevo sea diferente al original
+  if (devOriginal._id.toString() === devNuevo._id.toString()) {
+    throw new Error("El nuevo desarrollador debe ser diferente al original");
+  }
+
   if (!devNuevo) throw new Error("Nuevo desarrollador no encontrado");
+
+  // 🛑 VALIDACIÓN NUEVA: solo puede editarse si la tarea está en pendiente
+  if (tarea.estado !== "pendiente") {
+    throw new Error(
+      `La asignación no puede editarse porque la tarea está en estado "${tarea.estado}".`
+    );
+  }
 
   // 2. Verificar disponibilidad
   const fechaInicio = new Date(tarea.fechaEstimadaInicio);
   const fechaFin = new Date(tarea.fechaEstimadaFin);
   const horasNecesarias = tarea.tiempoEstimadoHoras;
+
+  console.log(fechaInicio, fechaFin, horasNecesarias);
 
   const disponible = tieneDisponibilidad(devNuevo, fechaInicio, fechaFin, horasNecesarias);
   if (!disponible) {
@@ -33,12 +73,24 @@ export const editarAsignacionService = async (asignacionId, nuevoDevId) => {
     );
     if (reg) reg.horasDisponibles += dia.horasAsignadas;
   });
-  await saveUser(devOriginal);
 
-  // 4. Asignar nuevo dev a la tarea
+
+  // 4. Guardar valor anterior del desarrollador
+  const desarrolladorAnterior = tarea.desarrolladorAsignado;
+
+  
+
+  // 5. Asignar nuevo desarrollador
   tarea.desarrolladorAsignado = devNuevo._id;
 
-  // 5. Descontar horas al nuevo dev
+  // 📝 Registrar CAMBIO
+  registrarCambio(tarea, "desarrolladorAsignado", desarrolladorAnterior, devNuevo._id, userId);
+
+
+  // Guardar cambios en la tarea
+  await tarea.save();
+
+  // 6. Descontar horas al nuevo dev
   let horasRestantes = horasNecesarias;
   const nuevosDias = [];
 
@@ -56,46 +108,141 @@ export const editarAsignacionService = async (asignacionId, nuevoDevId) => {
     }
 
     const horasAsignadas = Math.min(reg.horasDisponibles, horasRestantes);
+
     reg.horasDisponibles -= horasAsignadas;
     horasRestantes -= horasAsignadas;
 
     nuevosDias.push({ fecha: new Date(dia.fecha), horasAsignadas });
   }
 
-  await saveUser(devNuevo);
+   // 7. Recalcular costo de la tarea
+  const costoAnterior = tarea.costoTarea;
+  const nuevoCosto = calcularCostoDev(devNuevo, tarea.tiempoEstimadoHoras);
+  tarea.costoTarea = nuevoCosto;
 
-  // ✅ 6. Calcular nuevo costo de la tarea y actualizarla
-  const costoTarea = calcularCostoDev(devNuevo, tarea.tiempoEstimadoHoras);
-  tarea.costoTarea = costoTarea;
+  registrarCambio(tarea, "costoTarea", costoAnterior, nuevoCosto, userId);
+
   await saveTask(tarea);
 
-  // ✅ 7. Recalcular costo total del proyecto
+  asignacion.desarrollador = devNuevo._id;
+  asignacion.costoPorHora = devNuevo.costoPorHora;
+  asignacion.dias = nuevosDias;
+  asignacion.costoTarea = nuevoCosto;
+  asignacion.razon = "Desarrollador cambiado manualmente";
+  asignacion.porcentajeRendimiento = devNuevo.rendimientoHistorico.promedioPorcentaje || 0;
+  asignacion.horasEstimadasReales = asignacion.horasTotales * (devNuevo.rendimientoHistorico.promedioPorcentaje / 100)
+  asignacion.puntuacionCalidad = devNuevo.puntuacionPromedioCalidad.puntuacionPromedio || 0;
+  asignacion.feedbackHistorico = devNuevo.feedbackHistorico.puntuacionPromedio || 0;
+ 
+
+  //mostrar cambios
+  console.log("Asignación editada:", {
+    asignacionId: asignacion._id,
+    tareaId: tarea._id,
+    devOriginal: { id: devOriginal._id, nombre: devOriginal.nombre },
+    devNuevo: { id: devNuevo._id, nombre: devNuevo.nombre },
+    nuevosDiasAsignados: nuevosDias,
+    nuevoCosto
+  });
+
+  // Guardar cambios en el desarrollador nuevo
+  await saveUser(devNuevo);
+
+  
+  // Guardar cambios en el desarrollador original
+  await saveUser(devOriginal);
+
+   // Guardar cambios en la asignación
+  await saveAsignacion(asignacion);
+
+  // ---------------------------------------------------------
+  // 🔥 10. RECALCULAR DATOS GLOBALES DE LA SIMULACIÓN 🔥
+  // ---------------------------------------------------------
+  const simulacionActualizada = await SimulacionAsignacion.findById(simulacion._id)
+    .populate({
+      path: "asignaciones",
+      populate: [{ path: "tarea" }, { path: "desarrollador" }]
+    });
+  
+  // 8. Recalcular el costo total del proyecto
   const proyecto = tarea.proyecto;
   const tareasProyecto = await Task.find({ proyecto: proyecto._id }).populate("desarrolladorAsignado");
 
-  let costoTotalProyecto = 0;
+  let costoTotal = 0;
   for (const t of tareasProyecto) {
-    const devTarea = t.desarrolladorAsignado;
-    if (devTarea) {
-      const costo = calcularCostoDev(devTarea, t.tiempoEstimadoHoras);
-      costoTotalProyecto += costo;
+    if (t.desarrolladorAsignado) {
+      costoTotal += calcularCostoDev(t.desarrolladorAsignado, t.tiempoEstimadoHoras);
     }
   }
 
-  proyecto.costoTotal = costoTotalProyecto;
+  proyecto.costoTotal = costoTotal;
+
+  // Guardar cambios en el proyecto
   await proyecto.save();
 
-  // ✅ 8. Actualizar la asignación
-  asignacion.desarrollador = devNuevo._id;
-  asignacion.dias = nuevosDias;
-  asignacion.costoTarea = costoTarea; // ← guardar el costo también en la asignación
-  await saveAsignacion(asignacion);
 
-  // 🆕 9. Registrar la razón del cambio
-  asignacion.razon = "Desarrollador cambiado manualmente";
+  await recalcularDatosGlobales(simulacionActualizada, costoTotal);  
+
+  // Guardar cambios en la asignación completa
+  await simulacionActualizada.save();
+  // ---------------------------------------------------------
 
   return asignacion;
 };
+
+export const recalcularDatosGlobales = async (simulacion, costoTotalProyecto) => {
+  const asignaciones = simulacion.asignaciones;
+
+  if (!asignaciones.length) return simulacion;
+
+  
+  let tiempoTotalEstimadoRealProyecto = 0;
+  let tiempoTotalAsignadoProyecto = 0;
+
+  const calidadTareas = [];
+  const calidadProyecto = [];
+
+  for (const a of asignaciones) {
+ 
+    // Horas estimadas reales
+    tiempoTotalEstimadoRealProyecto += a.horasEstimadasReales;
+
+    // Horas totales
+    tiempoTotalAsignadoProyecto += a.horasTotales || 0;
+
+    // Calidad por tarea
+    if (a.puntuacionCalidad != null) calidadTareas.push(a.puntuacionCalidad);
+
+    // Feedback histórico
+    if (a.feedbackHistorico != null) calidadProyecto.push(a.feedbackHistorico);
+  }
+
+  const calidadPromedioTareas =
+    calidadTareas.length ? calidadTareas.reduce((a, b) => a + b, 0) / calidadTareas.length : 0;
+
+  const calidadPromedioProyecto =
+    calidadProyecto.length ? calidadProyecto.reduce((a, b) => a + b, 0) / calidadProyecto.length : 0;
+
+  // Guardar
+  simulacion.costoTotalSimulado = costoTotalProyecto;
+  simulacion.tiempoTotalSimulado = Number(tiempoTotalEstimadoRealProyecto.toFixed(2));
+  simulacion.tiempoTotalEstimado = tiempoTotalAsignadoProyecto;
+  simulacion.calidadPromedioTareas = Number(calidadPromedioTareas.toFixed(2));
+  simulacion.calidadPromedioSimulado = Number(calidadPromedioProyecto.toFixed(2));
+
+  await simulacion.save();
+
+  console.log("Simulación recalculada:", {
+    costoTotalProyecto,
+    tiempoTotalEstimadoRealProyecto,
+    tiempoTotalAsignadoProyecto,
+    calidadPromedioTareas,
+    calidadPromedioProyecto
+  });
+
+  return simulacion;
+};
+
 
 
 export const getAsignacionesPorProyectoService = async (proyectoId) => {

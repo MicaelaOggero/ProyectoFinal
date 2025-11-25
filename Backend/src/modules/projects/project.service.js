@@ -96,8 +96,8 @@ export async function pausarProyectoService(projectId, userId) {
 
   // 🔹 Verificar si tiene tareas en curso
   const tareasEnCurso = await Task.find({ tarea: projectId, estado: "en curso" });
-  if (!tareasEnCurso.length) {
-    throw new Error("No hay tareas en curso para pausar");
+  if (tareasEnCurso.length) {
+    throw new Error("No se pueden pausar el proyecto mientras haya tareas en curso");
   }
 
   // 🔹 Actualizar estado y agregar entrada al historial

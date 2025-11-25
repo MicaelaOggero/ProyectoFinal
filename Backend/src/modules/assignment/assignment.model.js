@@ -11,10 +11,6 @@ const asignacionSchema = new mongoose.Schema({
   ],
   horasTotales: { type: Number, required: true },
   proyecto: { type: mongoose.Schema.Types.ObjectId, ref: "Project", required: true },
-  
-  // 🔹 Se duplica para mantener el histórico
-  costoPorHora: { type: Number }, 
-  costoTotal: { type: Number },
 
   tipoAsignacion: {
     type: String,
@@ -22,7 +18,17 @@ const asignacionSchema = new mongoose.Schema({
     default: "basica"
   },
   razon: { type: String },
-  creadoEn: { type: Date, default: Date.now }
+  creadoEn: { type: Date, default: Date.now },
+
+  //costo
+  costoPorHora: { type: Number }, 
+  costoTotal: { type: Number },
+  //tiempo
+  porcentajeRendimiento: { type: Number, default: null},
+  horasEstimadasReales: { type: Number, default: null},
+  //calidad
+  puntuacionCalidad: { type: Number, min: 0, max: 5 , default: null },
+  feedbackHistorico:{type: Number, min: 0, max: 5 , default: null }
 });
 
 

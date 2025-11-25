@@ -13,8 +13,9 @@ export const editarAsignacion = async (req, res) => {
   try {
     const { asignacionId } = req.params;
     const { nuevoDevId } = req.body;
+    const userId = req.user._id;
 
-    const asignacion = await editarAsignacionService(asignacionId, nuevoDevId);
+    const asignacion = await editarAsignacionService(asignacionId, nuevoDevId, userId);
     res.json({ message: "Asignación editada correctamente", asignacion });
   } catch (error) {
     res.status(400).json({ error: error.message });

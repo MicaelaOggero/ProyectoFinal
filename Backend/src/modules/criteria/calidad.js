@@ -18,31 +18,15 @@ export const previewObtenerAsignacionesPorCalidadIA = async (projectId) => {
     const project = await Project.findById(projectId);
     if (!project) throw new Error("Proyecto no encontrado");
 
-    // 🔹 Obtener tareas pendientes y sin desarrollador asignado
+    // 🔹 Obtener tareas pendientes y sin asignar
     const tareasPendientes = await Task.find({
         proyecto: projectId,
-        desarrolladorAsignado: null,
         estado: "pendiente",
+        asignada: false
     }).populate("proyecto");
 
     if (!tareasPendientes.length)
         throw new Error("No hay tareas para este proyecto");
-
-    // 🔹 Obtener IDs de tareas que ya están asignadas en la colección Asignacion
-    const tareasAsignadas = await Asignacion.find(
-        { proyecto: projectId },
-        { tarea: 1, _id: 0 }
-    ).lean();
-
-    const idsTareasAsignadas = tareasAsignadas.map(a => a.tarea.toString());
-
-    // 🔹 Filtrar tareas que aún NO estén asignadas
-    const tareas = tareasPendientes.filter(
-        t => !idsTareasAsignadas.includes(t._id.toString())
-    );
-
-    if (!tareas.length)
-        throw new Error("Todas las tareas del proyecto ya están asignadas");
 
     // 🔹 Obtener desarrolladores disponibles
     const desarrolladores = await User.find({ rol: "user" });
@@ -169,18 +153,18 @@ Devuelve un JSON **válido** con la siguiente estructura (Nada más el JSON):
       "costoTotal": "costo total de la tarea según horas y costo por hora",
       "porcentajeRendimiento": "rendimientoHistorico.promedioPorcentaje del dev seleccionado",
       "horasEstimadasReales": "resultado del calculo = tiempoEstimadoHoras * (rendimientoHistorico.promedioPorcentaje / 100), redondeado a 2 decimales",
-      "calidadTarea": "puntuacion promedio en tareas similares previas (puntuacionPromedio) del dev seleccionado",
+      "calidadTarea": "puntuacion promedio segun los TaskLog (puntuacionPromedio) de tareas similares del dev seleccionado",
       "feedbackHistorico": {
         "puntuacionPromedio": numero,
         "vecesCalificado": numero
-      } (del dev elegido)
+      } (del dev elegido) según PerformanceFeedback de proyectos previos
     }
   ],
     "costoTotalProyecto": "costo total de todas las tareas asignadas según horas y costo por hora"
     "tiempoTotalEstimadoRealProyecto": "tiempo que se estima va demorarse completar todas las tareas en horas (suma de horasEstimadasReales de todas las tareas), redondeado a 2 decimales"
     "tiempoTotalAsignadoProyecto": "tiempo total en horas que se asignó a los desarrolladores para completar las tareas segun tiempoEstimadoHoras"
-    "calidadPromedioTareas": "promedio de las puntuaciones históricas de calidad de todas las tareas asignadas (calidadTarea)"
-    "calidadPromedioProyecto": "promedio de las puntuaciones históricas de calidad de todos los desarrolladores asignados"
+    "calidadPromedioTareas": "promedio de las puntuaciones históricas de calidad de los devs seleccionados (calidadTarea)",
+    "calidadPromedioProyecto": "promedio de los feedbackHistorico de todos los desarrolladores asignados"
   }
 
 Datos:
@@ -287,6 +271,7 @@ export async function confirmarAsignacionPorCalidad(projectId, asig, costoTProye
 
         // 🔹 Actualizar tarea
         tareaDB.desarrolladorAsignado = dev._id;
+        tareaDB.asignada = true;
         await tareaDB.save();
 
         resultados.push({

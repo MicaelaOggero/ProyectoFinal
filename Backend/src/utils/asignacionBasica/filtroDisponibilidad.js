@@ -1,4 +1,4 @@
-import { obtenerDiasDisponibles } from "./diasDisponible.js";
+import { obtenerDiasDisponibles, obtenerDisponibilidadEnRango } from "./diasDisponible.js";
 
 /**
  * Verifica si un desarrollador tiene disponibilidad suficiente en el rango
@@ -7,7 +7,7 @@ import { obtenerDiasDisponibles } from "./diasDisponible.js";
  * @param {Date} fechaFin - Fecha estimada de fin
  * @param {Number} horasNecesarias - Horas totales que requiere la tarea
  */
-export function tieneDisponibilidad(dev, fechaInicio, fechaFin, horasNecesarias) {
+/* export function tieneDisponibilidad(dev, fechaInicio, fechaFin, horasNecesarias) {
   // 1. Obtiene la lista de días hábiles (o con fines de semana según config)
   const diasDisponibles = obtenerDiasDisponibles(fechaInicio, fechaFin);
 
@@ -29,5 +29,18 @@ export function tieneDisponibilidad(dev, fechaInicio, fechaFin, horasNecesarias)
   }
 
   // 5. Devuelve true si el total de horas alcanzan lo requerido
+  return horasTotales >= horasNecesarias;
+} */
+
+export function tieneDisponibilidad(dev, fechaInicio, fechaFin, horasNecesarias) {
+  const diasDisponibles = obtenerDisponibilidadEnRango(dev, fechaInicio, fechaFin);
+  console.log("Días disponibles en rango:", diasDisponibles);
+
+  let horasTotales = 0;
+
+  for (const dia of diasDisponibles) {
+    horasTotales += dia.horas;
+  }
+
   return horasTotales >= horasNecesarias;
 }

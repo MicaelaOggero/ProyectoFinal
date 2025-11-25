@@ -6,6 +6,10 @@ import { obtenerDisponibilidadEnRango } from "../../utils/asignacionBasica/diasD
 import dotenv from "dotenv";
 import Asignacion from "../assignment/assignment.model.js";
 import { verificarYActualizarCalendario } from "../users/user.service.js";
+import { getFeedbackByUser } from "../performanceFeedback/performanceFeedback.service.js";
+import { getTaskLogsByDeveloper } from "../task/task.service.js";
+import SimulationAssignment from "../simulationAssignment/simulationAssignment.model.js";
+import { ordenarTareas } from "../../utils/asignacionBasica/ordenarTareas.js";
 
 dotenv.config()
 
@@ -14,37 +18,25 @@ const client = new OpenAI({
 });
 
 export const previewObtenerAsignacionesPorTiempoIA = async (projectId) => {
-  
+
   const project = await Project.findById(projectId);
   if (!project) throw new Error("Proyecto no encontrado");
 
-  // 🔹 Obtener tareas pendientes y sin desarrollador asignado
-  const tareasPendientes = await Task.find({
+  // 🔹 Obtener tareas pendientes y sin asignar
+  let tareas = await Task.find({
     proyecto: projectId,
     estado: "pendiente",
+    asignada: false
   }).populate("proyecto");
 
-  if (!tareasPendientes.length)
+  if (!tareas.length)
     throw new Error("No hay tareas para este proyecto");
 
-  // 🔹 Obtener IDs de tareas que ya están asignadas en la colección Asignacion
-  const tareasAsignadas = await Asignacion.find(
-    { proyecto: projectId },
-    { tarea: 1, _id: 0 }
-  ).lean();
-
-  const idsTareasAsignadas = tareasAsignadas.map(a => a.tarea.toString());
-
-  // 🔹 Filtrar tareas que aún NO estén asignadas
-  const tareas = tareasPendientes.filter(
-    t => !idsTareasAsignadas.includes(t._id.toString())
-  );
-
-  if (!tareas.length)
-    throw new Error("Todas las tareas del proyecto ya están asignadas");
+  // Ordenar tareas por prioridad y dificultad
+  tareas = ordenarTareas(tareas);
 
   // 🔹 Obtener desarrolladores disponibles
-  const desarrolladores = await User.find({ rol: "user" });
+  let desarrolladores = await User.find({ rol: "user" });
 
   const tareasData = tareas.map(t => ({
     id: t._id,
@@ -57,51 +49,111 @@ export const previewObtenerAsignacionesPorTiempoIA = async (projectId) => {
     nivelDificultad: t.nivelDificultad,
   }));
 
-  // 🔹 Obtener datos de cada dev
-  const devsData = await Promise.all(
-    desarrolladores.map(async (dev) => {
-     
-      const disponibilidad = tareas.map((tarea) => ({
-        tareaId: tarea._id,
-        diasDisponibles: obtenerDisponibilidadEnRango(
-          dev,
-          tarea.fechaEstimadaInicio,
-          tarea.fechaEstimadaFin
-        ),
-      }));
+ 
+const candidatosPorTarea = {};
+const devsDataPorTarea = {};
 
+for (const tarea of tareas) {
+
+  // --- PRIMER FILTRO: habilidades mínimas 50% ---
+  const candidatosPorHabilidad = desarrolladores.filter(dev => {
+    if (!tarea.habilidadesRequeridas?.length) return true;
+
+    const habDev = dev.habilidades.map(h => h.nombre.trim().toLowerCase());
+    const habReq = tarea.habilidadesRequeridas.map(h => h.trim().toLowerCase());
+
+    const cantidad = habReq.filter(h => habDev.includes(h)).length;
+    return cantidad / habReq.length >= 0.5;
+  });
+
+  // Guardar candidatos simples (lo que verá la IA)
+  candidatosPorTarea[tarea._id] = candidatosPorHabilidad.map(dev => ({
+    id: dev._id,
+    nombre: dev.nombre,
+    apellido: dev.apellido,
+    habilidades: dev.habilidades,
+    costoPorHora: dev.costoPorHora,
+    rendimientoHistorico: dev.rendimientoHistorico,
+    preferencias: dev.preferencias
+  }));
+
+
+  // --- CÁLCULO DE DISPONIBILIDAD REAL POR CANDIDATO ---
+  devsDataPorTarea[tarea._id] = await Promise.all(
+    candidatosPorHabilidad.map(async (dev) => {
+
+      const diasDisponibles = obtenerDisponibilidadEnRango(
+        dev,
+        tarea.fechaEstimadaInicio,
+        tarea.fechaEstimadaFin
+      );
+
+      // Construir objeto completo para IA
       return {
         id: dev._id,
         nombre: dev.nombre,
         apellido: dev.apellido,
         experiencia: dev.aniosExperiencia,
-        habilidades: dev.habilidades.map((h) => ({
+
+        habilidades: dev.habilidades?.map(h => ({
           nombre: h.nombre,
-          nivel: h.nivel,
+          nivel: h.nivel
         })),
+
         preferencias: dev.preferencias,
         costoPorHora: dev.costoPorHora,
         rendimientoHistorico: dev.rendimientoHistorico,
-        disponibilidad,
+
+        disponibilidad: {
+          tareaId: tarea._id,
+          diasDisponibles // [{fecha, horasDisponibles}]
+        },
+
+        performanceFeedback: getFeedbackByUser(dev._id),
+        taskLogs: await getTaskLogsByDeveloper(dev._id)
       };
     })
   );
+}
+
 
   // 🧠 Prompt IA
   const prompt = `
 Eres un asistente experto en planificación de proyectos y asignación óptima de recursos humanos.
 
 Objetivo:
-Asignar cada tarea al desarrollador que pueda completarla en el menor tiempo posible,
+Teniendo en cuenta que candidatosxTarea guarda para cada tarea recomendaciones de desarrolladores, asignar cada tarea al desarrollador que pueda completarla en el menor tiempo posible,
 considerando:
+- Rendimiento histórico del desarrollador (rendimientoHistorico)
 - Disponibilidad diaria (horas por fecha)
 - Tiempo estimado de la tarea (tiempoEstimadoHoras)
 - Experiencia (años)
-- Habilidades técnicas requeridas de la tarea
 - Prioridad y dificultad de la tarea
 - Nivel del desarrollador en las habilidades requeridas
-- Rendimiento histórico del desarrollador (rendimientoHistorico)
 - Y por último, las preferencias del desarrollador
+
+Reglas de asignación:
+
+1) PRIMER FILTRO (OBLIGATORIO)
+- Dentro cada lista de recomendados para cada tarea, validar que tenga disponibilidad suficiente dentro del rango de fechas estimadas para completar todas las horas de la tarea.
+Si ningún desarrollador pasa este filtro, omitir la tarea y explicar claramente la razón.
+
+2) SEGUNDO FILTRO - MUY IMPORTANTE
+Entre los desarrolladores filtrados en el primer filtro para cada tarea:
+- Ordenarlos por rendimientoHistorico.promedioPorcentaje en orden ascendente (de menor a mayor promedioPorcentaje)
+- Seleccionar al desarrollador con menor rendimientoHistorico.promedioPorcentaje de la lista de devs de cada tarea (candidatos por tarea) para asignarlo. Sin importar otros factores.
+
+3) ASIGNACIÓN
+- Distribuir las horas de forma uniforme según disponibilidad.
+- Calcular horasEstimadasReales 
+- Calcular costoTotal según horasTotales y costoPorHora del desarrollador.
+
+4) CÁLCULOS GLOBALES DEL PROYECTO
+- costoTotalProyecto = suma de costosTotales
+- tiempoTotalEstimadoRealProyecto = suma de horasEstimadasReales
+- tiempoTotalAsignadoProyecto = suma de horasTotales
+- calidadPromedioTareas = promedio de calidadTarea
+- calidadPromedioProyecto = promedio del feedback de todos los desarrolladores asignados
 
 Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
 {
@@ -118,43 +170,32 @@ Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
       }, (del dev elegido)
       "dias": [
         { "fecha": "YYYY-MM-DDT00:00:00.000Z", "horasAsignadas": 4 }
-      ],
+      ], si o si debe estar lleno con la distribución de horas asignadas por día si la tarea fue asignada
       "horasTotales": numero,
       "tipoAsignacion": "tiempo",
       "razon": "Explicación detallada de por qué fue asignado",
-      "costoTotal": "costo total de la tarea según horas y costo por hora",
+      "costoTotal": "costo total de la tarea según horas y costo por hora del dev seleccionado",
       "porcentajeRendimiento": "rendimientoHistorico.promedioPorcentaje del dev seleccionado",
-      "horasEstimadasReales": "resultado del calculo = tiempoEstimadoHoras * (rendimientoHistorico.promedioPorcentaje / 100), redondeado a 2 decimales",
-      "calidadTarea": "puntuacion promedio en tareas similares previas (puntuacionPromedio) del dev seleccionado",
+      "horasEstimadasReales": "resultado del calculo = horasTotales * (rendimientoHistorico.promedioPorcentaje / 100), redondeado a 2 decimales || horasTotales si no hay rendimientoHistorico",
+      "calidadTarea": "puntuacion promedio segun todos los TaskLog (puntuacionCalidad) del dev seleccionado || 0 si no tiene tareas previas",
       "feedbackHistorico": {
-        "puntuacionPromedio": numero,
-        "vecesCalificado": numero
-      } (del dev elegido)
+        "puntuacionPromedioFeedback": numero,
+        "vecesCalificadoFeedback": numero
+      } (del dev elegido) calcula el promedio segun performanceFeedback de proyectos previos || 0 si no tiene feedback
     }
   ],
   "costoTotalProyecto": "costo total de todas las tareas asignadas según horas y costo por hora",
   "tiempoTotalEstimadoRealProyecto": "tiempo que se estima va demorarse completar todas las tareas en horas (suma de horasEstimadasReales de todas las tareas), redondeado a 2 decimales",
   "tiempoTotalAsignadoProyecto": "tiempo total en horas que se asignó a los desarrolladores para completar las tareas segun tiempoEstimadoHoras",
-  "calidadPromedioTareas": "promedio de las puntuaciones históricas de calidad de todas las tareas asignadas (calidadTarea)",
-  "calidadPromedioProyecto": "promedio de las puntuaciones históricas de calidad de todos los desarrolladores asignados"
+  "calidadPromedioTareas": "promedio de las puntuaciones históricas de calidad de los devs seleccionados (calidadTarea)",
+  "calidadPromedioProyecto": "promedio de los feedbackHistorico de todos los desarrolladores asignados"
   }
 
 Datos:
-${JSON.stringify({ tareas: tareasData, desarrolladores: devsData }, null, 2)}
+${JSON.stringify({ tareas: tareasData, candidatosxTarea: devsDataPorTarea }, null, 2)}
 
-Reglas de asignación:
-- Es requisito minimo indispensable que el desarrollador cumpla con al menos el 50% de las habilidades requeridas por la tarea, priorizando aquellos que cumplen con más habilidades
-- Es requisito minimo indispensable que el desarrollador tenga disponibilidad suficiente en su calendario para completar la tarea en el rango de fechas estimado
-- Es muy importante que selecciones primero a los desarrolladores con mejor rendimiento histórico, es decir en orden descendente según rendimientoHistorico.promedioPorcentaje
-- Distribuye las horas de manera uniforme según la disponibilidad
-- Asigna primero las tareas de mayor prioridad y dificultad
-- Si un desarrollador no tiene historial de rendimiento, asígnale tareas de baja prioridad y dificultad
-- Si no hay desarrollador disponible para una tarea (si no cumple con los requisitos minimos), omítela (mostrar en la razón por qué no se asignó)
-- Calcula el costo total de cada tarea y del proyecto según las horas asignadas y el costo por hora del desarrollador
-- Si varios desarrolladores cumplen los requisitos, usa las preferencias del desarrollador para decidir.
 `;
-
-
+  console.log("Candidatos por tareas: ", candidatosPorTarea)
   const completion = await client.responses.create({
     model: "gpt-4o-mini",
     temperature: 0.4,
@@ -174,16 +215,45 @@ Reglas de asignación:
 
 export async function confirmarAsignacionPorTiempo(projectId, sugerencias) {
   const resultados = [];
+  const idsAsignacionesCreadas = [];
 
   if (!sugerencias || !Array.isArray(sugerencias.asignaciones)) {
     throw new Error("Formato de sugerencias inválido. Se esperaba un array de asignaciones.");
   }
 
   const asignaciones = sugerencias.asignaciones;
-  const costoTotalProyecto = Number(sugerencias.costoTotalProyecto);
+  const {
+    costoTotalProyecto,
+    tiempoTotalEstimadoRealProyecto,
+    tiempoTotalAsignadoProyecto,
+    calidadPromedioTareas,
+    calidadPromedioProyecto
+  } = sugerencias;
 
   for (const asignacion of asignaciones) {
-    const { tareaId, desarrolladorId, dias, horasTotales, razon } = asignacion;
+
+    const {
+      tareaId,
+      desarrolladorId,
+      dias,
+      horasTotales,
+      razon,
+      porcentajeRendimiento,
+      horasEstimadasReales,
+      calidadTarea,
+      feedbackHistorico,
+      costoTotal
+    } = asignacion;
+
+    // ❌ NO PROCESAR ASIGNACIÓN SIN DÍAS
+    if (!dias || dias.length === 0) {
+      resultados.push({
+        tarea: tareaId,
+        estado: "omitida",
+        mensaje: "No se creó la asignación porque no hay días asignados (sin disponibilidad)."
+      });
+      continue;
+    }
 
     const tareaDB = await Task.findById(tareaId);
     const dev = await User.findById(desarrolladorId);
@@ -198,7 +268,7 @@ export async function confirmarAsignacionPorTiempo(projectId, sugerencias) {
       continue;
     }
 
-    // 🔹 Actualizar calendario del desarrollador según los días asignados
+    // Actualizar calendario
     for (const dia of dias) {
       const diaISO = new Date(dia.fecha).toISOString().split("T")[0];
       const registro = dev.calendario.find(
@@ -210,25 +280,23 @@ export async function confirmarAsignacionPorTiempo(projectId, sugerencias) {
         if (registro.horasDisponibles < 0) registro.horasDisponibles = 0;
       }
     }
+
     await verificarYActualizarCalendario(dev);
     await dev.save();
 
-    // 🔹 VALIDACIÓN: evitar duplicar asignaciones de la misma tarea
+    // Validar duplicados
     const existeAsignacion = await Asignacion.findOne({ tarea: tareaId });
     if (existeAsignacion) {
       resultados.push({
         tarea: tareaDB.descripcion,
         estado: "omitida",
-        mensaje: `La tarea "${tareaDB.descripcion}" ya está asignada y no puede reasignarse.`,
+        mensaje: `La tarea "${tareaDB.descripcion}" ya está asignada.`,
       });
       continue;
     }
 
-    // 🔹 Crear registro de asignación
-    const costoTotal = horasTotales * (dev.costoPorHora || 0);
-
-
-    await Asignacion.create({
+    // Crear asignación con toda la data simulada
+    const nuevaAsignacion = await Asignacion.create({
       tarea: tareaDB._id,
       desarrollador: dev._id,
       dias,
@@ -236,14 +304,25 @@ export async function confirmarAsignacionPorTiempo(projectId, sugerencias) {
       proyecto: proyecto._id,
       tipoAsignacion: "tiempo",
       razon,
+
+      // costo
       costoPorHora: dev.costoPorHora,
       costoTotal,
+
+      // tiempo
+      porcentajeRendimiento,
+      horasEstimadasReales,
+
+      // calidad
+      puntuacionCalidad: calidadTarea,
+      feedbackHistorico: feedbackHistorico?.puntuacionPromedio || null
     });
 
+    idsAsignacionesCreadas.push(nuevaAsignacion._id);
 
-
-    // 🔹 Actualizar tarea
+    // Actualizar tarea
     tareaDB.desarrolladorAsignado = dev._id;
+    tareaDB.asignada = true;
     await tareaDB.save();
 
     resultados.push({
@@ -255,12 +334,22 @@ export async function confirmarAsignacionPorTiempo(projectId, sugerencias) {
     });
   }
 
-  // 🔹 Actualizar costo total estimado del proyecto
   await Project.findByIdAndUpdate(projectId, { costoTotal: costoTotalProyecto });
 
+  // Guardar simulación completa
+  await SimulationAssignment.create({
+    proyecto: projectId,
+    criterio: "tiempo",
+    asignaciones: idsAsignacionesCreadas,
+    costoTotalSimulado: costoTotalProyecto,
+  tiempoTotalSimulado: tiempoTotalEstimadoRealProyecto,
+  tiempoTotalEstimado: tiempoTotalAsignadoProyecto,
+  calidadPromedioTareas: calidadPromedioTareas,
+  calidadPromedioSimulado: calidadPromedioProyecto
+  });
+
   return {
-    message: "Asignaciones confirmadas y guardadas en la base de datos (modo tiempo)",
-    costoTotalProyecto,
-    resultados,
+    message: "Asignaciones confirmadas y simulación guardada (modo tiempo)",
+    resultados
   };
 }

@@ -70,6 +70,11 @@ const userSchema = new mongoose.Schema({
     promedioPorcentaje: { type: Number, default: 0 },
     tareasCompletadas: { type: Number, default: 0 }
   },
+  puntuacionPromedioCalidad: { puntuacionPromedio: { type: Number, default: 0 }, tareasCalificadas: { type: Number, default: 0 } },
+  feedbackHistorico: {
+    puntuacionPromedio: { type: Number, default: 0 },
+    vecesCalificado: { type: Number, default: 0 }
+  },
   email: {
     type: String,
     required: true,

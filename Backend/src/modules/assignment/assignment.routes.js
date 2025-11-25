@@ -7,7 +7,7 @@ import { sugerirAsignacionTiempoIA, confirmarAsignacionesPorTiempoController, su
 const router = Router();
 
 // Editar asignación existente
-router.put("/:asignacionId", editarAsignacion); //authAdmin,
+router.put("/:asignacionId", authAdmin, editarAsignacion); //authAdmin,
 
 // Obtener asignaciones por proyecto
 router.get("/proyecto/:proyectoId", getAsignacionesPorProyecto); //authAdmin,
@@ -23,7 +23,7 @@ router.get("/preview/costo/:projectId", previsualizarAsignacionCosto);
 router.post("/confirm/costo/:projectId", confirmarAsignacionCosto);
 
 // 🔹 Asignación básica
-router.get("/preview/basica/:projectId", previewAsignacionBasica);
+router.get("/iapreview/proyecto/:projectId/basica", previewAsignacionBasica);
 router.post("/confirm/basica/:projectId", confirmAsignacionBasica);
 
 // 🔹 Asignación tiempo
@@ -43,6 +43,7 @@ router.post("/iaconfirm/proyecto/:projectId/calidad", confirmarAsignacionesPorCa
 // Asignación con AI
 import OpenAI from "openai";
 import { obtenerDisponibilidadEnRango } from "../../utils/asignacionBasica/diasDisponible.js";
+import { authAdmin } from "../../middlewares/auth.js";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
