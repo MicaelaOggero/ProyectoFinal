@@ -14,6 +14,42 @@
         </div>
       </div>
       <div class="project-actions">
+        <button 
+          v-if="project?.status === 'Pendiente'" 
+          class="btn btn-success me-2" 
+          @click="iniciarProyecto"
+          title="Iniciar proyecto"
+        >
+          <i class="bi bi-play-fill me-1"></i>
+          Iniciar Proyecto
+        </button>
+        <button 
+          v-if="project?.status === 'En Curso'" 
+          class="btn btn-warning me-2" 
+          @click="pausarProyecto"
+          title="Pausar proyecto"
+        >
+          <i class="bi bi-pause-fill me-1"></i>
+          Pausar
+        </button>
+        <button 
+          v-if="project?.status === 'Pausado'" 
+          class="btn btn-success me-2" 
+          @click="iniciarProyecto"
+          title="Reanudar proyecto"
+        >
+          <i class="bi bi-play-fill me-1"></i>
+          Reanudar
+        </button>
+        <button 
+          v-if="project?.status === 'En Curso'" 
+          class="btn btn-secondary me-2" 
+          @click="finalizarProyecto"
+          title="Finalizar proyecto"
+        >
+          <i class="bi bi-check-circle me-1"></i>
+          Finalizar
+        </button>
         <button class="btn btn-primary add-task-btn" @click="showAddTaskModal = true">
           <i class="bi bi-plus-circle me-2"></i>
           Agregar Tarea
@@ -237,6 +273,14 @@
         <div class="assignments-content">
           <div class="assignments-header">
             <h3>Resumen de Asignaciones</h3>
+            <button 
+              class="btn btn-outline-info btn-sm" 
+              @click="diagnosticarProblemaAsignacion"
+              title="Diagnosticar problemas de asignación"
+            >
+              <i class="bi bi-bug me-1"></i>
+              Diagnosticar Problemas
+            </button>
           </div>
 
           <!-- Información del proyecto -->
@@ -564,6 +608,7 @@
                 <select class="form-select" v-model="newTask.estado">
                   <option value="pendiente">Pendiente</option>
                   <option value="en curso">En Curso</option>
+                  <option value="pausada">Pausada</option>
                   <option value="completada">Completada</option>
                 </select>
               </div>
@@ -601,7 +646,12 @@
                   type="date" 
                   class="form-control" 
                   v-model="newTask.fechaEstimadaInicio"
+                  :min="project?.startDate"
+                  :max="project?.endDate"
                 >
+                <small class="text-muted" v-if="project?.startDate">
+                  Rango válido: {{ formatDate(project.startDate) }} - {{ formatDate(project.endDate) }}
+                </small>
               </div>
               <div class="col-md-6 mb-3">
                 <label class="form-label">Fecha Estimada de Fin</label>
@@ -609,7 +659,12 @@
                   type="date" 
                   class="form-control" 
                   v-model="newTask.fechaEstimadaFin"
+                  :min="newTask.fechaEstimadaInicio || project?.startDate"
+                  :max="project?.endDate"
                 >
+                <small class="text-muted" v-if="project?.endDate">
+                  Máximo: {{ formatDate(project.endDate) }}
+                </small>
               </div>
             </div>
 
@@ -1608,9 +1663,21 @@ export default {
         }
 
       } catch (error) {
-        console.error('Error generando previsualización:', error);
-        const errorMsg = error.response?.data?.error || error.message || 'Error desconocido';
-        alert(`Error generando previsualización: ${errorMsg}`);
+        const errorMsg = error.response?.data?.error || error.response?.data?.message || error.message || 'Error desconocido';
+        
+        // Detectar el error específico de tareas ya asignadas
+        if (errorMsg.includes('Todas las tareas del proyecto ya están asignadas') || 
+            errorMsg.includes('ya están asignadas')) {
+          const mensajeCompleto = `⚠️ ${errorMsg}\n\n` +
+            `Esto puede deberse a datos inconsistentes en la base de datos.\n\n` +
+            `Solución:\n` +
+            `1. Ve a la pestaña "Asignaciones"\n` +
+            `2. Haz clic en "Diagnosticar Problemas"\n` +
+            `3. Sigue las instrucciones para limpiar los datos inconsistentes`;
+          alert(mensajeCompleto);
+        } else {
+          alert(`Error generando previsualización: ${errorMsg}`);
+        }
       } finally {
         this.isLoadingPreview = false;
       }
@@ -1985,6 +2052,129 @@ export default {
       return 'Tipo Desconocido';
     },
 
+    async diagnosticarProblemaAsignacion() {
+      const projectId = this.$route.params.id;
+      
+      try {
+        // 1. Obtener información del proyecto
+        const project = await ProjectService.getProjectById(projectId);
+        
+        // 2. Obtener todas las tareas del proyecto
+        const tasks = await TaskService.getTasksByProject(projectId);
+        
+        // 3. Obtener asignaciones existentes
+        let asignaciones = [];
+        try {
+          const assignmentsResponse = await AssignmentService.getAssignmentsByProject(projectId);
+          asignaciones = assignmentsResponse.asignaciones || [];
+        } catch (error) {
+          // Error silencioso al obtener asignaciones
+        }
+        
+        // 4. Analizar tareas
+        const analisis = {
+          totalTareas: tasks.length,
+          tareasPendientes: 0,
+          tareasConDesarrollador: 0,
+          tareasSinDesarrollador: 0,
+          tareasConAsignacion: 0,
+          tareasSinDatos: [],
+          tareasInconsistentes: [],
+          idsTareasAsignadas: asignaciones.map(a => a.tarea?._id || a.tarea)
+        };
+        
+        tasks.forEach(task => {
+          if (task.estado === 'pendiente') {
+            analisis.tareasPendientes++;
+            
+            if (task.desarrolladorAsignado) {
+              analisis.tareasConDesarrollador++;
+            } else {
+              analisis.tareasSinDesarrollador++;
+              
+              // Verificar si tiene registro en Asignacion pero no desarrolladorAsignado
+              if (analisis.idsTareasAsignadas.includes(task._id)) {
+                analisis.tareasInconsistentes.push({
+                  id: task._id,
+                  descripcion: task.descripcion,
+                  problema: 'Tiene registro en Asignacion pero desarrolladorAsignado es null'
+                });
+              }
+              
+              // Verificar datos requeridos
+              if (!task.fechaEstimadaInicio || !task.fechaEstimadaFin || !task.tiempoEstimadoHoras) {
+                analisis.tareasSinDatos.push({
+                  id: task._id,
+                  descripcion: task.descripcion,
+                  faltantes: [
+                    !task.fechaEstimadaInicio ? 'fechaEstimadaInicio' : null,
+                    !task.fechaEstimadaFin ? 'fechaEstimadaFin' : null,
+                    !task.tiempoEstimadoHoras ? 'tiempoEstimadoHoras' : null
+                  ].filter(Boolean)
+                });
+              }
+            }
+          }
+          
+          if (analisis.idsTareasAsignadas.includes(task._id)) {
+            analisis.tareasConAsignacion++;
+          }
+        });
+        
+        // 5. Obtener desarrolladores
+        const usersResponse = await UserService.getUsers();
+        const developers = usersResponse.data.filter(user => user.rol === 'user');
+        
+        // 6. Mostrar diagnóstico
+        const mensaje = `
+🔍 DIAGNÓSTICO DEL PROYECTO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 Proyecto: ${project.data.name || project.data.nombre}
+📝 Total de tareas: ${analisis.totalTareas}
+⏳ Tareas pendientes: ${analisis.tareasPendientes}
+✅ Tareas con desarrollador asignado: ${analisis.tareasConDesarrollador}
+❌ Tareas sin desarrollador: ${analisis.tareasSinDesarrollador}
+📌 Registros en Asignacion: ${analisis.tareasConAsignacion}
+👥 Desarrolladores disponibles: ${developers.length}
+
+${analisis.tareasInconsistentes.length > 0 ? `
+⚠️ PROBLEMA DETECTADO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Hay ${analisis.tareasInconsistentes.length} tarea(s) con datos inconsistentes:
+${analisis.tareasInconsistentes.map(t => `  - "${t.descripcion}": ${t.problema}`).join('\n')}
+
+SOLUCIÓN: Eliminar los registros huérfanos de Asignacion para estas tareas.
+` : ''}
+
+${analisis.tareasSinDatos.length > 0 ? `
+❌ TAREAS SIN DATOS REQUERIDOS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${analisis.tareasSinDatos.map(t => `  - "${t.descripcion}": Faltan ${t.faltantes.join(', ')}`).join('\n')}
+` : ''}
+
+${analisis.tareasPendientes === 0 ? `
+⚠️ No hay tareas pendientes para asignar.
+` : ''}
+
+${analisis.tareasSinDesarrollador === 0 && analisis.tareasPendientes > 0 ? `
+✅ Todas las tareas pendientes ya tienen desarrollador asignado.
+` : ''}
+
+${developers.length === 0 ? `
+❌ No hay desarrolladores disponibles (rol: user).
+` : ''}
+        `.trim();
+        
+        alert(mensaje);
+        
+        return analisis;
+        
+      } catch (error) {
+        alert(`Error al diagnosticar: ${error.message}`);
+        throw error;
+      }
+    },
+
     async switchToAssignmentsTab() {
       this.activeTab = 'asignaciones';
       await this.loadExistingAssignments();
@@ -2096,9 +2286,11 @@ export default {
     },
     
     getStatusClass(status) {
-      if (status === 'Activo') return 'status-active';
+      if (status === 'En Curso') return 'status-active';
+      if (status === 'Pendiente') return 'status-pending';
       if (status === 'Pausado') return 'status-paused';
-      return 'status-finished';
+      if (status === 'Finalizado') return 'status-finished';
+      return 'status-pending';
     },
     
     getTaskPriorityClass(priority) {
@@ -2116,12 +2308,14 @@ export default {
     getTaskStatusClass(status) {
       if (status === 'completada') return 'status-completed';
       if (status === 'en curso') return 'status-in-progress';
+      if (status === 'pausada') return 'status-paused';
       return 'status-pending';
     },
     
     getTaskStatusText(status) {
       if (status === 'completada') return 'Completada';
       if (status === 'en curso') return 'En Progreso';
+      if (status === 'pausada') return 'Pausada';
       return 'Pendiente';
     },
     
@@ -2219,6 +2413,65 @@ export default {
         alert('Error al actualizar la asignación: ' + (error.response?.data?.error || error.message));
       } finally {
         this.isUpdatingAssignment = false;
+      }
+    },
+    
+    // Métodos para iniciar, pausar y finalizar proyecto
+    async iniciarProyecto() {
+      if (!this.project?._id) return;
+      
+      if (window.confirm('¿Estás seguro de que quieres iniciar este proyecto?')) {
+        try {
+          await ProjectService.iniciarProyecto(this.project._id);
+          alert('✅ Proyecto iniciado correctamente');
+          await this.loadProject();
+        } catch (error) {
+          console.error('Error iniciando proyecto:', error);
+          const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
+          
+          if (error.response?.status === 400) {
+            alert(`⚠️ No se puede iniciar el proyecto:\n\n${errorMessage}\n\nRequisitos:\n- El proyecto debe tener tareas asociadas\n- Todas las tareas deben estar asignadas a un desarrollador`);
+          } else {
+            alert(`❌ Error al iniciar el proyecto:\n\n${errorMessage}`);
+          }
+        }
+      }
+    },
+    
+    async pausarProyecto() {
+      if (!this.project?._id) return;
+      
+      if (window.confirm('¿Estás seguro de que quieres pausar este proyecto?')) {
+        try {
+          await ProjectService.pausarProyecto(this.project._id);
+          alert('✅ Proyecto pausado correctamente');
+          await this.loadProject();
+        } catch (error) {
+          console.error('Error pausando proyecto:', error);
+          const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
+          alert(`❌ Error al pausar el proyecto:\n\n${errorMessage}`);
+        }
+      }
+    },
+    
+    async finalizarProyecto() {
+      if (!this.project?._id) return;
+      
+      if (window.confirm('¿Estás seguro de que quieres finalizar este proyecto?')) {
+        try {
+          await ProjectService.finalizarProyecto(this.project._id);
+          alert('✅ Proyecto finalizado correctamente');
+          await this.loadProject();
+        } catch (error) {
+          console.error('Error finalizando proyecto:', error);
+          const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
+          
+          if (error.response?.status === 400) {
+            alert(`⚠️ No se puede finalizar el proyecto:\n\n${errorMessage}\n\nRequisitos:\n- Todas las tareas deben estar completadas`);
+          } else {
+            alert(`❌ Error al finalizar el proyecto:\n\n${errorMessage}`);
+          }
+        }
       }
     }
   }
@@ -2393,6 +2646,11 @@ export default {
 .status-active {
   background: #d4edda;
   color: #155724;
+}
+
+.status-pending {
+  background: #e2e3e5;
+  color: #495057;
 }
 
 .status-paused {

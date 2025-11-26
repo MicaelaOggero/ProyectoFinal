@@ -102,6 +102,30 @@ class TaskService {
       throw error;
     }
   }
+
+  // Iniciar una tarea (cambiar estado a "en curso")
+  // Nota: el backend tiene un typo "inciar" en lugar de "iniciar"
+  async iniciarTarea(taskId) {
+    try {
+      const response = await axios.put(`${API_URL}/task/${taskId}/inciar`);
+      return response.data;
+    } catch (error) {
+      console.error('Error en iniciarTarea:', error);
+      throw error;
+    }
+  }
+
+  // Pausar o completar una tarea
+  // El backend determina si pausar o completar según el estado actual
+  async pausarOCompletarTarea(taskId) {
+    try {
+      const response = await axios.put(`${API_URL}/task/${taskId}/accion`);
+      return response.data;
+    } catch (error) {
+      console.error('Error en pausarOCompletarTarea:', error);
+      throw error;
+    }
+  }
 }
 
 export default new TaskService(); 
