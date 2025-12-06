@@ -34,13 +34,15 @@ import { obtenerDiasDisponibles, obtenerDisponibilidadEnRango } from "./diasDisp
 
 export function tieneDisponibilidad(dev, fechaInicio, fechaFin, horasNecesarias) {
   const diasDisponibles = obtenerDisponibilidadEnRango(dev, fechaInicio, fechaFin);
-  console.log("Días disponibles en rango:", diasDisponibles);
 
   let horasTotales = 0;
 
   for (const dia of diasDisponibles) {
-    horasTotales += dia.horas;
+    // Usa horasDisponibles si existe, si no, intenta con horas
+    const horas = dia.horasDisponibles ?? dia.horas ?? 0;
+    horasTotales += horas;
   }
 
   return horasTotales >= horasNecesarias;
 }
+

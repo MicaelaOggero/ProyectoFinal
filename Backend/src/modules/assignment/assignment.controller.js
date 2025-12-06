@@ -214,3 +214,71 @@ export const confirmarAsignacionesPorCalidadController = async (req, res) => {
     });
   }
 };
+
+// Asignar un desarrollador específico a una tarea manualmente SIN modificar la BD
+// controllers/asignacion.controller.js
+import { asignarTareaManual } from "../assignment/assignment.service.js";
+
+export const asignarTareaManualController = async (req, res) => {
+  try {
+    const asignacion = req.body;
+
+    // Validaciones básicas
+    if (!asignacion?.tareaId) {
+      return res.status(400).json({ error: "Falta tareaId en la asignación" });
+    }
+    if (!asignacion?.desarrolladorId) {
+      return res.status(400).json({ error: "Falta desarrolladorId en la asignación" });
+    }
+    if (!asignacion?.fechaEstimadaInicio || !asignacion?.fechaEstimadaFin) {
+      return res.status(400).json({ error: "Faltan fechas de la tarea" });
+    }
+    if (asignacion.estimacionHoras == null) {
+      return res.status(400).json({ error: "Falta estimacionHoras de la tarea" });
+    }
+
+    // Llamar a la lógica de negocio (no toca BD, solo calcula)
+    const asignacionManual = asignarTareaManual(asignacion);
+
+    // Devolver al front la nueva asignación "completada"
+    return res.status(200).json(asignacionManual);
+
+  } catch (error) {
+    console.error("Error en asignarTareaManualController:", error);
+    return res.status(500).json({
+      error: error.message || "Error al asignar manualmente la tarea"
+    });
+  }
+};
+
+// controllers/asignacionManual.controller.js
+
+import { completarAsignacionesManuales } from "../criteria/index.js";
+
+export const completarAsignacionesManualesController = async (req, res) => {
+  try {
+    const resultadoIA = req.body;
+
+    if (!resultadoIA || !resultadoIA.asignaciones) {
+      return res.status(400).json({
+        error: "El body debe incluir un objeto 'resultadoIA' con la propiedad 'asignaciones'."
+      });
+    }
+
+    console.log("➡️ Recibido resultadoIA desde el front:", JSON.stringify(resultadoIA, null, 2));
+
+    // Ejecutar la función principal
+    const resultadoFinal = await completarAsignacionesManuales(resultadoIA);
+
+    console.log("✅ Resultado final de asignaciones manuales:");
+    console.log(JSON.stringify(resultadoFinal, null, 2));
+
+    return res.status(200).json(resultadoFinal);
+
+  } catch (error) {
+    console.error("❌ Error en completarAsignacionesManualesController:", error);
+    return res.status(500).json({
+      error: error.message || "Error al completar asignaciones manuales"
+    });
+  }
+};

@@ -3,7 +3,7 @@ import { editarAsignacion, getAsignacionesPorProyecto, asignarAutomaticoBasico, 
 import Task from "../task/task.model.js";
 import User from "../users/user.model.js";
 import { sugerirAsignacionTiempoIA, confirmarAsignacionesPorTiempoController, sugerirAsignacionCalidadIA, confirmarAsignacionesPorCalidadController } from "../assignment/assignment.controller.js";
-
+import { completarAsignacionesManualesController } from "../assignment/assignment.controller.js";
 const router = Router();
 
 // Editar asignación existente
@@ -39,6 +39,9 @@ router.get("/iapreview/proyecto/:projectId/calidad", sugerirAsignacionCalidadIA)
 
 // Confirmar asignación automática con IA según criterio de calidad
 router.post("/iaconfirm/proyecto/:projectId/calidad", confirmarAsignacionesPorCalidadController);
+
+//Completar asignaciones manuales
+router.post("/completar-manual", completarAsignacionesManualesController); //authAdmin,
 
 // Asignación con AI
 import OpenAI from "openai";

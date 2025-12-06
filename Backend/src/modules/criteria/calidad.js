@@ -5,8 +5,13 @@ import User from "../users/user.model.js";
 import { obtenerDisponibilidadEnRango } from "../../utils/asignacionBasica/diasDisponible.js";
 import dotenv from "dotenv";
 import Asignacion from "../assignment/assignment.model.js";
+import { verificarYActualizarCalendario } from "../users/user.service.js";
 import PerformanceFeedback from "../performanceFeedback/performanceFeedback.model.js";
 import { buscarDesarrolladoresSimilares} from "../task/task.service.js"
+import { getFeedbackByUser } from "../performanceFeedback/performanceFeedback.service.js";
+import { getTaskLogsByDeveloper } from "../task/task.service.js";
+import SimulationAssignment from "../simulationAssignment/simulationAssignment.model.js";
+import { ordenarTareas } from "../../utils/asignacionBasica/ordenarTareas.js";
 
 dotenv.config()
 
@@ -19,19 +24,22 @@ export const previewObtenerAsignacionesPorCalidadIA = async (projectId) => {
     if (!project) throw new Error("Proyecto no encontrado");
 
     // 🔹 Obtener tareas pendientes y sin asignar
-    const tareasPendientes = await Task.find({
+    let tareas = await Task.find({
         proyecto: projectId,
         estado: "pendiente",
         asignada: false
     }).populate("proyecto");
 
-    if (!tareasPendientes.length)
+    if (!tareas.length)
         throw new Error("No hay tareas para este proyecto");
 
-    // 🔹 Obtener desarrolladores disponibles
-    const desarrolladores = await User.find({ rol: "user" });
+    // Ordenar tareas por prioridad y dificultad
+    tareas = ordenarTareas(tareasPendientes);
 
-    const feedbackPorDev = {};
+    // 🔹 Obtener desarrolladores disponibles
+    let desarrolladores = await User.find({ rol: "user" });
+
+    /* const feedbackPorDev = {};
     const feedbacks = await PerformanceFeedback.find().lean();
 
     feedbacks.forEach(f => {
@@ -43,7 +51,7 @@ export const previewObtenerAsignacionesPorCalidadIA = async (projectId) => {
             comentario: f.comentario,
             fecha: f.fecha
         });
-    });
+    }); */
 
     const tareasData = tareas.map(t => ({
         id: t._id,
@@ -55,6 +63,10 @@ export const previewObtenerAsignacionesPorCalidadIA = async (projectId) => {
         prioridad: t.prioridad,
         nivelDificultad: t.nivelDificultad,
     }));
+
+
+    const candidatosPorTarea = {};
+    const devsDataPorTarea = {};
 
     // 🔹 Obtener datos de cada dev
     const devsData = await Promise.all(
