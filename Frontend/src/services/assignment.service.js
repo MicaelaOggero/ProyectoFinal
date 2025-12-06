@@ -66,7 +66,7 @@ class AssignmentService {
   // Preview de asignación básica (por disponibilidad y habilidades)
   async previewBasicAssignment(projectId) {
     try {
-      const response = await axios.get(`${API_URL}/assignment/preview/basica/${projectId}`);
+      const response = await axios.get(`${API_URL}/assignment/iapreview/proyecto/${projectId}/basica`);
       return response.data;
     } catch (error) {
       console.error('Error obteniendo preview de asignación básica:', error);

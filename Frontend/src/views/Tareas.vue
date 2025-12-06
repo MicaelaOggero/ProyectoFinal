@@ -655,8 +655,82 @@
             <button type="button" class="btn-close" @click="closeAssignmentTypeModal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
-            <!-- Paso 1: Selección de tipo (si no hay preview) -->
-            <div v-if="!previewData">
+            <!-- Paso 1: Tabla comparativa de criterios -->
+            <div v-if="showComparisonTable">
+              <div v-if="isLoadingComparison" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-3">Cargando comparación de criterios...</p>
+              </div>
+              
+              <div v-else-if="comparisonData">
+                <h6 class="mb-3">Comparación de Criterios de Optimización</h6>
+                <p class="text-muted small mb-4">Compara los resultados de cada criterio de optimización para elegir el más adecuado para tu proyecto.</p>
+                
+                <div class="table-responsive">
+                  <table class="table table-hover table-bordered">
+                    <thead class="table-dark">
+                      <tr>
+                        <th>Criterio de Optimización</th>
+                        <th>Costo Total del Proyecto</th>
+                        <th>Tiempo Total del Proyecto</th>
+                        <th>Calidad</th>
+                        <th>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(data, key) in comparisonData" :key="key">
+                        <td>
+                          <strong>{{ getCriterioName(key) }}</strong>
+                          <span v-if="data.error" class="badge bg-danger ms-2">Error</span>
+                        </td>
+                        <td>
+                          <span v-if="data.error" class="text-danger">-</span>
+                          <span v-else-if="data.costoTotal !== null" class="fw-bold text-success">
+                            ${{ data.costoTotal.toFixed(2) }}
+                          </span>
+                          <span v-else class="text-muted">N/A</span>
+                        </td>
+                        <td>
+                          <span v-if="data.error" class="text-danger">-</span>
+                          <span v-else-if="data.tiempoTotal !== null" class="fw-bold">
+                            {{ formatTiempo(data.tiempoTotal) }}
+                          </span>
+                          <span v-else class="text-muted">N/A</span>
+                        </td>
+                        <td>
+                          <span v-if="data.error" class="text-danger">-</span>
+                          <span v-else-if="data.calidad !== null" class="fw-bold">
+                            {{ formatCalidad(data.calidad) }}
+                          </span>
+                          <span v-else class="text-muted">N/A</span>
+                        </td>
+                        <td>
+                          <button 
+                            v-if="!data.error && data.previewData"
+                            class="btn btn-sm btn-primary"
+                            @click="viewPreviewFromComparison(key)"
+                          >
+                            <i class="bi bi-eye me-1"></i>
+                            Ver Previsualización
+                          </button>
+                          <span v-else class="text-muted">-</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              
+              <div v-else class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                No se pudieron cargar los datos comparativos. Por favor, intenta nuevamente.
+              </div>
+            </div>
+
+            <!-- Paso 2: Selección de tipo (si no hay preview y no se muestra tabla) -->
+            <div v-else-if="!previewData && !showComparisonTable">
               <p class="mb-4">Selecciona el tipo de optimización para la asignación automática:</p>
               
               <div class="row">
@@ -774,8 +848,8 @@
               </div>
             </div>
 
-            <!-- Paso 2: Preview de asignaciones (si hay preview) -->
-            <div v-else>
+            <!-- Paso 3: Preview de asignaciones (si hay preview y es solo visualización) -->
+            <div v-else-if="previewData && previewData.isViewOnly">
               <div class="alert alert-info">
                 <i class="bi bi-info-circle me-2"></i>
                 <strong>Previsualización de Asignaciones</strong>
@@ -862,8 +936,56 @@
                   </h4>
                 </div>
               </div>
+            </div>
 
-              <!-- Pregunta de confirmación -->
+            <!-- Paso 4: Confirmación directa (cuando se selecciona tipo desde los 4 cuadros) -->
+            <div v-else-if="previewData && !previewData.isViewOnly">
+              <div class="alert alert-success">
+                <i class="bi bi-check-circle me-2"></i>
+                <strong>Confirmar Asignación</strong>
+                <p class="mb-0 mt-2">
+                  Has seleccionado la asignación por <strong>{{ getCriterioName(getCriterioKey(selectedAssignmentType)) }}</strong>.
+                  Los datos ya fueron comparados en la tabla anterior.
+                </p>
+              </div>
+
+              <!-- Resumen breve -->
+              <div class="row mt-3">
+                <div class="col-md-4">
+                  <div class="card border-0 bg-light">
+                    <div class="card-body text-center">
+                      <h6 class="text-muted mb-2">Costo Total</h6>
+                      <h4 class="text-success mb-0" v-if="previewData.costoTotalProyecto">
+                        ${{ previewData.costoTotalProyecto.toFixed(2) }}
+                      </h4>
+                      <span v-else class="text-muted">N/A</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="card border-0 bg-light">
+                    <div class="card-body text-center">
+                      <h6 class="text-muted mb-2">Tiempo Total</h6>
+                      <h4 class="mb-0" v-if="comparisonData && comparisonData[getCriterioKey(selectedAssignmentType)]?.tiempoTotal">
+                        {{ formatTiempo(comparisonData[getCriterioKey(selectedAssignmentType)].tiempoTotal) }}
+                      </h4>
+                      <span v-else class="text-muted">N/A</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="card border-0 bg-light">
+                    <div class="card-body text-center">
+                      <h6 class="text-muted mb-2">Calidad</h6>
+                      <h4 class="mb-0" v-if="comparisonData && comparisonData[getCriterioKey(selectedAssignmentType)]?.calidad">
+                        {{ formatCalidad(comparisonData[getCriterioKey(selectedAssignmentType)].calidad) }}
+                      </h4>
+                      <span v-else class="text-muted">N/A</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div class="alert alert-warning mt-3">
                 <i class="bi bi-question-circle me-2"></i>
                 <strong>¿Desea guardar estas asignaciones?</strong>
@@ -874,32 +996,77 @@
             </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="closeAssignmentTypeModal">
-              {{ previewData ? 'Cancelar' : 'Cerrar' }}
-            </button>
+            <!-- Botones cuando se muestra la tabla comparativa -->
+            <template v-if="showComparisonTable">
+              <button 
+                type="button" 
+                class="btn btn-primary" 
+                @click="showTypeSelection"
+              >
+                <i class="bi bi-check-circle me-2"></i>
+                Elegir Asignación
+              </button>
+              <button 
+                type="button" 
+                class="btn btn-secondary" 
+                @click="closeAssignmentTypeModal"
+              >
+                Cerrar
+              </button>
+            </template>
             
-            <!-- Botón para generar preview -->
-            <button 
-              v-if="!previewData"
-              type="button" 
-              class="btn btn-primary" 
-              @click="generatePreview"
-              :disabled="!selectedAssignmentType || isLoadingPreview"
-            >
-              <span v-if="isLoadingPreview" class="spinner-border spinner-border-sm me-2" role="status"></span>
-              <i v-else class="bi bi-eye me-2"></i>
-              {{ isLoadingPreview ? 'Generando...' : 'Ver Previsualización' }}
-            </button>
+            <!-- Botones cuando se muestra la selección de tipo -->
+            <template v-else-if="!previewData && !showComparisonTable">
+              <button 
+                type="button" 
+                class="btn btn-outline-secondary" 
+                @click="backToComparisonTable"
+              >
+                <i class="bi bi-arrow-left me-2"></i>
+                Volver a Comparación
+              </button>
+              <button type="button" class="btn btn-secondary" @click="closeAssignmentTypeModal">
+                Cerrar
+              </button>
+              <button 
+                type="button" 
+                class="btn btn-primary" 
+                @click="generatePreview"
+                :disabled="!selectedAssignmentType || isLoadingPreview"
+              >
+                <span v-if="isLoadingPreview" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                <i v-else class="bi bi-eye me-2"></i>
+                {{ isLoadingPreview ? 'Generando...' : 'Ver Previsualización' }}
+              </button>
+            </template>
             
-            <!-- Botones para confirmar o volver -->
-            <template v-else>
+            <!-- Botones cuando hay preview solo visual (desde tabla comparativa) -->
+            <template v-else-if="previewData && previewData.isViewOnly">
+              <button type="button" class="btn btn-secondary" @click="closeAssignmentTypeModal">
+                Cerrar
+              </button>
               <button 
                 type="button" 
                 class="btn btn-outline-primary" 
-                @click="backToSelection"
+                @click="backToComparisonTable"
+              >
+                <i class="bi bi-arrow-left me-2"></i>
+                Volver a Comparación
+              </button>
+            </template>
+            
+            <!-- Botones cuando hay preview para confirmar (desde selección de tipo) -->
+            <template v-else-if="previewData && !previewData.isViewOnly">
+              <button 
+                type="button" 
+                class="btn btn-outline-secondary" 
+                @click="backToSelectionType"
               >
                 <i class="bi bi-arrow-left me-2"></i>
                 Volver a Selección
+              </button>
+              <button type="button" class="btn btn-secondary" @click="closeAssignmentTypeModal">
+                Cerrar
               </button>
               <button 
                 type="button" 
@@ -987,12 +1154,17 @@ export default {
       // Asignación automática
       assignmentResults: [],
       isAssigning: false,
-      selectedAssignmentType: null, // 'availability' o 'cost'
+      selectedAssignmentType: null, // 'availability', 'cost', 'time', o 'quality'
       
       // Preview y confirmación
       previewData: null,
       isLoadingPreview: false,
-      isConfirming: false
+      isConfirming: false,
+      
+      // Datos comparativos de los 4 criterios
+      comparisonData: null,
+      isLoadingComparison: false,
+      showComparisonTable: true // true = mostrar tabla comparativa, false = mostrar selección de tipo o preview
     };
   },
   computed: {
@@ -1561,12 +1733,22 @@ export default {
     },
 
     // Métodos para el modal de selección de tipo de asignación
-    openAssignmentTypeModal() {
+    async openAssignmentTypeModal() {
+      if (!this.selectedProject) {
+        alert('Por favor selecciona un proyecto antes de abrir la asignación automática');
+        return;
+      }
+      
       this.selectedAssignmentType = null;
       this.previewData = null;
       this.isLoadingPreview = false;
       this.isConfirming = false;
+      this.comparisonData = null;
+      this.showComparisonTable = true; // Mostrar directamente la tabla comparativa
       this.assignmentTypeModalInstance.show();
+      
+      // Cargar datos comparativos de los 4 criterios
+      await this.loadComparisonData();
     },
 
     closeAssignmentTypeModal() {
@@ -1574,11 +1756,228 @@ export default {
       this.previewData = null;
       this.isLoadingPreview = false;
       this.isConfirming = false;
+      this.comparisonData = null;
+      this.showComparisonTable = true;
       this.assignmentTypeModalInstance.hide();
     },
 
     selectAssignmentType(type) {
       this.selectedAssignmentType = type;
+      // Al seleccionar un tipo, preparar los datos para confirmar directamente
+      // usando los datos que ya tenemos de la tabla comparativa
+      if (this.comparisonData && this.comparisonData[this.getCriterioKey(type)]) {
+        const criterioData = this.comparisonData[this.getCriterioKey(type)];
+        if (criterioData.previewData && !criterioData.error) {
+          // Usar los datos ya cargados de la comparación
+          this.previewData = {
+            ...criterioData.previewData,
+            isViewOnly: false // Permitir confirmar
+          };
+          this.showComparisonTable = false; // Ocultar selección de tipo, mostrar confirmación
+        }
+      }
+    },
+
+    // Obtener la clave del criterio en comparisonData
+    getCriterioKey(type) {
+      const mapping = {
+        'availability': 'disponibilidad',
+        'cost': 'costo',
+        'time': 'tiempo',
+        'quality': 'calidad'
+      };
+      return mapping[type] || type;
+    },
+
+    // Mostrar modal de selección de tipo (desde la tabla comparativa)
+    showTypeSelection() {
+      this.showComparisonTable = false;
+      this.previewData = null; // Limpiar preview al volver a selección
+      this.selectedAssignmentType = null; // Limpiar selección
+    },
+
+    // Cargar datos comparativos de los 4 criterios
+    async loadComparisonData() {
+      if (!this.selectedProject) {
+        return;
+      }
+
+      this.isLoadingComparison = true;
+      
+      try {
+        // Llamar a los 4 endpoints en paralelo
+        const [availabilityData, costData, timeData, qualityData] = await Promise.all([
+          AssignmentService.previewBasicAssignment(this.selectedProject).catch(err => {
+            console.error('Error cargando disponibilidad:', err);
+            return { error: err.response?.data?.error || err.message || 'Error desconocido' };
+          }),
+          AssignmentService.previewCostAssignment(this.selectedProject).catch(err => {
+            console.error('Error cargando costo:', err);
+            return { error: err.response?.data?.error || err.message || 'Error desconocido' };
+          }),
+          AssignmentService.previewTimeAssignment(this.selectedProject).catch(err => {
+            console.error('Error cargando tiempo:', err);
+            return { error: err.response?.data?.error || err.message || 'Error desconocido' };
+          }),
+          AssignmentService.previewQualityAssignment(this.selectedProject).catch(err => {
+            console.error('Error cargando calidad:', err);
+            return { error: err.response?.data?.error || err.message || 'Error desconocido' };
+          })
+        ]);
+
+        // Extraer datos de cada criterio
+        const extractData = (data, criterio) => {
+          if (data.error) {
+            return {
+              criterio,
+              error: data.error,
+              costoTotal: null,
+              tiempoTotal: null,
+              calidad: null,
+              previewData: null
+            };
+          }
+
+          const asignaciones = Array.isArray(data.asignaciones)
+            ? data.asignaciones
+            : Array.isArray(data.sugerencias?.asignaciones)
+              ? data.sugerencias.asignaciones
+              : [];
+
+          const costoTotal = typeof data.costoTotalProyecto === 'number'
+            ? data.costoTotalProyecto
+            : typeof data.sugerencias?.costoTotalProyecto === 'number'
+              ? data.sugerencias.costoTotalProyecto
+              : null;
+
+          const tiempoTotal = typeof data.tiempoTotalEstimadoRealProyecto === 'number'
+            ? data.tiempoTotalEstimadoRealProyecto
+            : typeof data.sugerencias?.tiempoTotalEstimadoRealProyecto === 'number'
+              ? data.sugerencias.tiempoTotalEstimadoRealProyecto
+              : null;
+
+          const calidad = typeof data.calidadPromedioProyecto === 'number'
+            ? data.calidadPromedioProyecto
+            : typeof data.sugerencias?.calidadPromedioProyecto === 'number'
+              ? data.sugerencias.calidadPromedioProyecto
+              : typeof data.calidadPromedioTareas === 'number'
+                ? data.calidadPromedioTareas
+                : typeof data.sugerencias?.calidadPromedioTareas === 'number'
+                  ? data.sugerencias.calidadPromedioTareas
+                  : null;
+
+          // Guardar los datos completos para la previsualización
+          let confirmPayload = null;
+          if (criterio === 'time' || criterio === 'quality') {
+            confirmPayload = {
+              success: data.success !== undefined ? data.success : true,
+              criterio: criterio === 'time' ? 'tiempo' : 'calidad',
+              sugerencias: data.sugerencias || {
+                asignaciones,
+                costoTotalProyecto: costoTotal
+              }
+            };
+          }
+
+          return {
+            criterio,
+            costoTotal,
+            tiempoTotal,
+            calidad,
+            previewData: {
+              ...data,
+              asignaciones,
+              costoTotalProyecto: costoTotal,
+              confirmPayload
+            }
+          };
+        };
+
+        this.comparisonData = {
+          disponibilidad: extractData(availabilityData, 'availability'),
+          costo: extractData(costData, 'cost'),
+          tiempo: extractData(timeData, 'time'),
+          calidad: extractData(qualityData, 'quality')
+        };
+
+      } catch (error) {
+        console.error('Error cargando datos comparativos:', error);
+        alert('Error al cargar los datos comparativos. Por favor, intenta nuevamente.');
+      } finally {
+        this.isLoadingComparison = false;
+      }
+    },
+
+    // Ver previsualización de un criterio específico desde la tabla (solo visual, sin confirmar)
+    viewPreviewFromComparison(criterio) {
+      if (!this.comparisonData || !this.comparisonData[criterio]) {
+        alert('No hay datos disponibles para este criterio');
+        return;
+      }
+
+      const criterioData = this.comparisonData[criterio];
+      
+      if (criterioData.error) {
+        alert(`Error al cargar datos de ${this.getCriterioName(criterio)}: ${criterioData.error}`);
+        return;
+      }
+
+      if (!criterioData.previewData) {
+        alert('No hay datos de previsualización disponibles para este criterio');
+        return;
+      }
+
+      // Establecer el tipo de asignación seleccionado
+      this.selectedAssignmentType = criterioData.criterio;
+      
+      // Establecer los datos de preview con flag de solo visualización
+      const defaultMessages = {
+        availability: 'Previsualización generada correctamente.',
+        cost: 'Previsualización por costo generada correctamente.',
+        time: 'Previsualización de IA por tiempo generada correctamente.',
+        quality: 'Previsualización de IA por calidad generada correctamente.'
+      };
+
+      this.previewData = {
+        ...criterioData.previewData,
+        message: criterioData.previewData.message || defaultMessages[criterioData.criterio] || 'Previsualización generada.',
+        isViewOnly: true // Flag para indicar que es solo visualización desde la tabla
+      };
+
+      // Ocultar la tabla comparativa y mostrar la previsualización
+      this.showComparisonTable = false;
+    },
+
+    // Obtener nombre legible del criterio
+    getCriterioName(criterio) {
+      const names = {
+        disponibilidad: 'Disponibilidad',
+        costo: 'Costo',
+        tiempo: 'Tiempo',
+        calidad: 'Calidad'
+      };
+      return names[criterio] || criterio;
+    },
+
+    // Formatear calidad (estrellas)
+    formatCalidad(calidad) {
+      if (calidad === null || calidad === undefined) return 'N/A';
+      const estrellas = Math.round(calidad);
+      return '★'.repeat(estrellas) + '☆'.repeat(5 - estrellas) + ` (${calidad.toFixed(1)})`;
+    },
+
+    // Formatear tiempo (horas a días si es necesario)
+    formatTiempo(horas) {
+      if (horas === null || horas === undefined) return 'N/A';
+      if (horas >= 24) {
+        const dias = Math.floor(horas / 24);
+        const horasRestantes = Math.round(horas % 24);
+        if (horasRestantes > 0) {
+          return `${dias}d ${horasRestantes}h`;
+        }
+        return `${dias}d`;
+      }
+      return `${Math.round(horas)}h`;
     },
 
     // Generar previsualización
@@ -1674,6 +2073,25 @@ export default {
     backToSelection() {
       this.previewData = null;
       this.selectedAssignmentType = null;
+    },
+
+    // Volver a la tabla comparativa
+    backToComparisonTable() {
+      if (this.previewData) {
+        // Si venimos de la previsualización, volver a la tabla
+        this.previewData = null;
+        this.showComparisonTable = true;
+      } else {
+        // Si venimos de la selección de tipo, volver a la tabla
+        this.showComparisonTable = true;
+      }
+    },
+
+    // Volver a la selección de tipo desde confirmación
+    backToSelectionType() {
+      this.previewData = null;
+      this.selectedAssignmentType = null;
+      this.showComparisonTable = false;
     },
 
     // Confirmar y guardar asignaciones
