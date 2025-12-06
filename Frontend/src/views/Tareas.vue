@@ -434,75 +434,209 @@
 
     <!-- Modal para Ver Detalles -->
     <div class="modal fade" id="viewTaskModal" tabindex="-1" aria-labelledby="viewTaskModalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-lg">
+      <div class="modal-dialog modal-xl">
         <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="viewTaskModalLabel">Detalles de la Tarea</h5>
-            <button type="button" class="btn-close" @click="closeViewModal" aria-label="Close"></button>
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title" id="viewTaskModalLabel">
+              <i class="bi bi-info-circle me-2"></i>Detalles Completos de la Tarea
+            </h5>
+            <button type="button" class="btn-close btn-close-white" @click="closeViewModal" aria-label="Close"></button>
           </div>
           <div class="modal-body" v-if="selectedTask">
-            <div class="row">
+            <!-- Información Principal -->
+            <div class="row mb-4">
               <div class="col-md-8">
-                <h6>Descripción</h6>
-                <p>{{ selectedTask.descripcion }}</p>
+                <h5 class="mb-3">
+                  <i class="bi bi-file-text me-2"></i>{{ selectedTask.descripcion }}
+                </h5>
                 
-                <h6>Habilidades Requeridas</h6>
-                <div v-if="selectedTask.habilidadesRequeridas && selectedTask.habilidadesRequeridas.length > 0">
-                  <span 
-                    v-for="skill in selectedTask.habilidadesRequeridas" 
-                    :key="skill" 
-                    class="badge bg-primary me-1 mb-1"
-                  >
-                    {{ skill }}
-                  </span>
+                <div class="mb-3">
+                  <h6><i class="bi bi-tags me-2"></i>Habilidades Requeridas</h6>
+                  <div v-if="selectedTask.habilidadesRequeridas && selectedTask.habilidadesRequeridas.length > 0">
+                    <span 
+                      v-for="skill in selectedTask.habilidadesRequeridas" 
+                      :key="skill" 
+                      class="badge bg-primary me-1 mb-1"
+                    >
+                      {{ skill }}
+                    </span>
+                  </div>
+                  <p v-else class="text-muted mb-0">No especificadas</p>
                 </div>
-                <p v-else class="text-muted">No especificadas</p>
               </div>
               <div class="col-md-4">
-                <h6>Información General</h6>
-                <p><strong>Proyecto:</strong> {{ getProjectName(selectedTask.proyecto) }}</p>
-                <p><strong>Asignado a:</strong> 
-                  <span v-if="selectedTask.desarrolladorAsignado">
-                    {{ selectedTask.desarrolladorAsignado.nombre || selectedTask.desarrolladorAsignado.email }}
-                  </span>
-                  <span v-else class="text-muted">Sin asignar</span>
-                </p>
-                <p><strong>Estado:</strong> 
-                  <span class="badge" :class="getStatusClass(selectedTask.estado)">
-                    {{ getStatusText(selectedTask.estado) }}
-                  </span>
-                </p>
-                <p><strong>Prioridad:</strong> 
-                  <span class="badge" :class="getPriorityClass(selectedTask.prioridad)">
-                    {{ getPriorityText(selectedTask.prioridad) }}
-                  </span>
-                </p>
-                <p><strong>Dificultad:</strong> 
-                  <span class="badge bg-info">{{ selectedTask.nivelDificultad }}/5</span>
-                </p>
-                <p v-if="selectedTask.tiempoEstimadoHoras">
-                  <strong>Tiempo Estimado:</strong> {{ selectedTask.tiempoEstimadoHoras }} horas
-                </p>
-                <p v-if="selectedTask.tiempoInvertidoHoras">
-                  <strong>Tiempo Invertido:</strong> {{ selectedTask.tiempoInvertidoHoras }} horas
-                </p>
-                <p v-if="selectedTask.fechaEstimadaInicio">
-                  <strong>Fecha Estimada Inicio:</strong> {{ formatDate(selectedTask.fechaEstimadaInicio) }}
-                </p>
-                <p v-if="selectedTask.fechaEstimadaFin">
-                  <strong>Fecha Estimada Fin:</strong> {{ formatDate(selectedTask.fechaEstimadaFin) }}
-                </p>
-                <p v-if="selectedTask.fechaRealInicio">
-                  <strong>Fecha Real Inicio:</strong> {{ formatDate(selectedTask.fechaRealInicio) }}
-                </p>
-                <p v-if="selectedTask.fechaRealFin">
-                  <strong>Fecha Real Fin:</strong> {{ formatDate(selectedTask.fechaRealFin) }}
-                </p>
-                <p v-if="selectedTask.fechaCreacion">
-                  <strong>Creada:</strong> {{ formatDate(selectedTask.fechaCreacion) }}
-                </p>
+                <div class="card border-0 shadow-sm">
+                  <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-info-circle me-2"></i>Estado y Prioridad</h6>
+                    <div class="mb-2">
+                      <strong>Estado:</strong><br>
+                      <span class="badge fs-6" :class="getStatusClass(selectedTask.estado)">
+                        {{ getStatusText(selectedTask.estado) }}
+                      </span>
+                    </div>
+                    <div class="mb-2">
+                      <strong>Prioridad:</strong><br>
+                      <span class="badge fs-6" :class="getPriorityClass(selectedTask.prioridad)">
+                        {{ getPriorityText(selectedTask.prioridad) }}
+                      </span>
+                    </div>
+                    <div class="mb-2">
+                      <strong>Dificultad:</strong><br>
+                      <span class="badge bg-info fs-6">{{ selectedTask.nivelDificultad }}/5</span>
+                    </div>
+                    <div v-if="selectedTask.categoria">
+                      <strong>Categoría:</strong><br>
+                      <span class="badge bg-secondary fs-6">{{ selectedTask.categoria }}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
+
+            <!-- Información del Proyecto y Asignación -->
+            <div class="row mb-4">
+              <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                  <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-folder me-2"></i>Proyecto</h6>
+                    <p class="mb-0">
+                      <strong>{{ getProjectName(selectedTask.proyecto) }}</strong>
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                  <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-person me-2"></i>Asignación</h6>
+                    <p class="mb-0">
+                      <span v-if="selectedTask.desarrolladorAsignado">
+                        <strong>{{ getDeveloperName(selectedTask.desarrolladorAsignado) }}</strong>
+                        <span v-if="selectedTask.desarrolladorAsignado.email" class="text-muted d-block small">
+                          {{ selectedTask.desarrolladorAsignado.email }}
+                        </span>
+                      </span>
+                      <span v-else class="text-muted">Sin asignar</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tiempos y Fechas -->
+            <div class="row mb-4">
+              <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                  <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-clock me-2"></i>Tiempos</h6>
+                    <div class="mb-2">
+                      <strong>Tiempo Estimado:</strong>
+                      <span class="ms-2">{{ selectedTask.tiempoEstimadoHoras || 'No especificado' }} horas</span>
+                    </div>
+                    <div class="mb-2">
+                      <strong>Tiempo Invertido:</strong>
+                      <span class="ms-2">{{ selectedTask.tiempoInvertidoHoras || 0 }} horas</span>
+                    </div>
+                    <div v-if="selectedTask.tiempoEstimadoHoras && selectedTask.tiempoInvertidoHoras">
+                      <strong>Progreso:</strong>
+                      <div class="progress mt-2" style="height: 20px;">
+                        <div 
+                          class="progress-bar" 
+                          :class="getProgressClass(selectedTask.tiempoInvertidoHoras, selectedTask.tiempoEstimadoHoras)"
+                          role="progressbar" 
+                          :style="{ width: getProgressPercentage(selectedTask.tiempoInvertidoHoras, selectedTask.tiempoEstimadoHoras) + '%' }"
+                        >
+                          {{ getProgressPercentage(selectedTask.tiempoInvertidoHoras, selectedTask.tiempoEstimadoHoras) }}%
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                  <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-calendar me-2"></i>Fechas</h6>
+                    <div class="mb-2" v-if="selectedTask.fechaEstimadaInicio">
+                      <strong>Inicio Estimado:</strong>
+                      <span class="ms-2">{{ formatDate(selectedTask.fechaEstimadaInicio) }}</span>
+                    </div>
+                    <div class="mb-2" v-if="selectedTask.fechaEstimadaFin">
+                      <strong>Fin Estimado:</strong>
+                      <span class="ms-2">{{ formatDate(selectedTask.fechaEstimadaFin) }}</span>
+                    </div>
+                    <div class="mb-2" v-if="selectedTask.fechaRealInicio">
+                      <strong>Inicio Real:</strong>
+                      <span class="ms-2 text-success">{{ formatDate(selectedTask.fechaRealInicio) }}</span>
+                    </div>
+                    <div class="mb-2" v-if="selectedTask.fechaRealFin">
+                      <strong>Fin Real:</strong>
+                      <span class="ms-2 text-success">{{ formatDate(selectedTask.fechaRealFin) }}</span>
+                    </div>
+                    <div class="mb-2" v-if="selectedTask.fechaCreacion">
+                      <strong>Creada:</strong>
+                      <span class="ms-2 text-muted small">{{ formatDate(selectedTask.fechaCreacion) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Historial de Cambios -->
+            <div class="row mb-4" v-if="selectedTask.historial && selectedTask.historial.length > 0">
+              <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                  <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-clock-history me-2"></i>Historial de Cambios</h6>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-hover">
+                        <thead>
+                          <tr>
+                            <th>Campo</th>
+                            <th>Valor Anterior</th>
+                            <th>Valor Nuevo</th>
+                            <th>Fecha</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="(entry, index) in selectedTask.historial" :key="index">
+                            <td>{{ entry.campo }}</td>
+                            <td>{{ entry.valorAnterior }}</td>
+                            <td>{{ entry.valorNuevo }}</td>
+                            <td>{{ formatDate(entry.fechaCambio) }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Comentarios -->
+            <div class="row" v-if="selectedTask.comentarios && selectedTask.comentarios.length > 0">
+              <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                  <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-chat-dots me-2"></i>Comentarios</h6>
+                    <div v-for="(comentario, index) in selectedTask.comentarios" :key="index" class="mb-3 pb-3 border-bottom">
+                      <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                          <strong>{{ getDeveloperName(comentario.usuario) }}</strong>
+                          <span class="text-muted small ms-2">{{ formatDate(comentario.fecha) }}</span>
+                        </div>
+                      </div>
+                      <p class="mb-0 mt-1">{{ comentario.mensaje }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeViewModal">
+              <i class="bi bi-x-circle me-1"></i>Cerrar
+            </button>
           </div>
         </div>
       </div>
@@ -1353,6 +1487,21 @@ export default {
       if (!dateString) return '';
       const date = new Date(dateString);
       return date.toISOString().split('T')[0];
+    },
+    
+    // Métodos auxiliares para el modal de detalles
+    getProgressPercentage(tiempoInvertido, tiempoEstimado) {
+      if (!tiempoEstimado || tiempoEstimado === 0) return 0;
+      const porcentaje = (tiempoInvertido / tiempoEstimado) * 100;
+      return Math.min(Math.round(porcentaje), 100);
+    },
+    
+    getProgressClass(tiempoInvertido, tiempoEstimado) {
+      if (!tiempoEstimado || tiempoEstimado === 0) return 'bg-secondary';
+      const porcentaje = (tiempoInvertido / tiempoEstimado) * 100;
+      if (porcentaje >= 100) return 'bg-danger';
+      if (porcentaje >= 75) return 'bg-warning';
+      return 'bg-success';
     },
 
     // Métodos de asignación automática
