@@ -10,6 +10,7 @@ import { tieneHabilidadesSuficientes } from "../../utils/asignacionBasica/filtro
 import SimulationAssignment from "../simulationAssignment/simulationAssignment.model.js";
 import { ordenarTareas } from "../../utils/asignacionBasica/ordenarTareas.js";
 import { tieneDisponibilidad } from "../../utils/asignacionBasica/filtroDisponibilidad.js";
+import { calcularDatosGlobalesSimulacion } from "../simulationAssignment/simulationAssignment.service.js";
 
 dotenv.config()
 
@@ -179,10 +180,10 @@ export const previsualizarAsignacionBasica = async (projectId) => {
   console.log("Data completa para IA de todas las tareas:");
   console.log(JSON.stringify(devsDataPorTarea, null, 2));
 
-const payloadIA = {
-  projectId,
-  devsDataPorTarea: devsDataPorTarea
-};
+  const payloadIA = {
+    projectId,
+    devsDataPorTarea: devsDataPorTarea
+  };
   // 🧠 Prompt IA
   const prompt = `
 Eres un asistente experto en planificación de proyectos y asignación óptima de recursos humanos.
@@ -308,7 +309,10 @@ export async function completarAsignacionesManuales(resultadoIA) {
     // Armamos la nueva asignación, copiando los datos de la tarea
     // y completando con la info del dev elegido manualmente
     const asignacionCompletada = {
-      ...asignacion,                // tareaId, descripcion, etc.
+      tareaId: asignacionManual.tareaId,
+      descripcion: asignacionManual.descripcion,
+      nombre: asignacionManual.nombre,
+      apellido: asignacionManual.apellido,              // tareaId, descripcion, etc.
       tipoAsignacion: asignacionManual.tipoAsignacion,     // marcamos que fue manual
 
       desarrolladorId: asignacionManual.desarrolladorId,
@@ -324,38 +328,52 @@ export async function completarAsignacionesManuales(resultadoIA) {
       calidadTarea: asignacionManual.calidadTarea,
       feedbackHistorico: asignacionManual.feedbackHistorico,
 
-      razon: `${asignacionManual.razon} Asignación realizada manualmente por el administrador.`
+      razon: `${asignacionManual.razon} `
     };
 
     nuevasAsignaciones.push(asignacionCompletada);
   }
 
-  // Devolvemos el mismo formato, pero con las asignaciones completadas
-  return {
-    ...resultadoIA,
+
+   // 🔹 AQUÍ devolvemos un JSON COMPLETO y FINAL
+  const resultadoFinal = {
+    projectId: resultadoIA.projectId,
     asignaciones: nuevasAsignaciones
   };
+
+  const resultadoFinalConDatosGlobales = {
+    ...resultadoFinal,
+    ...calcularDatosGlobalesSimulacion(resultadoFinal)
+  };
+
+  return resultadoFinalConDatosGlobales;
+
 }
 
 export async function confirmarAsignacionBasica(projectId, sugerencias) {
   const resultados = [];
   const idsAsignacionesCreadas = [];
 
+  // ✅ Validar estructura básica de sugerencias
   if (!sugerencias || !Array.isArray(sugerencias.asignaciones)) {
-    throw new Error("Formato de sugerencias inválido. Se esperaba un array de asignaciones.");
+    throw new Error(
+      "Formato de sugerencias inválido. Se esperaba un objeto con la propiedad 'asignaciones' (array)."
+    );
   }
 
   const asignaciones = sugerencias.asignaciones;
+
+  // ✅ Mapear nombres desde tu JSON real
   const {
-    costoTotalProyecto,
-    tiempoTotalEstimadoRealProyecto,
-    tiempoTotalAsignadoProyecto,
+    costoTotalSimulado,     // número total del proyecto
+    tiempoTotalEstimado,    // puede venir null
+    tiempoTotalSimulado,    // total simulado
     calidadPromedioTareas,
-    calidadPromedioProyecto
+    calidadPromedioSimulado,
+    criterio
   } = sugerencias;
 
   for (const asignacion of asignaciones) {
-
     const {
       tareaId,
       desarrolladorId,
@@ -363,7 +381,7 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
       horasTotales,
       razon,
       porcentajeRendimiento,
-      horasEstimadasReales,
+      horasEstimadasSegunRendimiento, // 👈 nombre real en tu JSON
       calidadTarea,
       feedbackHistorico,
       costoTotal
@@ -374,7 +392,8 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
       resultados.push({
         tarea: tareaId,
         estado: "omitida",
-        mensaje: "No se creó la asignación porque no hay días asignados (sin disponibilidad)."
+        mensaje:
+          "No se creó la asignación porque no hay días asignados (sin disponibilidad)."
       });
       continue;
     }
@@ -387,12 +406,12 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
       resultados.push({
         tarea: tareaId,
         estado: "error",
-        mensaje: "Tarea, desarrollador o proyecto no encontrado",
+        mensaje: "Tarea, desarrollador o proyecto no encontrado"
       });
       continue;
     }
 
-    // Actualizar calendario
+    // ✅ Actualizar calendario del dev
     for (const dia of dias) {
       const diaISO = new Date(dia.fecha).toISOString().split("T")[0];
       const registro = dev.calendario.find(
@@ -408,18 +427,38 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
     await verificarYActualizarCalendario(dev);
     await dev.save();
 
-    // Validar duplicados
+    // ✅ Evitar duplicar asignaciones
     const existeAsignacion = await Asignacion.findOne({ tarea: tareaId });
     if (existeAsignacion) {
       resultados.push({
         tarea: tareaDB.descripcion,
         estado: "omitida",
-        mensaje: `La tarea "${tareaDB.descripcion}" ya está asignada.`,
+        mensaje: `La tarea "${tareaDB.descripcion}" ya está asignada.`
       });
       continue;
     }
 
-    // Crear asignación con toda la data simulada
+    // 🧠 Normalizar feedbackHistorico: puede ser número o { puntuacionPromedio }
+    let feedbackHistoricoNormalizado = null;
+    if (typeof feedbackHistorico === "number") {
+      feedbackHistoricoNormalizado = feedbackHistorico;
+    } else if (
+      feedbackHistorico &&
+      typeof feedbackHistorico.puntuacionPromedio === "number"
+    ) {
+      feedbackHistoricoNormalizado = feedbackHistorico.puntuacionPromedio;
+    }
+
+    // 💰 Normalizar costoTotal (puede venir como string "96" o número)
+    const costoTotalNumber = Number(costoTotal) || 0;
+
+    // 🕒 Normalizar horasEstimadasReales desde horasEstimadasSegunRendimiento
+    const horasEstimadasReales =
+      horasEstimadasSegunRendimiento != null
+        ? Number(horasEstimadasSegunRendimiento)
+        : null;
+
+    // ✅ Crear asignación con toda la data simulada
     const nuevaAsignacion = await Asignacion.create({
       tarea: tareaDB._id,
       desarrollador: dev._id,
@@ -431,7 +470,7 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
 
       // costo
       costoPorHora: dev.costoPorHora,
-      costoTotal,
+      costoTotal: costoTotalNumber,
 
       // tiempo
       porcentajeRendimiento,
@@ -439,12 +478,12 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
 
       // calidad
       puntuacionCalidad: calidadTarea,
-      feedbackHistorico: feedbackHistorico?.puntuacionPromedio || null
+      feedbackHistorico: feedbackHistoricoNormalizado
     });
 
     idsAsignacionesCreadas.push(nuevaAsignacion._id);
 
-    // Actualizar tarea
+    // ✅ Actualizar tarea
     tareaDB.desarrolladorAsignado = dev._id;
     tareaDB.asignada = true;
     await tareaDB.save();
@@ -453,30 +492,36 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
       tarea: tareaDB.descripcion,
       desarrollador: `${dev.nombre} ${dev.apellido}`,
       horasTotales,
-      costoTotal,
-      estado: "ok",
+      costoTotal: costoTotalNumber,
+      estado: "ok"
     });
   }
 
-  await Project.findByIdAndUpdate(projectId, { costoTotal: costoTotalProyecto });
+  // ✅ Actualizar costo total del proyecto según la simulación
+  if (costoTotalSimulado != null) {
+    await Project.findByIdAndUpdate(projectId, {
+      costoTotal: costoTotalSimulado
+    });
+  }
 
-  // Guardar simulación completa
+  // ✅ Guardar simulación completa en SimulationAssignment
   await SimulationAssignment.create({
     proyecto: projectId,
-    criterio: "basica",
+    criterio: criterio || "basica",
     asignaciones: idsAsignacionesCreadas,
-    costoTotalSimulado: costoTotalProyecto,
-    tiempoTotalSimulado: tiempoTotalEstimadoRealProyecto,
-    tiempoTotalEstimado: tiempoTotalAsignadoProyecto,
-    calidadPromedioTareas: calidadPromedioTareas,
-    calidadPromedioSimulado: calidadPromedioProyecto
+    costoTotalSimulado: costoTotalSimulado ?? 0,
+    tiempoTotalSimulado: tiempoTotalSimulado ?? 0,
+    tiempoTotalEstimado: tiempoTotalEstimado ?? 0,
+    calidadPromedioTareas: calidadPromedioTareas ?? 0,
+    calidadPromedioSimulado: calidadPromedioSimulado ?? 0
   });
 
   return {
-    message: "Asignaciones confirmadas y simulación guardada (modo tiempo)",
+    message: "Asignaciones confirmadas y simulación guardada (criterio básica).",
     resultados
   };
 }
+
 
 export async function asignarTareasConCalendario(projectId) {
   // 🔹 obtener todas las tareas pendientes

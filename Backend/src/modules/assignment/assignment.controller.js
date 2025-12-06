@@ -107,9 +107,17 @@ export async function previewAsignacionBasica(req, res) {
  */
 export async function confirmAsignacionBasica(req, res) {
   try {
-    const { projectId } = req.params;
-    const { asignaciones, costoTotalProyecto } = req.body;
-    const resultado = await confirmarAsignacionBasica(projectId, asignaciones, costoTotalProyecto);
+    console.log("📥 Body recibido en confirmAsignacionBasica:");
+    console.log(JSON.stringify(req.body, null, 2));
+
+    const sugerencias = req.body;
+    const { projectId } = sugerencias;
+
+    if (!projectId) {
+      return res.status(400).json({ error: "Falta projectId en el body" });
+    }
+
+    const resultado = await confirmarAsignacionBasica(projectId, sugerencias);
     res.json(resultado);
   } catch (error) {
     console.error("Error en confirmarAsignacionBasica:", error);

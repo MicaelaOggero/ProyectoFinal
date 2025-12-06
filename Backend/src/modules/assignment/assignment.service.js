@@ -257,6 +257,7 @@ export const asignarTareaManual = async (asignacion) => {
   const fechaFin = new Date(asignacion.fechaEstimadaFin);
 
   const devNuevo = await User.findById(asignacion.desarrolladorId);
+  console.log(devNuevo);
   if (!devNuevo) {
     throw new Error("Desarrollador no encontrado");
   }
@@ -349,7 +350,7 @@ export const asignarTareaManual = async (asignacion) => {
     horasTotales: horasTotalesAsignadas,
 
     tipoAsignacion: "basica",
-    razon: `Asignación realizada manualmente".`,
+    razon: `Asignación realizada manualmente por el administrador".`,
 
     costoTotal,
     porcentajeRendimiento,

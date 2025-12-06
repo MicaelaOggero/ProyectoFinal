@@ -24,7 +24,7 @@ router.post("/confirm/costo/:projectId", confirmarAsignacionCosto);
 
 // 🔹 Asignación básica
 router.get("/iapreview/proyecto/:projectId/basica", previewAsignacionBasica);
-router.post("/confirm/basica/:projectId", confirmAsignacionBasica);
+router.post("/iaconfirm/proyecto/:projectId/basica", confirmAsignacionBasica);
 
 // 🔹 Asignación tiempo
 // Previsualizar asignación automática con IA según criterio de tiempo
