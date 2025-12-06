@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { editarAsignacion, getAsignacionesPorProyecto, asignarAutomaticoBasico, asignarPorCosto, previsualizarAsignacionCosto, confirmarAsignacionCosto, previewAsignacionBasica, confirmAsignacionBasica } from "./assignment.controller.js";
+import { editarAsignacion, getAsignacionesPorProyecto, asignarAutomaticoBasico, asignarPorCosto, previsualizarAsignacionCosto, previewAsignacionBasica, confirmAsignacionBasica, confirmarAsignacionPorCostoController } from "./assignment.controller.js";
 import Task from "../task/task.model.js";
 import User from "../users/user.model.js";
 import { sugerirAsignacionTiempoIA, confirmarAsignacionesPorTiempoController, sugerirAsignacionCalidadIA, confirmarAsignacionesPorCalidadController } from "../assignment/assignment.controller.js";
@@ -18,13 +18,13 @@ router.post("/asignar-automatico/:projectId", asignarAutomaticoBasico); //authAd
 // Asignación automática por costo
 router.post("/asignar-costo/:projectId", asignarPorCosto);
 
-// 🔹 Asignación por costo
-router.get("/preview/costo/:projectId", previsualizarAsignacionCosto);
-router.post("/confirm/costo/:projectId", confirmarAsignacionCosto);
-
 // 🔹 Asignación básica
 router.get("/iapreview/proyecto/:projectId/basica", previewAsignacionBasica);
 router.post("/iaconfirm/proyecto/:projectId/basica", confirmAsignacionBasica);
+
+// 🔹 Asignación por costo
+router.get("/iapreview/proyecto/:projectId/costo", previsualizarAsignacionCosto);
+router.post("/iaconfirm/proyecto/:projectId/costo", confirmarAsignacionPorCostoController);
 
 // 🔹 Asignación tiempo
 // Previsualizar asignación automática con IA según criterio de tiempo

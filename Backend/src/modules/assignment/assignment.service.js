@@ -1,8 +1,6 @@
 import { findAsignacionById, saveAsignacion, saveUser, saveTask, findAsignacionesByProyecto } from "./assignment.dao.js";
 import { tieneDisponibilidad } from "../../utils/asignacionBasica/filtroDisponibilidad.js"; // tu función que ya verifica horas
 import { findUserById } from "../users/user.dao.js";
-import { asignarTareasConCalendario } from "../criteria/index.js";
-import { asignarTareasPorCosto } from "../criteria/costo.js";
 import { calcularCostoDev } from "../../utils/asignacionCosto/costoTarea.js";
 import Task from "../task/task.model.js";
 import SimulacionAsignacion from "../simulationAssignment/simulationAssignment.model.js";
@@ -190,58 +188,7 @@ export const editarAsignacionService = async (asignacionId, nuevoDevId, userId) 
   return asignacion;
 };
 
-export const recalcularDatosGlobales = async (simulacion, costoTotalProyecto) => {
-  const asignaciones = simulacion.asignaciones;
 
-  if (!asignaciones.length) return simulacion;
-
-  
-  let tiempoTotalEstimadoRealProyecto = 0;
-  let tiempoTotalAsignadoProyecto = 0;
-
-  const calidadTareas = [];
-  const calidadProyecto = [];
-
-  for (const a of asignaciones) {
- 
-    // Horas estimadas reales
-    tiempoTotalEstimadoRealProyecto += a.horasEstimadasReales;
-
-    // Horas totales
-    tiempoTotalAsignadoProyecto += a.horasTotales || 0;
-
-    // Calidad por tarea
-    if (a.puntuacionCalidad != null) calidadTareas.push(a.puntuacionCalidad);
-
-    // Feedback histórico
-    if (a.feedbackHistorico != null) calidadProyecto.push(a.feedbackHistorico);
-  }
-
-  const calidadPromedioTareas =
-    calidadTareas.length ? calidadTareas.reduce((a, b) => a + b, 0) / calidadTareas.length : 0;
-
-  const calidadPromedioProyecto =
-    calidadProyecto.length ? calidadProyecto.reduce((a, b) => a + b, 0) / calidadProyecto.length : 0;
-
-  // Guardar
-  simulacion.costoTotalSimulado = costoTotalProyecto;
-  simulacion.tiempoTotalSimulado = Number(tiempoTotalEstimadoRealProyecto.toFixed(2));
-  simulacion.tiempoTotalEstimado = tiempoTotalAsignadoProyecto;
-  simulacion.calidadPromedioTareas = Number(calidadPromedioTareas.toFixed(2));
-  simulacion.calidadPromedioSimulado = Number(calidadPromedioProyecto.toFixed(2));
-
-  await simulacion.save();
-
-  console.log("Simulación recalculada:", {
-    costoTotalProyecto,
-    tiempoTotalEstimadoRealProyecto,
-    tiempoTotalAsignadoProyecto,
-    calidadPromedioTareas,
-    calidadPromedioProyecto
-  });
-
-  return simulacion;
-};
 
 /**
  * Asigna un desarrollador a una tarea manualmente SIN modificar la BD.
@@ -349,7 +296,7 @@ export const asignarTareaManual = async (asignacion) => {
     dias: diasAsignados,               // [{ fecha, horasAsignadas }]
     horasTotales: horasTotalesAsignadas,
 
-    tipoAsignacion: "basica",
+    tipoAsignacion: asignacion.tipoAsignacion,
     razon: `Asignación realizada manualmente por el administrador".`,
 
     costoTotal,

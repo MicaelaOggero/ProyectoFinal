@@ -71,19 +71,25 @@ export async function previsualizarAsignacionCosto(req, res) {
 }
 
 // CONFIRMACIÓN
-export async function confirmarAsignacionCosto(req, res) {
+/**
+ * Confirma y guarda la asignación básica
+ */
+export async function confirmarAsignacionPorCostoController(req, res) {
   try {
-    const { projectId } = req.params;
-    const { asignaciones, costoTotalProyecto } = req.body;
+    console.log("📥 Body recibido en confirmAsignacionBasica:");
+    console.log(JSON.stringify(req.body, null, 2));
 
-    const resultado = await confirmarAsignacionPorCosto(
-      projectId,
-      asignaciones,          // 👈 acá va el array directamente
-      costoTotalProyecto     // 👈 número total
-    );
+    const sugerencias = req.body;
+    const { projectId } = sugerencias;
 
-    res.json({ message: "Asignaciones guardadas", resultado });
+    if (!projectId) {
+      return res.status(400).json({ error: "Falta projectId en el body" });
+    }
+
+    const resultado = await confirmarAsignacionPorCosto(projectId, sugerencias);
+    res.json(resultado);
   } catch (error) {
+    console.error("Error en confirmarAsignacionBasica:", error);
     res.status(500).json({ error: error.message });
   }
 }
