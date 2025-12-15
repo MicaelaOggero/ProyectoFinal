@@ -333,7 +333,7 @@ export async function completarAsignacionesManuales(resultadoIA) {
   }
 
 
-   // 🔹 AQUÍ devolvemos un JSON COMPLETO y FINAL
+  // 🔹 AQUÍ devolvemos un JSON COMPLETO y FINAL
   const resultadoFinal = {
     projectId: resultadoIA.projectId,
     asignaciones: nuevasAsignaciones
@@ -367,9 +367,9 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
   const asignaciones = sugerencias.asignaciones;
 
   const {
-    costoTotalSimulado,     
-    tiempoTotalEstimado,    
-    tiempoTotalSimulado,    
+    costoTotalSimulado,
+    tiempoTotalEstimado,
+    tiempoTotalSimulado,
     calidadPromedioTareas,
     calidadPromedioSimulado,
     criterio
@@ -422,12 +422,17 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
       errores.push(`${path}: "costoTotal" es requerido y debe ser numérico.`);
     }
 
-    if (asignacion.porcentajeRendimiento == null || Number.isNaN(Number(asignacion.porcentajeRendimiento))) {
-      errores.push(`${path}: "porcentajeRendimiento" es requerido y debe ser numérico.`);
+    if (asignacion.rendimientoHistorico.promedioPorcentaje == null ||
+      Number.isNaN(Number(asignacion.rendimientoHistorico.promedioPorcentaje))
+    ) {
+      errores.push(
+        `${path}: "rendimientoHistorico.promedioPorcentaje" es requerido y debe ser numérico.`
+      );
     }
 
+
     if (asignacion.horasEstimadasSegunRendimiento == null ||
-        Number.isNaN(Number(asignacion.horasEstimadasSegunRendimiento))) {
+      Number.isNaN(Number(asignacion.horasEstimadasSegunRendimiento))) {
       errores.push(`${path}: "horasEstimadasSegunRendimiento" es requerido y debe ser numérico.`);
     }
   }
@@ -456,6 +461,17 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
       feedbackHistorico,
       costoTotal
     } = asignacion;
+
+    // ❌ NO PROCESAR ASIGNACIÓN SIN DÍAS
+    if (!dias || dias.length === 0) {
+      resultados.push({
+        tarea: tareaId,
+        estado: "omitida",
+        mensaje:
+          "No se creó la asignación porque no hay días asignados (sin disponibilidad)."
+      });
+      continue;
+    }
 
     const tareaDB = await Task.findById(tareaId);
     const dev = await User.findById(desarrolladorId);

@@ -350,6 +350,11 @@ export async function confirmarAsignacionPorCalidad(projectId, sugerencias) {
   const resultados = [];
   const idsAsignacionesCreadas = [];
 
+  // 0) Validar que haya projectId
+  if (!projectId) {
+    throw new Error("Falta projectId para confirmar la asignación.");
+  }
+
   // ✅ Validar estructura básica de sugerencias
   if (!sugerencias || !Array.isArray(sugerencias.asignaciones)) {
     throw new Error(
@@ -368,6 +373,79 @@ export async function confirmarAsignacionPorCalidad(projectId, sugerencias) {
     calidadPromedioSimulado,
     criterio
   } = sugerencias;
+
+  // 2) PRE-VALIDACIÓN GLOBAL (antes de tocar la BD)
+  const errores = [];
+
+  // 2.1) Validar que haya al menos una asignación
+  if (!asignaciones.length) {
+    errores.push("No hay asignaciones para confirmar.");
+  }
+
+  // 2.2) Validar que los agregados globales estén presentes y sean números
+  const camposGlobales = [
+    { nombre: "costoTotalSimulado", valor: costoTotalSimulado },
+    { nombre: "tiempoTotalEstimado", valor: tiempoTotalEstimado },
+    { nombre: "tiempoTotalSimulado", valor: tiempoTotalSimulado },
+    { nombre: "calidadPromedioTareas", valor: calidadPromedioTareas },
+    { nombre: "calidadPromedioSimulado", valor: calidadPromedioSimulado },
+  ];
+
+  for (const campo of camposGlobales) {
+    if (campo.valor == null || Number.isNaN(Number(campo.valor))) {
+      errores.push(`El dato global "${campo.nombre}" es requerido y debe ser numérico.`);
+    }
+  }
+
+  // 2.3) Validar cada asignación
+  for (const [index, asignacion] of asignaciones.entries()) {
+    const path = `asignaciones[${index}]`;
+
+    if (!asignacion.tareaId) {
+      errores.push(`${path}: falta "tareaId".`);
+    }
+
+    if (!asignacion.desarrolladorId) {
+      errores.push(`${path}: falta "desarrolladorId".`);
+    }
+
+    if (!Array.isArray(asignacion.dias) || asignacion.dias.length === 0) {
+      errores.push(`${path}: "dias" debe ser un array con al menos un elemento.`);
+    }
+
+    if (asignacion.horasTotales == null || Number.isNaN(Number(asignacion.horasTotales))) {
+      errores.push(`${path}: "horasTotales" es requerido y debe ser numérico.`);
+    }
+
+    if (asignacion.costoTotal == null || Number.isNaN(Number(asignacion.costoTotal))) {
+      errores.push(`${path}: "costoTotal" es requerido y debe ser numérico.`);
+    }
+
+    if (asignacion.rendimientoHistorico.promedioPorcentaje == null ||
+      Number.isNaN(Number(asignacion.rendimientoHistorico.promedioPorcentaje))
+    ) {
+      errores.push(
+        `${path}: "rendimientoHistorico.promedioPorcentaje" es requerido y debe ser numérico.`
+      );
+    }
+
+
+    if (asignacion.horasEstimadasSegunRendimiento == null ||
+      Number.isNaN(Number(asignacion.horasEstimadasSegunRendimiento))) {
+      errores.push(`${path}: "horasEstimadasSegunRendimiento" es requerido y debe ser numérico.`);
+    }
+  }
+
+  // 2.4) Si hubo errores → NO confirmamos nada
+  if (errores.length > 0) {
+    // Podés devolver el array de errores para mostrarlos en front
+    throw new Error(
+      "No se puede confirmar la simulación porque faltan datos o hay datos inválidos:\n" +
+      errores.join("\n")
+    );
+  }
+
+  // 🔻🔻🔻 A PARTIR DE ACÁ recién tocamos la BD 🔻🔻🔻
 
   for (const asignacion of asignaciones) {
     const {
