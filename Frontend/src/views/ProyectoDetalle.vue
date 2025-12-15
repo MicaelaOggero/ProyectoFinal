@@ -1061,6 +1061,216 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal para Ver Detalles de Tarea -->
+    <div class="modal fade" id="viewTaskModal" tabindex="-1" aria-labelledby="viewTaskModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title" id="viewTaskModalLabel">
+              <i class="bi bi-info-circle me-2"></i>Detalles Completos de la Tarea
+            </h5>
+            <button type="button" class="btn-close btn-close-white" @click="closeViewTaskModal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" v-if="selectedTask">
+            <!-- Información Principal -->
+            <div class="row mb-4">
+              <div class="col-md-8">
+                <h5 class="mb-3">
+                  <i class="bi bi-file-text me-2"></i>{{ selectedTask.descripcion }}
+                </h5>
+                
+                <div class="mb-3">
+                  <h6><i class="bi bi-tags me-2"></i>Habilidades Requeridas</h6>
+                  <div v-if="selectedTask.habilidadesRequeridas && selectedTask.habilidadesRequeridas.length > 0">
+                    <span 
+                      v-for="skill in selectedTask.habilidadesRequeridas" 
+                      :key="skill" 
+                      class="badge bg-primary me-1 mb-1"
+                    >
+                      {{ skill }}
+                    </span>
+                  </div>
+                  <p v-else class="text-muted mb-0">No especificadas</p>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card border-0 shadow-sm">
+                  <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-info-circle me-2"></i>Estado y Prioridad</h6>
+                    <div class="mb-2">
+                      <strong>Estado:</strong><br>
+                      <span class="badge fs-6" :class="getTaskStatusClass(selectedTask.estado)">
+                        {{ getTaskStatusText(selectedTask.estado) }}
+                      </span>
+                    </div>
+                    <div class="mb-2">
+                      <strong>Prioridad:</strong><br>
+                      <span class="badge fs-6" :class="getTaskPriorityClass(selectedTask.prioridad)">
+                        {{ getTaskPriorityText(selectedTask.prioridad) }}
+                      </span>
+                    </div>
+                    <div class="mb-2">
+                      <strong>Dificultad:</strong><br>
+                      <span class="badge bg-info fs-6">{{ selectedTask.nivelDificultad }}/5</span>
+                    </div>
+                    <div v-if="selectedTask.categoria">
+                      <strong>Categoría:</strong><br>
+                      <span class="badge bg-secondary fs-6">{{ selectedTask.categoria }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Información del Proyecto y Asignación -->
+            <div class="row mb-4">
+              <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                  <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-folder me-2"></i>Proyecto</h6>
+                    <p class="mb-0">
+                      <strong>{{ project?.name || 'N/A' }}</strong>
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                  <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-person me-2"></i>Asignación</h6>
+                    <p class="mb-0">
+                      <span v-if="selectedTask.desarrolladorAsignado">
+                        <strong>{{ getDeveloperName(selectedTask.desarrolladorAsignado) }}</strong>
+                        <span v-if="selectedTask.desarrolladorAsignado.email" class="text-muted d-block small">
+                          {{ selectedTask.desarrolladorAsignado.email }}
+                        </span>
+                      </span>
+                      <span v-else class="text-muted">Sin asignar</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tiempos y Fechas -->
+            <div class="row mb-4">
+              <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                  <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-clock me-2"></i>Tiempos</h6>
+                    <div class="mb-2">
+                      <strong>Tiempo Estimado:</strong>
+                      <span class="ms-2">{{ selectedTask.tiempoEstimadoHoras || 'No especificado' }} horas</span>
+                    </div>
+                    <div class="mb-2">
+                      <strong>Tiempo Invertido:</strong>
+                      <span class="ms-2">{{ selectedTask.tiempoInvertidoHoras || 0 }} horas</span>
+                    </div>
+                    <div v-if="selectedTask.tiempoEstimadoHoras && selectedTask.tiempoInvertidoHoras">
+                      <strong>Progreso:</strong>
+                      <div class="progress mt-2" style="height: 20px;">
+                        <div 
+                          class="progress-bar" 
+                          :class="getProgressClass(selectedTask.tiempoInvertidoHoras, selectedTask.tiempoEstimadoHoras)"
+                          role="progressbar" 
+                          :style="{ width: getProgressPercentage(selectedTask.tiempoInvertidoHoras, selectedTask.tiempoEstimadoHoras) + '%' }"
+                        >
+                          {{ getProgressPercentage(selectedTask.tiempoInvertidoHoras, selectedTask.tiempoEstimadoHoras) }}%
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                  <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-calendar me-2"></i>Fechas</h6>
+                    <div class="mb-2" v-if="selectedTask.fechaEstimadaInicio">
+                      <strong>Inicio Estimado:</strong>
+                      <span class="ms-2">{{ formatDate(selectedTask.fechaEstimadaInicio) }}</span>
+                    </div>
+                    <div class="mb-2" v-if="selectedTask.fechaEstimadaFin">
+                      <strong>Fin Estimado:</strong>
+                      <span class="ms-2">{{ formatDate(selectedTask.fechaEstimadaFin) }}</span>
+                    </div>
+                    <div class="mb-2" v-if="selectedTask.fechaRealInicio">
+                      <strong>Inicio Real:</strong>
+                      <span class="ms-2 text-success">{{ formatDate(selectedTask.fechaRealInicio) }}</span>
+                    </div>
+                    <div class="mb-2" v-if="selectedTask.fechaRealFin">
+                      <strong>Fin Real:</strong>
+                      <span class="ms-2 text-success">{{ formatDate(selectedTask.fechaRealFin) }}</span>
+                    </div>
+                    <div class="mb-2" v-if="selectedTask.fechaCreacion">
+                      <strong>Creada:</strong>
+                      <span class="ms-2 text-muted small">{{ formatDate(selectedTask.fechaCreacion) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Historial de Cambios -->
+            <div class="row mb-4" v-if="selectedTask.historial && selectedTask.historial.length > 0">
+              <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                  <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-clock-history me-2"></i>Historial de Cambios</h6>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-hover">
+                        <thead>
+                          <tr>
+                            <th>Campo</th>
+                            <th>Valor Anterior</th>
+                            <th>Valor Nuevo</th>
+                            <th>Fecha</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="(entry, index) in selectedTask.historial" :key="index">
+                            <td>{{ entry.campo }}</td>
+                            <td>{{ entry.valorAnterior }}</td>
+                            <td>{{ entry.valorNuevo }}</td>
+                            <td>{{ formatDate(entry.fechaCambio) }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Comentarios -->
+            <div class="row" v-if="selectedTask.comentarios && selectedTask.comentarios.length > 0">
+              <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                  <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-chat-dots me-2"></i>Comentarios</h6>
+                    <div v-for="(comentario, index) in selectedTask.comentarios" :key="index" class="mb-3 pb-3 border-bottom">
+                      <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                          <strong>{{ getDeveloperName(comentario.usuario) }}</strong>
+                          <span class="text-muted small ms-2">{{ formatDate(comentario.fecha) }}</span>
+                        </div>
+                      </div>
+                      <p class="mb-0 mt-1">{{ comentario.mensaje }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeViewTaskModal">
+              <i class="bi bi-x-circle me-1"></i>Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -1123,7 +1333,11 @@ export default {
         newDeveloperId: ''
       },
       isUpdatingAssignment: false,
-      editAssignmentModalInstance: null
+      editAssignmentModalInstance: null,
+      
+      // Para el modal de ver detalles de tarea
+      selectedTask: null,
+      viewTaskModalInstance: null
     };
   },
   computed: {
@@ -1372,7 +1586,18 @@ export default {
     
     // Ver detalles de tarea
     viewTask(task) {
-      alert(`Detalles de la tarea:\n\nDescripción: ${task.descripcion}\nPrioridad: ${task.prioridad}\nEstado: ${task.estado}\nDesarrollador: ${task.desarrolladorAsignado ? this.getDeveloperName(task.desarrolladorAsignado) : 'Sin asignar'}`);
+      this.selectedTask = task;
+      if (this.viewTaskModalInstance) {
+        this.viewTaskModalInstance.show();
+      }
+    },
+    
+    // Cerrar modal de ver detalles de tarea
+    closeViewTaskModal() {
+      if (this.viewTaskModalInstance) {
+        this.viewTaskModalInstance.hide();
+      }
+      this.selectedTask = null;
     },
     
     // Editar tarea
@@ -2319,6 +2544,21 @@ ${developers.length === 0 ? `
       return 'Pendiente';
     },
     
+    // Métodos auxiliares para el modal de detalles
+    getProgressPercentage(tiempoInvertido, tiempoEstimado) {
+      if (!tiempoEstimado || tiempoEstimado === 0) return 0;
+      const porcentaje = (tiempoInvertido / tiempoEstimado) * 100;
+      return Math.min(Math.round(porcentaje), 100);
+    },
+    
+    getProgressClass(tiempoInvertido, tiempoEstimado) {
+      if (!tiempoEstimado || tiempoEstimado === 0) return 'bg-secondary';
+      const porcentaje = (tiempoInvertido / tiempoEstimado) * 100;
+      if (porcentaje >= 100) return 'bg-danger';
+      if (porcentaje >= 75) return 'bg-warning';
+      return 'bg-success';
+    },
+    
     getDeveloperName(developer) {
       // Si no hay desarrollador asignado
       if (!developer) {
@@ -2337,6 +2577,7 @@ ${developers.length === 0 ? `
     // Métodos para edición de asignaciones
     initializeModals() {
       this.$nextTick(() => {
+        // Modal de edición de asignación
         const modalElement = document.getElementById('editAssignmentModal');
         if (modalElement) {
           this.editAssignmentModalInstance = new Modal(modalElement);
@@ -2346,6 +2587,20 @@ ${developers.length === 0 ? `
             const retryElement = document.getElementById('editAssignmentModal');
             if (retryElement) {
               this.editAssignmentModalInstance = new Modal(retryElement);
+            }
+          }, 100);
+        }
+        
+        // Modal de ver detalles de tarea
+        const viewTaskModalElement = document.getElementById('viewTaskModal');
+        if (viewTaskModalElement) {
+          this.viewTaskModalInstance = new Modal(viewTaskModalElement);
+        } else {
+          console.warn('ViewTaskModal element not found, retrying...');
+          setTimeout(() => {
+            const retryElement = document.getElementById('viewTaskModal');
+            if (retryElement) {
+              this.viewTaskModalInstance = new Modal(retryElement);
             }
           }, 100);
         }
