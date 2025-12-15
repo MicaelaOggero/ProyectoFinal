@@ -200,7 +200,7 @@ considerando:
 Reglas de asignación:
 
 1) FILTRO (OBLIGATORIO)
-- Dentro cada lista de desarrolladores para cada tarea, seleccionar al que tengan el menor costo por hora.En caso de empate, elegir teniendo en cuenta la disponibilidad (elegir el que tenga mas disponibilidad) y preferencias de habilidades (preferenciasHabilidad) del desarrollador, priorizando aquellos que tengan mejor puntuación promedio en las habilidades requeridas por la tarea. (NO SELECCIONAR UN DESARROLLADOR QUE NO ESTE EN LA LISTA DE CANDIDATOS DE LA TAREA)
+- Dentro cada lista de desarrolladores para cada tarea, seleccionar al que tengan el menor costo por hora. En caso de empate, elegir teniendo en cuenta la disponibilidad (elegir el que tenga mas disponibilidad), los años de experiencia y las preferencias de habilidades (preferenciasHabilidad) del desarrollador, priorizando aquellos que tengan mejor puntuación promedio en las habilidades requeridas por la tarea. (NO SELECCIONAR UN DESARROLLADOR QUE NO ESTE EN LA LISTA DE CANDIDATOS DE LA TAREA)
 
 3) En en el caso de que la tarea no tenga desarrolladoresCandidatos ("sinCandidatos": true), no asignar ningún desarrollador y en el json que se pide solo mostrar los siguientes campos en el formato que corresponde al json para esa tarea:
   id: tarea._id,
@@ -214,9 +214,9 @@ Reglas de asignación:
   sinCandidatos: true para esa tarea. 
 
 4) ASIGNACIÓN
-- MUY IMPORTANTE: solo se deben tener en cuenta para la selección el costo por hora del desarrollador como prioridad y luego la disponibilidad, las habilidades requeridas de la tarea y las habilidades del desarrollador. No considerar ninguno de los otros factores, como años de experiencia, costo por hora, rendimiento histórico, calidad o feedback histórico para la selección del desarrollador.
+- MUY IMPORTANTE: solo se deben tener en cuenta para la selección el costo por hora del desarrollador como prioridad y luego la disponibilidad, preferencias, años de experiencia y las habilidades requeridas de la tarea y las habilidades del desarrollador. No considerar ninguno de los otros factores como rendimiento histórico, calidad o feedback histórico para la selección del desarrollador.
 - Distribuir las horas de forma uniforme entre los dias disponibles.
-- Calcular horasEstimadasReales 
+- Calcular horasEstimadasSegunRendimiento 
 - Calcular costoTotal según horasTotales y costoPorHora del desarrollador.
 
 Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
@@ -229,10 +229,6 @@ Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
       "desarrolladorId": "ID del desarrollador elegido",
       "nombre": "Nombre del desarrollador elegido",
       "apellido": "Apellido del desarrollador elegido",
-      "rendimientoHistorico": {
-        "promedioPorcentaje": numero,
-        "tareasCompletadas": numero
-      }, (del dev elegido)
       "dias": [
         { "fecha": "YYYY-MM-DDT00:00:00.000Z", "horasAsignadas": 4 }
       ], si o si debe estar lleno con la distribución de horas asignadas por día si la tarea fue asignada
@@ -240,8 +236,11 @@ Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
       "tipoAsignacion": "costo",
       "razon": "Explicación detallada de por qué fue asignado o no",
       "costoTotal": "costo total de la tarea según horas y costo por hora del dev seleccionado",
-      "porcentajeRendimiento": "rendimientoHistorico.promedioPorcentaje del dev seleccionado",
-      "horasEstimadasSegunRendimiento": "resultado del calculo = horasTotales * (rendimientoHistorico.promedioPorcentaje / 100), redondeado a 2 decimales || horasTotales si no hay rendimientoHistorico",
+      "rendimientoHistorico": {
+        "promedioPorcentaje": numero,
+        "tareasCompletadas": numero
+      }, (del dev elegido)
+      "horasEstimadasSegunRendimiento": "resultado del calculo = horasTotales * (100 / rendimientoHistorico.promedioPorcentaje), redondeado a 2 decimales || horasTotales si no hay rendimientoHistorico",
       "calidadTarea": "puntuacionPromedioCalidad.puntuacionPromedio (del dev elegido)",
       "feedbackHistorico": "feedbackHistorico.puntuacionPromedio (del dev elegido)" 
     }

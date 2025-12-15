@@ -219,7 +219,7 @@ Entre los desarrolladores filtrados en el primer filtro para cada tarea:
 4) ASIGNACIÓN
 - MUY IMPORTANTE: solo se deben tener en cuenta para la selección las habilidades requeridas de la tarea y las habilidades del desarrollador. No considerar ninguno de los otros factores, como años de experiencia, costo por hora, rendimiento histórico, calidad o feedback histórico para la selección del desarrollador.
 - Distribuir las horas de forma uniforme entre los dias disponibles.
-- Calcular horasEstimadasReales 
+- Calcular horasEstimadasSegunRendimiento 
 - Calcular costoTotal según horasTotales y costoPorHora del desarrollador.
 
 Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
@@ -232,10 +232,6 @@ Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
       "desarrolladorId": "ID del desarrollador elegido",
       "nombre": "Nombre del desarrollador elegido",
       "apellido": "Apellido del desarrollador elegido",
-      "rendimientoHistorico": {
-        "promedioPorcentaje": numero,
-        "tareasCompletadas": numero
-      }, (del dev elegido)
       "dias": [
         { "fecha": "YYYY-MM-DDT00:00:00.000Z", "horasAsignadas": 4 }
       ], si o si debe estar lleno con la distribución de horas asignadas por día si la tarea fue asignada
@@ -243,8 +239,11 @@ Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
       "tipoAsignacion": "basica",
       "razon": "Explicación detallada de por qué fue asignado o no",
       "costoTotal": "costo total de la tarea según horas y costo por hora del dev seleccionado",
-      "porcentajeRendimiento": "rendimientoHistorico.promedioPorcentaje del dev seleccionado",
-      "horasEstimadasSegunRendimiento": "resultado del calculo = horasTotales * (rendimientoHistorico.promedioPorcentaje / 100), redondeado a 2 decimales || horasTotales si no hay rendimientoHistorico",
+      "rendimientoHistorico": {
+        "promedioPorcentaje": numero,
+        "tareasCompletadas": numero
+      }, (del dev elegido)
+      "horasEstimadasSegunRendimiento": "resultado del calculo = horasTotales * (100 / rendimientoHistorico.promedioPorcentaje), redondeado a 2 decimales || horasTotales si no hay rendimientoHistorico",
       "calidadTarea": "puntuacionPromedioCalidad.puntuacionPromedio (del dev elegido)",
       "feedbackHistorico": "feedbackHistorico.puntuacionPromedio (del dev elegido)" 
     }
@@ -353,7 +352,12 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
   const resultados = [];
   const idsAsignacionesCreadas = [];
 
-  // ✅ Validar estructura básica de sugerencias
+  // 0) Validar que haya projectId
+  if (!projectId) {
+    throw new Error("Falta projectId para confirmar la asignación.");
+  }
+
+  // 1) Validar estructura básica de sugerencias
   if (!sugerencias || !Array.isArray(sugerencias.asignaciones)) {
     throw new Error(
       "Formato de sugerencias inválido. Se esperaba un objeto con la propiedad 'asignaciones' (array)."
@@ -362,15 +366,82 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
 
   const asignaciones = sugerencias.asignaciones;
 
-  // ✅ Mapear nombres desde tu JSON real
   const {
-    costoTotalSimulado,     // número total del proyecto
-    tiempoTotalEstimado,    // puede venir null
-    tiempoTotalSimulado,    // total simulado
+    costoTotalSimulado,     
+    tiempoTotalEstimado,    
+    tiempoTotalSimulado,    
     calidadPromedioTareas,
     calidadPromedioSimulado,
     criterio
   } = sugerencias;
+
+  // 2) PRE-VALIDACIÓN GLOBAL (antes de tocar la BD)
+  const errores = [];
+
+  // 2.1) Validar que haya al menos una asignación
+  if (!asignaciones.length) {
+    errores.push("No hay asignaciones para confirmar.");
+  }
+
+  // 2.2) Validar que los agregados globales estén presentes y sean números
+  const camposGlobales = [
+    { nombre: "costoTotalSimulado", valor: costoTotalSimulado },
+    { nombre: "tiempoTotalEstimado", valor: tiempoTotalEstimado },
+    { nombre: "tiempoTotalSimulado", valor: tiempoTotalSimulado },
+    { nombre: "calidadPromedioTareas", valor: calidadPromedioTareas },
+    { nombre: "calidadPromedioSimulado", valor: calidadPromedioSimulado },
+  ];
+
+  for (const campo of camposGlobales) {
+    if (campo.valor == null || Number.isNaN(Number(campo.valor))) {
+      errores.push(`El dato global "${campo.nombre}" es requerido y debe ser numérico.`);
+    }
+  }
+
+  // 2.3) Validar cada asignación
+  for (const [index, asignacion] of asignaciones.entries()) {
+    const path = `asignaciones[${index}]`;
+
+    if (!asignacion.tareaId) {
+      errores.push(`${path}: falta "tareaId".`);
+    }
+
+    if (!asignacion.desarrolladorId) {
+      errores.push(`${path}: falta "desarrolladorId".`);
+    }
+
+    if (!Array.isArray(asignacion.dias) || asignacion.dias.length === 0) {
+      errores.push(`${path}: "dias" debe ser un array con al menos un elemento.`);
+    }
+
+    if (asignacion.horasTotales == null || Number.isNaN(Number(asignacion.horasTotales))) {
+      errores.push(`${path}: "horasTotales" es requerido y debe ser numérico.`);
+    }
+
+    if (asignacion.costoTotal == null || Number.isNaN(Number(asignacion.costoTotal))) {
+      errores.push(`${path}: "costoTotal" es requerido y debe ser numérico.`);
+    }
+
+    if (asignacion.porcentajeRendimiento == null || Number.isNaN(Number(asignacion.porcentajeRendimiento))) {
+      errores.push(`${path}: "porcentajeRendimiento" es requerido y debe ser numérico.`);
+    }
+
+    if (asignacion.horasEstimadasSegunRendimiento == null ||
+        Number.isNaN(Number(asignacion.horasEstimadasSegunRendimiento))) {
+      errores.push(`${path}: "horasEstimadasSegunRendimiento" es requerido y debe ser numérico.`);
+    }
+  }
+
+  // 2.4) Si hubo errores → NO confirmamos nada
+  if (errores.length > 0) {
+    // Podés devolver el array de errores para mostrarlos en front
+    throw new Error(
+      "No se puede confirmar la simulación porque faltan datos o hay datos inválidos:\n" +
+      errores.join("\n")
+    );
+  }
+
+  // 🔻🔻🔻 A PARTIR DE ACÁ recién tocamos la BD 🔻🔻🔻
 
   for (const asignacion of asignaciones) {
     const {
@@ -380,22 +451,11 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
       horasTotales,
       razon,
       porcentajeRendimiento,
-      horasEstimadasSegunRendimiento, // 👈 nombre real en tu JSON
+      horasEstimadasSegunRendimiento,
       calidadTarea,
       feedbackHistorico,
       costoTotal
     } = asignacion;
-
-    // ❌ NO PROCESAR ASIGNACIÓN SIN DÍAS
-    if (!dias || dias.length === 0) {
-      resultados.push({
-        tarea: tareaId,
-        estado: "omitida",
-        mensaje:
-          "No se creó la asignación porque no hay días asignados (sin disponibilidad)."
-      });
-      continue;
-    }
 
     const tareaDB = await Task.findById(tareaId);
     const dev = await User.findById(desarrolladorId);
@@ -437,7 +497,7 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
       continue;
     }
 
-    // 🧠 Normalizar feedbackHistorico: puede ser número o { puntuacionPromedio }
+    // 🧠 Normalizar feedbackHistorico
     let feedbackHistoricoNormalizado = null;
     if (typeof feedbackHistorico === "number") {
       feedbackHistoricoNormalizado = feedbackHistorico;
@@ -448,16 +508,12 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
       feedbackHistoricoNormalizado = feedbackHistorico.puntuacionPromedio;
     }
 
-    // 💰 Normalizar costoTotal (puede venir como string "96" o número)
     const costoTotalNumber = Number(costoTotal) || 0;
-
-    // 🕒 Normalizar horasEstimadasReales desde horasEstimadasSegunRendimiento
     const horasEstimadasReales =
       horasEstimadasSegunRendimiento != null
         ? Number(horasEstimadasSegunRendimiento)
         : null;
 
-    // ✅ Crear asignación con toda la data simulada
     const nuevaAsignacion = await Asignacion.create({
       tarea: tareaDB._id,
       desarrollador: dev._id,
@@ -466,23 +522,16 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
       proyecto: proyecto._id,
       tipoAsignacion: "basica",
       razon,
-
-      // costo
       costoPorHora: dev.costoPorHora,
       costoTotal: costoTotalNumber,
-
-      // tiempo
       porcentajeRendimiento,
       horasEstimadasReales,
-
-      // calidad
       puntuacionCalidad: calidadTarea,
       feedbackHistorico: feedbackHistoricoNormalizado
     });
 
     idsAsignacionesCreadas.push(nuevaAsignacion._id);
 
-    // ✅ Actualizar tarea
     tareaDB.desarrolladorAsignado = dev._id;
     tareaDB.asignada = true;
     await tareaDB.save();
@@ -496,14 +545,12 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
     });
   }
 
-  // ✅ Actualizar costo total del proyecto según la simulación
   if (costoTotalSimulado != null) {
     await Project.findByIdAndUpdate(projectId, {
       costoTotal: costoTotalSimulado
     });
   }
 
-  // ✅ Guardar simulación completa en SimulationAssignment
   await SimulationAssignment.create({
     proyecto: projectId,
     criterio: criterio || "basica",
@@ -520,5 +567,3 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
     resultados
   };
 }
-
-

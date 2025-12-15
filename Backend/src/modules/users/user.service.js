@@ -192,7 +192,8 @@ export async function actualizarRendimientoDesarrollador(userId) {
   let sumaPorcentajes = 0;
 
   for (const log of logs) {
-    const rendimiento = (log.tiempoInvertidoHoras / log.duracionEstimadaHoras) * 100;
+    const rendimiento = (log.duracionEstimadaHoras / log.tiempoInvertidoHoras) * 100;
+
     sumaPorcentajes += rendimiento;
   }
 

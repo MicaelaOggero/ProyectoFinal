@@ -131,103 +131,69 @@ export async function confirmAsignacionBasica(req, res) {
   }
 }
 
-export const sugerirAsignacionTiempoIA = async (req, res) => {
+export async function sugerirAsignacionTiempoIA(req, res) {
   try {
     const { projectId } = req.params;
-    const sugerencias = await previewObtenerAsignacionesPorTiempoIA(projectId);
-
-    res.status(200).json({
-      success: true,
-      criterio: "tiempo",
-      sugerencias
-    });
+    const resultado = await previewObtenerAsignacionesPorTiempoIA(projectId);
+    res.json(resultado);
   } catch (error) {
-    console.error("Error en /ia/proyecto/tiempo:", error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("Error en previsualizarAsignacionTiempo:", error);
+    res.status(500).json({ error: error.message });
   }
-};
+}
 
 export const confirmarAsignacionesPorTiempoController = async (req, res) => {
   try {
-    const { projectId } = req.params;
-    const { success, criterio, sugerencias } = req.body;
+    console.log("📥 Body recibido en confirmAsignacionTiempo:");
+    console.log(JSON.stringify(req.body, null, 2));
 
-    if (!projectId || !success || criterio !== "tiempo" || !sugerencias) {
-      return res.status(400).json({
-        status: "error",
-        message: "Datos de entrada inválidos o incompletos.",
-      });
+    const sugerencias = req.body;
+    const { projectId } = sugerencias;
+
+    if (!projectId) {
+      return res.status(400).json({ error: "Falta projectId en el body" });
     }
 
     const resultado = await confirmarAsignacionPorTiempo(projectId, sugerencias);
-
-    return res.status(200).json({
-      status: "success",
-      criterio,
-      ...resultado,
-    });
+    res.json(resultado);
   } catch (error) {
-    console.error("❌ Error al confirmar asignaciones por tiempo:", error);
-    return res.status(500).json({
-      status: "error",
-      message: "Error interno al confirmar asignaciones por tiempo",
-      details: error.message,
-    });
+    console.error("Error en confirmarAsignacionTiempo:", error);
+    res.status(500).json({ error: error.message });
   }
-};
-
+}
 
 export const sugerirAsignacionCalidadIA = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const sugerencias = await previewObtenerAsignacionesPorCalidadIA(projectId);
-
-    res.status(200).json({
-      success: true,
-      criterio: "calidad",
-      sugerencias
-    });
+    const resultado = await previewObtenerAsignacionesPorCalidadIA(projectId);
+    res.json(resultado);
   } catch (error) {
-    console.error("Error en /ia/proyecto/calidad:", error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("Error en previsualizarAsignacionCalidad:", error);
+    res.status(500).json({ error: error.message });
   }
-};
+}
+
 
 
 export const confirmarAsignacionesPorCalidadController = async (req, res) => {
   try {
-    const { projectId } = req.params;
-    const { success, criterio, sugerencias } = req.body;
+    console.log("📥 Body recibido en confirmAsignacionCalidad:");
+    console.log(JSON.stringify(req.body, null, 2));
 
-    if (!projectId || !success || criterio !== "calidad" || !sugerencias) {
-      return res.status(400).json({
-        status: "error",
-        message: "Datos de entrada inválidos o incompletos.",
-      });
+    const sugerencias = req.body;
+    const { projectId } = sugerencias;
+
+    if (!projectId) {
+      return res.status(400).json({ error: "Falta projectId en el body" });
     }
 
-    const { asignaciones, costoTotalProyecto } = sugerencias;
-
-    const resultado = await confirmarAsignacionPorCalidad(
-      projectId,
-      asignaciones,
-      costoTotalProyecto
-    );
-
-    return res.status(200).json({
-      status: "success",
-      criterio,
-      ...resultado,
-    });
+    const resultado = await confirmarAsignacionPorCalidad(projectId, sugerencias);
+    res.json(resultado);
   } catch (error) {
-    console.error("❌ Error al confirmar asignaciones por calidad:", error);
-    return res.status(500).json({
-      status: "error",
-      message: "Error interno al confirmar asignaciones por calidad",
-      details: error.message,
-    });
+    console.error("Error en confirmarAsignacionCalidad:", error);
+    res.status(500).json({ error: error.message });
   }
-};
+}
 
 // Asignar un desarrollador específico a una tarea manualmente SIN modificar la BD
 // controllers/asignacion.controller.js
