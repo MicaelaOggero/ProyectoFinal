@@ -312,6 +312,19 @@
                 </div>
               </div>
 
+              <!-- Categoría -->
+              <div class="mb-3">
+                <label for="taskCategory" class="form-label">Categoría *</label>
+                <select class="form-select" id="taskCategory" v-model="taskForm.categoria" required>
+                  <option value="">Seleccionar categoría</option>
+                  <option value="frontend">Frontend</option>
+                  <option value="backend">Backend</option>
+                  <option value="testing">Testing</option>
+                  <option value="documentacion">Documentación</option>
+                  <option value="machine learning">Machine Learning</option>
+                </select>
+              </div>
+
               <div class="row">
                 <div class="col-md-4 mb-3">
                   <label for="taskDifficulty" class="form-label">Nivel de Dificultad *</label>
@@ -655,8 +668,137 @@
             <button type="button" class="btn-close" @click="closeAssignmentTypeModal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
+            <!-- Paso 0: Vista de candidatos y asignación manual -->
+            <div v-if="showCandidatesView">
+              <div v-if="isLoadingCandidates" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-3">Cargando candidatos disponibles...</p>
+              </div>
+              
+              <div v-else-if="candidatesData">
+                <h6 class="mb-3">
+                  <i class="bi bi-people me-2"></i>
+                  Candidatos Disponibles por Tarea
+                </h6>
+                <p class="text-muted small mb-4">
+                  Revisa los candidatos disponibles para cada tarea. Las tareas sin candidatos pueden ser asignadas manualmente.
+                </p>
+                
+                <div class="candidates-list">
+                  <div 
+                    v-for="(data, tareaId) in candidatesData" 
+                    :key="tareaId"
+                    class="card mb-3"
+                    :class="{ 'border-warning': data.sinCandidatos, 'border-success': !data.sinCandidatos }"
+                  >
+                    <div class="card-header" :class="{ 'bg-warning text-dark': data.sinCandidatos, 'bg-success text-white': !data.sinCandidatos }">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                          <strong>{{ data.tarea.descripcion || data.tarea.nombre || 'Tarea sin nombre' }}</strong>
+                          <span v-if="data.sinCandidatos" class="badge bg-danger ms-2">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Sin candidatos automáticos
+                          </span>
+                          <span v-else class="badge bg-light text-dark ms-2">
+                            {{ data.desarrolladoresCandidatos.length }} candidato(s)
+                          </span>
+                        </div>
+                        <div v-if="data.asignacionManual" class="badge bg-info">
+                          <i class="bi bi-person-check me-1"></i>
+                          Asignado manualmente: {{ data.asignacionManual.desarrollador.nombre }} {{ data.asignacionManual.desarrollador.apellido }}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div class="card-body">
+                      <div v-if="data.desarrolladoresCandidatos && data.desarrolladoresCandidatos.length > 0">
+                        <h6 class="mb-2">Candidatos disponibles:</h6>
+                        <div class="table-responsive">
+                          <table class="table table-sm table-hover">
+                            <thead>
+                              <tr>
+                                <th>Desarrollador</th>
+                                <th>Habilidades</th>
+                                <th>Experiencia</th>
+                                <th>Costo/hora</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr v-for="candidato in data.desarrolladoresCandidatos" :key="candidato.id">
+                                <td>
+                                  <strong>{{ candidato.nombre }} {{ candidato.apellido }}</strong>
+                                </td>
+                                <td>
+                                  <span 
+                                    v-for="(habilidad, idx) in candidato.habilidades.slice(0, 3)" 
+                                    :key="idx"
+                                    class="badge bg-secondary me-1"
+                                  >
+                                    {{ typeof habilidad === 'string' ? habilidad : habilidad.nombre }}
+                                  </span>
+                                  <span v-if="candidato.habilidades.length > 3" class="text-muted">
+                                    +{{ candidato.habilidades.length - 3 }} más
+                                  </span>
+                                </td>
+                                <td>{{ candidato.aniosExperiencia || 0 }} años</td>
+                                <td>${{ candidato.costoPorHora || 0 }}/h</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      
+                      <div v-if="data.sinCandidatos && !data.asignacionManual" class="mt-3">
+                        <div class="alert alert-warning mb-3">
+                          <i class="bi bi-exclamation-triangle me-2"></i>
+                          <strong>Esta tarea no tiene candidatos automáticos.</strong>
+                          <p class="mb-0 mt-2 small">
+                            Puedes asignar manualmente un desarrollador que tenga las habilidades requeridas.
+                          </p>
+                        </div>
+                        
+                        <div class="mb-3">
+                          <label class="form-label">Seleccionar Desarrollador:</label>
+                          <select 
+                            class="form-select" 
+                            :data-tarea-id="tareaId"
+                            :value="manualAssignments[tareaId]?.desarrolladorId || ''"
+                            @change="assignDeveloperManually(tareaId, $event.target.value)"
+                          >
+                            <option value="">Seleccionar desarrollador...</option>
+                            <!-- Para asignación manual: mostrar TODOS los desarrolladores (sin filtrar por habilidades) -->
+                            <option 
+                              v-for="dev in allDevelopers" 
+                              :key="dev._id"
+                              :value="dev._id"
+                            >
+                              {{ dev.nombre }} {{ dev.apellido }}
+                              ({{ dev.aniosExperiencia || 0 }} años exp.)
+                            </option>
+                          </select>
+                        </div>
+                      </div>
+                      
+                      <div v-if="data.asignacionManual" class="alert alert-success mt-3">
+                        <i class="bi bi-check-circle me-2"></i>
+                        <strong>Asignación manual completada:</strong>
+                        {{ data.asignacionManual.desarrollador.nombre }} {{ data.asignacionManual.desarrollador.apellido }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div v-else class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                No se pudieron cargar los candidatos. Por favor, intenta nuevamente.
+              </div>
+            </div>
+
             <!-- Paso 1: Tabla comparativa de criterios -->
-            <div v-if="showComparisonTable">
+            <div v-else-if="showComparisonTable">
               <div v-if="isLoadingComparison" class="text-center py-5">
                 <div class="spinner-border text-primary" role="status">
                   <span class="visually-hidden">Cargando...</span>
@@ -680,44 +822,60 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="(data, key) in comparisonData" :key="key">
+                      <template v-for="(data, key) in comparisonData" :key="key">
+                        <tr v-if="data">
                         <td>
                           <strong>{{ getCriterioName(key) }}</strong>
-                          <span v-if="data.error" class="badge bg-danger ms-2">Error</span>
+                          <span v-if="data && data.isLoading" class="badge bg-info ms-2">
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                            Cargando...
+                          </span>
+                          <span v-else-if="data && data.error" class="badge bg-danger ms-2">Error</span>
                         </td>
                         <td>
-                          <span v-if="data.error" class="text-danger">-</span>
-                          <span v-else-if="data.costoTotal !== null" class="fw-bold text-success">
-                            ${{ data.costoTotal.toFixed(2) }}
+                          <span v-if="data && data.isLoading" class="text-muted">
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                          </span>
+                          <span v-else-if="data && data.error" class="text-danger">-</span>
+                          <span v-else-if="data && data.costoTotal !== null && data.costoTotal !== undefined" class="fw-bold text-success">
+                            ${{ typeof data.costoTotal === 'number' ? data.costoTotal.toFixed(2) : data.costoTotal }}
                           </span>
                           <span v-else class="text-muted">N/A</span>
                         </td>
                         <td>
-                          <span v-if="data.error" class="text-danger">-</span>
-                          <span v-else-if="data.tiempoTotal !== null" class="fw-bold">
+                          <span v-if="data && data.isLoading" class="text-muted">
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                          </span>
+                          <span v-else-if="data && data.error" class="text-danger">-</span>
+                          <span v-else-if="data && data.tiempoTotal !== null && data.tiempoTotal !== undefined" class="fw-bold">
                             {{ formatTiempo(data.tiempoTotal) }}
                           </span>
                           <span v-else class="text-muted">N/A</span>
                         </td>
                         <td>
-                          <span v-if="data.error" class="text-danger">-</span>
-                          <span v-else-if="data.calidad !== null" class="fw-bold">
+                          <span v-if="data && data.isLoading" class="text-muted">
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                          </span>
+                          <span v-else-if="data && data.error" class="text-danger">-</span>
+                          <span v-else-if="data && data.calidad !== null && data.calidad !== undefined" class="fw-bold">
                             {{ formatCalidad(data.calidad) }}
                           </span>
                           <span v-else class="text-muted">N/A</span>
                         </td>
                         <td>
                           <button 
-                            v-if="!data.error && data.previewData"
+                            v-if="data && !data.isLoading && !data.error && data.previewData"
                             class="btn btn-sm btn-primary"
                             @click="viewPreviewFromComparison(key)"
                           >
                             <i class="bi bi-eye me-1"></i>
                             Ver Previsualización
                           </button>
+                          <span v-else-if="data && data.isLoading" class="text-muted">Cargando...</span>
                           <span v-else class="text-muted">-</span>
                         </td>
-                      </tr>
+                        </tr>
+                      </template>
                     </tbody>
                   </table>
                 </div>
@@ -996,8 +1154,28 @@
             </div>
           </div>
           <div class="modal-footer">
+            <!-- Botones cuando se muestra la vista de candidatos -->
+            <template v-if="showCandidatesView">
+              <button 
+                type="button" 
+                class="btn btn-secondary" 
+                @click="closeAssignmentTypeModal"
+              >
+                Cerrar
+              </button>
+              <button 
+                type="button" 
+                class="btn btn-primary" 
+                @click="proceedToComparisonTable"
+                :disabled="isLoadingCandidates"
+              >
+                <i class="bi bi-arrow-right me-2"></i>
+                Continuar a Comparación
+              </button>
+            </template>
+            
             <!-- Botones cuando se muestra la tabla comparativa -->
-            <template v-if="showComparisonTable">
+            <template v-else-if="showComparisonTable">
               <button 
                 type="button" 
                 class="btn btn-primary" 
@@ -1129,6 +1307,7 @@ export default {
         descripcion: '',
         habilidadesRequeridas: [],
         nivelDificultad: '',
+        categoria: '',
         prioridad: '',
         estado: 'pendiente',
         proyecto: '',
@@ -1164,7 +1343,14 @@ export default {
       // Datos comparativos de los 4 criterios
       comparisonData: null,
       isLoadingComparison: false,
-      showComparisonTable: true // true = mostrar tabla comparativa, false = mostrar selección de tipo o preview
+      showComparisonTable: true, // true = mostrar tabla comparativa, false = mostrar selección de tipo o preview
+      
+      // Vista de candidatos y asignación manual
+      showCandidatesView: false, // true = mostrar vista de candidatos, false = mostrar tabla comparativa
+      candidatesData: null, // Objeto con candidatos por tarea (devsDataPorTarea)
+      isLoadingCandidates: false,
+      manualAssignments: {}, // Objeto para almacenar asignaciones manuales { tareaId: { desarrolladorId, ... } }
+      allDevelopers: [] // Todos los desarrolladores para selección manual
     };
   },
   computed: {
@@ -1368,6 +1554,7 @@ export default {
         descripcion: task.descripcion || '',
         habilidadesRequeridas: [...(task.habilidadesRequeridas || [])],
         nivelDificultad: task.nivelDificultad ? task.nivelDificultad.toString() : '',
+        categoria: task.categoria || '',
         prioridad: task.prioridad || '',
         estado: task.estado || 'pendiente',
         proyecto: task.proyecto || '',
@@ -1406,6 +1593,9 @@ export default {
         }
         if (!this.taskForm.prioridad) {
           throw new Error('Debe seleccionar una prioridad');
+        }
+        if (!this.taskForm.categoria) {
+          throw new Error('Debe seleccionar una categoría');
         }
         if (this.taskForm.habilidadesRequeridas.length === 0) {
           throw new Error('Debe agregar al menos una habilidad requerida');
@@ -1449,6 +1639,7 @@ export default {
             descripcion: this.taskForm.descripcion,
             habilidadesRequeridas: this.taskForm.habilidadesRequeridas,
             nivelDificultad: parseInt(this.taskForm.nivelDificultad),
+            categoria: this.taskForm.categoria,
             prioridad: this.taskForm.prioridad,
             estado: this.taskForm.estado,
             desarrolladorAsignado: this.taskForm.desarrolladorAsignado || null,
@@ -1469,6 +1660,7 @@ export default {
             descripcion: this.taskForm.descripcion,
             habilidadesRequeridas: this.taskForm.habilidadesRequeridas,
             nivelDificultad: parseInt(this.taskForm.nivelDificultad),
+            categoria: this.taskForm.categoria,
             prioridad: this.taskForm.prioridad,
             estado: this.taskForm.estado,
             desarrolladorAsignado: this.taskForm.desarrolladorAsignado || null,
@@ -1570,6 +1762,7 @@ export default {
         descripcion: '',
         habilidadesRequeridas: [],
         nivelDificultad: '',
+        categoria: '',
         prioridad: '',
         estado: 'pendiente',
         proyecto: '',
@@ -1744,11 +1937,13 @@ export default {
       this.isLoadingPreview = false;
       this.isConfirming = false;
       this.comparisonData = null;
-      this.showComparisonTable = true; // Mostrar directamente la tabla comparativa
+      this.showComparisonTable = false; // No mostrar tabla comparativa todavía
+      this.showCandidatesView = true; // Mostrar primero la vista de candidatos
+      this.manualAssignments = {}; // Limpiar asignaciones manuales
       this.assignmentTypeModalInstance.show();
       
-      // Cargar datos comparativos de los 4 criterios
-      await this.loadComparisonData();
+      // Cargar candidatos disponibles
+      await this.loadCandidatesData();
     },
 
     closeAssignmentTypeModal() {
@@ -1758,6 +1953,10 @@ export default {
       this.isConfirming = false;
       this.comparisonData = null;
       this.showComparisonTable = true;
+      this.showCandidatesView = false;
+      this.candidatesData = null;
+      this.manualAssignments = {};
+      this.allDevelopers = [];
       this.assignmentTypeModalInstance.hide();
     },
 
@@ -1796,7 +1995,7 @@ export default {
       this.selectedAssignmentType = null; // Limpiar selección
     },
 
-    // Cargar datos comparativos de los 4 criterios
+    // Cargar datos comparativos de los 4 criterios (secuencialmente para evitar rate limits)
     async loadComparisonData() {
       if (!this.selectedProject) {
         return;
@@ -1804,107 +2003,147 @@ export default {
 
       this.isLoadingComparison = true;
       
+      // Inicializar comparisonData con estados de carga
+      this.comparisonData = {
+        disponibilidad: { isLoading: true, criterio: 'availability' },
+        costo: { isLoading: true, criterio: 'cost' },
+        tiempo: { isLoading: true, criterio: 'time' },
+        calidad: { isLoading: true, criterio: 'quality' }
+      };
+      
       try {
-        // Llamar a los 4 endpoints en paralelo
-        const [availabilityData, costData, timeData, qualityData] = await Promise.all([
-          AssignmentService.previewBasicAssignment(this.selectedProject).catch(err => {
-            console.error('Error cargando disponibilidad:', err);
-            return { error: err.response?.data?.error || err.message || 'Error desconocido' };
-          }),
-          AssignmentService.previewCostAssignment(this.selectedProject).catch(err => {
-            console.error('Error cargando costo:', err);
-            return { error: err.response?.data?.error || err.message || 'Error desconocido' };
-          }),
-          AssignmentService.previewTimeAssignment(this.selectedProject).catch(err => {
-            console.error('Error cargando tiempo:', err);
-            return { error: err.response?.data?.error || err.message || 'Error desconocido' };
-          }),
-          AssignmentService.previewQualityAssignment(this.selectedProject).catch(err => {
-            console.error('Error cargando calidad:', err);
-            return { error: err.response?.data?.error || err.message || 'Error desconocido' };
-          })
-        ]);
-
-        // Extraer datos de cada criterio
-        const extractData = (data, criterio) => {
-          if (data.error) {
-            return {
-              criterio,
-              error: data.error,
+        // Función para cargar un criterio y actualizar comparisonData
+        const loadCriterio = async (serviceMethod, criterioKey, criterioName) => {
+          try {
+            console.log(`Cargando ${criterioName}...`);
+            const data = await serviceMethod(this.selectedProject);
+            const extracted = this.extractComparisonData(data, criterioKey);
+            // Actualizar solo este criterio en comparisonData
+            this.$set(this.comparisonData, criterioKey, extracted);
+            console.log(`${criterioName} cargado correctamente`);
+            return extracted;
+          } catch (err) {
+            console.error(`Error cargando ${criterioName}:`, err);
+            const errorData = {
+              criterio: criterioKey,
+              error: err.response?.data?.error || err.message || 'Error desconocido',
               costoTotal: null,
               tiempoTotal: null,
               calidad: null,
-              previewData: null
+              previewData: null,
+              isLoading: false
             };
+            this.$set(this.comparisonData, criterioKey, errorData);
+            return errorData;
           }
-
-          const asignaciones = Array.isArray(data.asignaciones)
-            ? data.asignaciones
-            : Array.isArray(data.sugerencias?.asignaciones)
-              ? data.sugerencias.asignaciones
-              : [];
-
-          const costoTotal = typeof data.costoTotalProyecto === 'number'
-            ? data.costoTotalProyecto
-            : typeof data.sugerencias?.costoTotalProyecto === 'number'
-              ? data.sugerencias.costoTotalProyecto
-              : null;
-
-          const tiempoTotal = typeof data.tiempoTotalEstimadoRealProyecto === 'number'
-            ? data.tiempoTotalEstimadoRealProyecto
-            : typeof data.sugerencias?.tiempoTotalEstimadoRealProyecto === 'number'
-              ? data.sugerencias.tiempoTotalEstimadoRealProyecto
-              : null;
-
-          const calidad = typeof data.calidadPromedioProyecto === 'number'
-            ? data.calidadPromedioProyecto
-            : typeof data.sugerencias?.calidadPromedioProyecto === 'number'
-              ? data.sugerencias.calidadPromedioProyecto
-              : typeof data.calidadPromedioTareas === 'number'
-                ? data.calidadPromedioTareas
-                : typeof data.sugerencias?.calidadPromedioTareas === 'number'
-                  ? data.sugerencias.calidadPromedioTareas
-                  : null;
-
-          // Guardar los datos completos para la previsualización
-          let confirmPayload = null;
-          if (criterio === 'time' || criterio === 'quality') {
-            confirmPayload = {
-              success: data.success !== undefined ? data.success : true,
-              criterio: criterio === 'time' ? 'tiempo' : 'calidad',
-              sugerencias: data.sugerencias || {
-                asignaciones,
-                costoTotalProyecto: costoTotal
-              }
-            };
-          }
-
-          return {
-            criterio,
-            costoTotal,
-            tiempoTotal,
-            calidad,
-            previewData: {
-              ...data,
-              asignaciones,
-              costoTotalProyecto: costoTotal,
-              confirmPayload
-            }
-          };
         };
-
-        this.comparisonData = {
-          disponibilidad: extractData(availabilityData, 'availability'),
-          costo: extractData(costData, 'cost'),
-          tiempo: extractData(timeData, 'time'),
-          calidad: extractData(qualityData, 'quality')
-        };
-
+        
+        // Cargar secuencialmente (uno por uno) para evitar rate limits
+        await loadCriterio(AssignmentService.previewBasicAssignment.bind(AssignmentService), 'disponibilidad', 'Disponibilidad');
+        await loadCriterio(AssignmentService.previewCostAssignment.bind(AssignmentService), 'costo', 'Costo');
+        await loadCriterio(AssignmentService.previewTimeAssignment.bind(AssignmentService), 'tiempo', 'Tiempo');
+        await loadCriterio(AssignmentService.previewQualityAssignment.bind(AssignmentService), 'calidad', 'Calidad');
+        
       } catch (error) {
         console.error('Error cargando datos comparativos:', error);
         alert('Error al cargar los datos comparativos. Por favor, intenta nuevamente.');
       } finally {
         this.isLoadingComparison = false;
+      }
+    },
+    
+    // Extraer datos de un criterio (extraído como método separado para reutilizar)
+    extractComparisonData(data, criterio) {
+      try {
+        if (!data) {
+          return {
+            criterio,
+            error: 'No se recibieron datos',
+            costoTotal: null,
+            tiempoTotal: null,
+            calidad: null,
+            previewData: null,
+            isLoading: false
+          };
+        }
+
+        if (data.error) {
+          return {
+            criterio,
+            error: data.error,
+            costoTotal: null,
+            tiempoTotal: null,
+            calidad: null,
+            previewData: null,
+            isLoading: false
+          };
+        }
+
+        const asignaciones = Array.isArray(data.asignaciones)
+          ? data.asignaciones
+          : Array.isArray(data.sugerencias?.asignaciones)
+            ? data.sugerencias.asignaciones
+            : [];
+
+        const costoTotal = typeof data.costoTotalProyecto === 'number'
+          ? data.costoTotalProyecto
+          : typeof data.sugerencias?.costoTotalProyecto === 'number'
+            ? data.sugerencias.costoTotalProyecto
+            : null;
+
+        const tiempoTotal = typeof data.tiempoTotalEstimadoRealProyecto === 'number'
+          ? data.tiempoTotalEstimadoRealProyecto
+          : typeof data.sugerencias?.tiempoTotalEstimadoRealProyecto === 'number'
+            ? data.sugerencias.tiempoTotalEstimadoRealProyecto
+            : null;
+
+        const calidad = typeof data.calidadPromedioProyecto === 'number'
+          ? data.calidadPromedioProyecto
+          : typeof data.sugerencias?.calidadPromedioProyecto === 'number'
+            ? data.sugerencias.calidadPromedioProyecto
+            : typeof data.calidadPromedioTareas === 'number'
+              ? data.calidadPromedioTareas
+              : typeof data.sugerencias?.calidadPromedioTareas === 'number'
+                ? data.sugerencias.calidadPromedioTareas
+                : null;
+
+        // Guardar los datos completos para la previsualización
+        let confirmPayload = null;
+        if (criterio === 'time' || criterio === 'quality') {
+          confirmPayload = {
+            success: data.success !== undefined ? data.success : true,
+            criterio: criterio === 'time' ? 'tiempo' : 'calidad',
+            sugerencias: data.sugerencias || {
+              asignaciones,
+              costoTotalProyecto: costoTotal
+            }
+          };
+        }
+
+        return {
+          criterio,
+          costoTotal,
+          tiempoTotal,
+          calidad,
+          isLoading: false,
+          previewData: {
+            ...data,
+            asignaciones,
+            costoTotalProyecto: costoTotal,
+            confirmPayload
+          }
+        };
+      } catch (error) {
+        console.error(`Error extrayendo datos para criterio ${criterio}:`, error);
+        return {
+          criterio,
+          error: error.message || 'Error al procesar datos',
+          costoTotal: null,
+          tiempoTotal: null,
+          calidad: null,
+          previewData: null,
+          isLoading: false
+        };
       }
     },
 
@@ -1978,6 +2217,377 @@ export default {
         return `${dias}d`;
       }
       return `${Math.round(horas)}h`;
+    },
+    
+    // Cargar candidatos disponibles para cada tarea
+    async loadCandidatesData() {
+      if (!this.selectedProject) {
+        return;
+      }
+      
+      this.isLoadingCandidates = true;
+      
+      try {
+        // 1. Obtener tareas pendientes y sin asignar
+        const tasks = await TaskService.getTasksByProject(this.selectedProject);
+        const tareasPendientes = tasks.filter(t => 
+          t.estado === 'pendiente' && !t.desarrolladorAsignado && !t.asignada
+        );
+        
+        if (tareasPendientes.length === 0) {
+          alert('No hay tareas pendientes sin asignar para este proyecto.');
+          this.closeAssignmentTypeModal();
+          return;
+        }
+        
+        // 2. Obtener todos los desarrolladores
+        const usersResponse = await UserService.getUsers();
+        const desarrolladores = usersResponse.data.filter(user => user.rol === 'user');
+        
+        if (desarrolladores.length === 0) {
+          alert('No hay desarrolladores disponibles.');
+          this.closeAssignmentTypeModal();
+          return;
+        }
+        
+        this.allDevelopers = desarrolladores;
+        
+        // 3. Reconstruir devsDataPorTarea aplicando los mismos filtros del backend
+        const devsDataPorTarea = {};
+        
+        for (const tarea of tareasPendientes) {
+          // Validar que la tarea tenga los datos necesarios
+          if (!tarea.fechaEstimadaInicio || !tarea.fechaEstimadaFin || !tarea.tiempoEstimadoHoras) {
+            devsDataPorTarea[tarea._id] = {
+              tarea: {
+                id: tarea._id,
+                nombre: tarea.nombre || '',
+                descripcion: tarea.descripcion,
+                fechaEstimadaInicio: tarea.fechaEstimadaInicio,
+                fechaEstimadaFin: tarea.fechaEstimadaFin,
+                habilidadesRequeridas: tarea.habilidadesRequeridas || [],
+                prioridad: tarea.prioridad,
+                estimacionHoras: tarea.tiempoEstimadoHoras
+              },
+              desarrolladoresCandidatos: [],
+              sinCandidatos: true
+            };
+            continue;
+          }
+          
+          // PRIMER FILTRO: habilidades mínimas 50%
+          const candidatosPorHabilidad = desarrolladores.filter(dev => {
+            return this.tieneHabilidadesSuficientes(dev, tarea.habilidadesRequeridas || [], 0.5);
+          });
+          
+          // SEGUNDO FILTRO: disponibilidad suficiente
+          const candidatosConDisponibilidad = [];
+          for (const dev of candidatosPorHabilidad) {
+            try {
+              const availabilityValidation = await ValidationService.validateDeveloperAvailability(
+                dev._id,
+                tarea.fechaEstimadaInicio,
+                tarea.fechaEstimadaFin,
+                tarea.tiempoEstimadoHoras
+              );
+              
+              if (availabilityValidation.isValid) {
+                candidatosConDisponibilidad.push(dev);
+              }
+            } catch (error) {
+              // Si hay error en la validación, no incluir el desarrollador
+              console.warn(`Error validando disponibilidad para dev ${dev._id}:`, error);
+            }
+          }
+          
+          // Si NO hay candidatos con disponibilidad, marcar como sinCandidatos
+          // Para asignación manual: mostrar TODOS los desarrolladores (sin filtrar por habilidades)
+          if (candidatosConDisponibilidad.length === 0) {
+            devsDataPorTarea[tarea._id] = {
+              tarea: {
+                id: tarea._id,
+                nombre: tarea.nombre || '',
+                descripcion: tarea.descripcion,
+                fechaEstimadaInicio: tarea.fechaEstimadaInicio,
+                fechaEstimadaFin: tarea.fechaEstimadaFin,
+                habilidadesRequeridas: tarea.habilidadesRequeridas || [],
+                prioridad: tarea.prioridad,
+                estimacionHoras: tarea.tiempoEstimadoHoras
+              },
+              desarrolladoresCandidatos: [], // Vacío porque sinCandidatos: true
+              sinCandidatos: true
+            };
+          } else {
+            // Hay candidatos con disponibilidad, mostrar TODOS los que pasan habilidades (igual que backend línea 142)
+            devsDataPorTarea[tarea._id] = {
+              tarea: {
+                id: tarea._id,
+                nombre: tarea.nombre || '',
+                descripcion: tarea.descripcion,
+                fechaEstimadaInicio: tarea.fechaEstimadaInicio,
+                fechaEstimadaFin: tarea.fechaEstimadaFin,
+                habilidadesRequeridas: tarea.habilidadesRequeridas || [],
+                prioridad: tarea.prioridad,
+                estimacionHoras: tarea.tiempoEstimadoHoras
+              },
+              desarrolladoresCandidatos: await this.buildCandidatesList(candidatosPorHabilidad, tarea),
+              sinCandidatos: false
+            };
+          }
+        }
+        
+        this.candidatesData = devsDataPorTarea;
+        
+      } catch (error) {
+        console.error('Error cargando candidatos:', error);
+        alert('Error al cargar los candidatos disponibles. Por favor, intenta nuevamente.');
+      } finally {
+        this.isLoadingCandidates = false;
+      }
+    },
+    
+    // Construir lista de candidatos con disponibilidad
+    async buildCandidatesList(candidatosPorHabilidad, tarea) {
+      return Promise.all(
+        candidatosPorHabilidad.map(async (dev) => {
+          // Obtener disponibilidad detallada
+          let diasDisponibles = [];
+          try {
+            const availabilityValidation = await ValidationService.validateDeveloperAvailability(
+              dev._id,
+              tarea.fechaEstimadaInicio,
+              tarea.fechaEstimadaFin,
+              tarea.tiempoEstimadoHoras
+            );
+            
+            // Si hay datos de disponibilidad, usarlos
+            if (availabilityValidation.availableHours) {
+              // Construir días disponibles desde availableHours si está disponible
+              // Por ahora, solo incluimos la información básica
+            }
+          } catch (error) {
+            console.warn(`Error obteniendo disponibilidad para dev ${dev._id}:`, error);
+          }
+          
+          return {
+            id: dev._id,
+            nombre: dev.nombre,
+            apellido: dev.apellido,
+            aniosExperiencia: dev.aniosExperiencia || 0,
+            habilidades: dev.habilidades?.map(h => ({
+              nombre: typeof h === 'string' ? h : h.nombre,
+              nivel: typeof h === 'string' ? null : h.nivel
+            })) || [],
+            preferenciasHabilidad: dev.preferenciasHabilidad || [],
+            costoPorHora: dev.costoPorHora || 0,
+            rendimientoHistorico: dev.rendimientoHistorico || null,
+            puntuacionPromedioCalidad: dev.puntuacionPromedioCalidad || null,
+            feedbackHistorico: dev.feedbackHistorico || null,
+            disponibilidad: {
+              diasDisponibles
+            }
+          };
+        })
+      );
+    },
+    
+    // Verificar si un desarrollador tiene habilidades suficientes (50% mínimo)
+    // Esta función debe coincidir exactamente con el backend: filtroHabilidades.js
+    tieneHabilidadesSuficientes(dev, habilidadesRequeridas, umbral = 0.5) {
+      if (!habilidadesRequeridas || habilidadesRequeridas.length === 0) {
+        return true; // Si no hay habilidades requeridas, todos pasan
+      }
+
+      if (!dev.habilidades || dev.habilidades.length === 0) {
+        return false; // Si el dev no tiene habilidades, no pasa
+      }
+
+      // Normalizar nombres: todo a minúsculas y quitar espacios iniciales/finales (igual que backend)
+      const habDev = dev.habilidades.map(h => {
+        const nombre = typeof h === 'string' ? h : (h.nombre || '');
+        return nombre.trim().toLowerCase();
+      }).filter(h => h);
+
+      const habReq = habilidadesRequeridas.map(h => {
+        const nombre = typeof h === 'string' ? h : (h.nombre || h);
+        return nombre.trim().toLowerCase();
+      }).filter(h => h);
+
+      // Contar cuántas habilidades requeridas tiene el dev (comparación exacta como backend)
+      const cantidadCumplida = habReq.filter(h => habDev.includes(h)).length;
+
+      // Verificar porcentaje mínimo
+      return cantidadCumplida / habReq.length >= umbral;
+    },
+    
+    // Asignar desarrollador manualmente a una tarea sin candidatos
+    async assignDeveloperManually(tareaId, desarrolladorId) {
+      if (!tareaId) {
+        return; // Si no hay tareaId, no hacer nada (puede ser que se esté limpiando el select)
+      }
+      
+      if (!desarrolladorId || desarrolladorId === '') {
+        // Si se deselecciona, limpiar la asignación manual
+        if (this.manualAssignments[tareaId]) {
+          delete this.manualAssignments[tareaId];
+        }
+        if (this.candidatesData && this.candidatesData[tareaId] && this.candidatesData[tareaId].asignacionManual) {
+          delete this.candidatesData[tareaId].asignacionManual;
+        }
+        return;
+      }
+      
+      try {
+        const tareaData = this.candidatesData[tareaId];
+        if (!tareaData) {
+          alert('No se encontró información de la tarea');
+          return;
+        }
+        
+        const tarea = tareaData.tarea;
+        const dev = this.allDevelopers.find(d => d._id === desarrolladorId);
+        
+        if (!dev) {
+          alert('Desarrollador no encontrado');
+          return;
+        }
+        
+        // Preparar asignación para enviar al backend
+        const asignacion = {
+          tareaId: tarea.id,
+          descripcion: tarea.descripcion,
+          fechaEstimadaInicio: tarea.fechaEstimadaInicio,
+          fechaEstimadaFin: tarea.fechaEstimadaFin,
+          estimacionHoras: tarea.estimacionHoras,
+          desarrolladorId: desarrolladorId,
+          tipoAsignacion: 'basica' // Por defecto, se puede cambiar después
+        };
+        
+        // Intentar asignar manualmente (valida disponibilidad)
+        // Si el endpoint existe, valida disponibilidad y retorna la asignación completada
+        // Si no existe o hay error, se procesará con completar-manual más adelante
+        let asignacionCompletada = null;
+        try {
+          asignacionCompletada = await AssignmentService.assignTaskManually(asignacion);
+          // Si se asignó correctamente, mostrar mensaje de éxito
+          if (asignacionCompletada) {
+            console.log('Asignación manual validada:', asignacionCompletada);
+          }
+        } catch (error) {
+          // Si hay error (ej: sin disponibilidad), mostrar mensaje al usuario
+          const errorMsg = error.response?.data?.error || error.message || 'Error desconocido';
+          alert(`Error al asignar desarrollador: ${errorMsg}`);
+          // Limpiar la selección
+          if (this.manualAssignments && this.manualAssignments[tareaId]) {
+            delete this.manualAssignments[tareaId];
+          }
+          if (this.candidatesData && this.candidatesData[tareaId] && this.candidatesData[tareaId].asignacionManual) {
+            delete this.candidatesData[tareaId].asignacionManual;
+          }
+          // Resetear el select
+          const selectElement = document.querySelector(`select[data-tarea-id="${tareaId}"]`);
+          if (selectElement) {
+            selectElement.value = '';
+          }
+          return;
+        }
+        
+        // Guardar la asignación manual (se procesará con completar-manual al continuar)
+        if (!this.manualAssignments) {
+          this.manualAssignments = {};
+        }
+        this.manualAssignments[tareaId] = {
+          ...asignacion,
+          asignacionCompletada // Puede ser null si el endpoint no existe, pero desarrolladorId está
+        };
+        
+        // Actualizar candidatesData para marcar que la tarea ya tiene asignación manual
+        if (this.candidatesData && this.candidatesData[tareaId]) {
+          this.candidatesData[tareaId].asignacionManual = {
+            desarrolladorId: desarrolladorId,
+            desarrollador: dev
+          };
+        }
+        
+        // Forzar actualización de la vista
+        this.$forceUpdate();
+        
+      } catch (error) {
+        console.error('Error asignando desarrollador manualmente:', error);
+        const errorMsg = error.response?.data?.error || error.message || 'Error desconocido';
+        alert(`Error al asignar desarrollador: ${errorMsg}`);
+      }
+    },
+    
+    // Proceder a la tabla comparativa después de asignaciones manuales
+    async proceedToComparisonTable() {
+      // Si hay asignaciones manuales, procesarlas primero
+      if (Object.keys(this.manualAssignments).length > 0) {
+        try {
+          // Obtener preview básico para tener el resultadoIA base
+          const previewBasico = await AssignmentService.previewBasicAssignment(this.selectedProject);
+          
+          // Construir resultadoIA con las asignaciones manuales integradas
+          const resultadoIA = {
+            projectId: this.selectedProject,
+            asignaciones: []
+          };
+          
+          // Agregar asignaciones del preview básico
+          if (previewBasico.asignaciones && Array.isArray(previewBasico.asignaciones)) {
+            resultadoIA.asignaciones = [...previewBasico.asignaciones];
+          }
+          
+          // Para cada asignación manual, actualizar el resultadoIA
+          // El backend espera que las tareas con sinCandidatos: true tengan desarrolladorId
+          for (const [tareaId, asignacionManual] of Object.entries(this.manualAssignments)) {
+            // Buscar si ya existe una asignación para esta tarea en el resultadoIA
+            const index = resultadoIA.asignaciones.findIndex(a => a.tareaId === tareaId);
+            
+            if (index >= 0) {
+              // Si ya existe, marcar como sinCandidatos y agregar desarrolladorId
+              resultadoIA.asignaciones[index] = {
+                ...resultadoIA.asignaciones[index],
+                sinCandidatos: true,
+                desarrolladorId: asignacionManual.desarrolladorId
+              };
+            } else {
+              // Si no existe, crear una nueva asignación con sinCandidatos: true
+              const tareaData = this.candidatesData[tareaId];
+              if (tareaData) {
+                resultadoIA.asignaciones.push({
+                  tareaId: tareaId,
+                  descripcion: tareaData.tarea.descripcion,
+                  fechaEstimadaInicio: tareaData.tarea.fechaEstimadaInicio,
+                  fechaEstimadaFin: tareaData.tarea.fechaEstimadaFin,
+                  estimacionHoras: tareaData.tarea.estimacionHoras,
+                  sinCandidatos: true,
+                  desarrolladorId: asignacionManual.desarrolladorId,
+                  tipoAsignacion: 'basica'
+                });
+              }
+            }
+          }
+          
+          // Llamar a completar-manual para procesar las asignaciones manuales
+          // Esta función llama a asignarTareaManual para cada tarea con sinCandidatos: true
+          const resultadoFinal = await AssignmentService.completeManualAssignments(resultadoIA);
+          
+          // El resultadoFinal ya tiene las asignaciones procesadas
+          console.log('Asignaciones manuales completadas:', resultadoFinal);
+          
+        } catch (error) {
+          console.error('Error procesando asignaciones manuales:', error);
+          alert('Error al procesar las asignaciones manuales. Continuando con la comparación...');
+        }
+      }
+      
+      // Ocultar vista de candidatos y mostrar tabla comparativa
+      this.showCandidatesView = false;
+      this.showComparisonTable = true;
+      
+      // Cargar datos comparativos
+      await this.loadComparisonData();
     },
 
     // Generar previsualización

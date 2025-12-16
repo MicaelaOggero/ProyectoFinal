@@ -91,7 +91,7 @@ class AssignmentService {
   // Preview de asignación por costo
   async previewCostAssignment(projectId) {
     try {
-      const response = await axios.get(`${API_URL}/assignment/preview/costo/${projectId}`);
+      const response = await axios.get(`${API_URL}/assignment/iapreview/proyecto/${projectId}/costo`);
       return response.data;
     } catch (error) {
       console.error('Error obteniendo preview de asignación por costo:', error);
@@ -177,6 +177,35 @@ class AssignmentService {
       return response.data;
     } catch (error) {
       console.error('Error confirmando asignación por calidad:', error);
+      throw error;
+    }
+  }
+
+  // Asignar tarea manualmente (llama al endpoint si existe)
+  async assignTaskManually(asignacion) {
+    try {
+      // Nota: Si no existe el endpoint, este método puede ser usado para preparar la asignación
+      // y luego llamar a completar-manual
+      const response = await axios.post(`${API_URL}/assignment/asignar-manual`, asignacion);
+      return response.data;
+    } catch (error) {
+      // Si el endpoint no existe (404), retornamos null para que el frontend maneje la lógica
+      if (error.response && error.response.status === 404) {
+        console.warn('Endpoint de asignación manual no encontrado, se usará completar-manual');
+        return null;
+      }
+      console.error('Error asignando tarea manualmente:', error);
+      throw error;
+    }
+  }
+
+  // Completar asignaciones manuales
+  async completeManualAssignments(resultadoIA) {
+    try {
+      const response = await axios.post(`${API_URL}/assignment/completar-manual`, resultadoIA);
+      return response.data;
+    } catch (error) {
+      console.error('Error completando asignaciones manuales:', error);
       throw error;
     }
   }
