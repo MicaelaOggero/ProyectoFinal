@@ -155,6 +155,11 @@ export async function iniciarTareaService(taskId, userId) {
     throw new Error("Desarrollador no encontrado");
   }
 
+  //validar que el desarrollador sea el asignado a la tarea
+  if (tarea.desarrolladorAsignado.toString() !== desarrollador._id.toString()) {
+    throw new Error("No estás asignado a esta tarea");
+  }
+
   //Validar estado actual
   if (tarea.estado !== "pendiente") {
     throw new Error("Solo se pueden iniciar tareas en estado 'pendiente'");
@@ -189,6 +194,11 @@ export async function pausarOCompletarTarea(taskId, userId, accion = "pausar") {
 
   const desarrollador = await User.findById(userId);
   if (!desarrollador) throw new Error("Desarrollador no encontrado");
+
+  //validar que el desarrollador sea el asignado a la tarea
+  if (tarea.desarrolladorAsignado.toString() !== desarrollador._id.toString()) {
+    throw new Error("No estás asignado a esta tarea");
+  }
 
   if (tarea.estado !== "en curso") {
     throw new Error("Solo se pueden pausar o completar tareas en curso");

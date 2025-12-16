@@ -1,4 +1,4 @@
-import { editarAsignacionService, getAsignacionesPorProyectoService, asignarTareasBasico, asignarPorCostoService} from "./assignment.service.js";
+import { editarAsignacionService, getAsignacionesPorProyectoService} from "./assignment.service.js";
 import { previsualizarAsignacionPorCosto, confirmarAsignacionPorCosto } from "../criteria/costo.js";
 import {
   previsualizarAsignacionBasica,
@@ -35,64 +35,6 @@ export const getAsignacionesPorProyecto = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
-
-export async function asignarAutomaticoBasico(req, res) {
-  try {
-    const { projectId } = req.params;
-
-    const result = await asignarTareasBasico(projectId);
-
-    res.json(result);
-  } catch (error) {
-    console.error("Error en asignación automática por semana:", error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-export const asignarPorCosto = async (req, res) => {
-  try {
-    const { projectId } = req.params;
-    const resultado = await asignarPorCostoService(projectId);
-    res.json(resultado);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// PREVISUALIZACIÓN
-export async function previsualizarAsignacionCosto(req, res) {
-  try {
-    const { projectId } = req.params;
-    const resultado = await previsualizarAsignacionPorCosto(projectId);
-    res.json({ message: "Previsualización lista", ...resultado });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-}
-
-// CONFIRMACIÓN
-/**
- * Confirma y guarda la asignación básica
- */
-export async function confirmarAsignacionPorCostoController(req, res) {
-  try {
-    console.log("📥 Body recibido en confirmAsignacionBasica:");
-    console.log(JSON.stringify(req.body, null, 2));
-
-    const sugerencias = req.body;
-    const { projectId } = sugerencias;
-
-    if (!projectId) {
-      return res.status(400).json({ error: "Falta projectId en el body" });
-    }
-
-    const resultado = await confirmarAsignacionPorCosto(projectId, sugerencias);
-    res.json(resultado);
-  } catch (error) {
-    console.error("Error en confirmarAsignacionBasica:", error);
-    res.status(500).json({ error: error.message });
-  }
-}
 
 /**
  * Previsualiza la asignación básica
@@ -131,6 +73,41 @@ export async function confirmAsignacionBasica(req, res) {
   }
 }
 
+// Previsualiza la asignación por costo
+export async function previsualizarAsignacionCosto(req, res) {
+  try {
+    const { projectId } = req.params;
+    const resultado = await previsualizarAsignacionPorCosto(projectId);
+    res.json({ message: "Previsualización lista", ...resultado });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+/**
+ * Confirma y guarda la asignación básica
+ */
+export async function confirmarAsignacionPorCostoController(req, res) {
+  try {
+    console.log("📥 Body recibido en confirmAsignacionBasica:");
+    console.log(JSON.stringify(req.body, null, 2));
+
+    const sugerencias = req.body;
+    const { projectId } = sugerencias;
+
+    if (!projectId) {
+      return res.status(400).json({ error: "Falta projectId en el body" });
+    }
+
+    const resultado = await confirmarAsignacionPorCosto(projectId, sugerencias);
+    res.json(resultado);
+  } catch (error) {
+    console.error("Error en confirmarAsignacionBasica:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// Previsualiza la asignación por tiempo
 export async function sugerirAsignacionTiempoIA(req, res) {
   try {
     const { projectId } = req.params;
@@ -142,6 +119,7 @@ export async function sugerirAsignacionTiempoIA(req, res) {
   }
 }
 
+// Confirma y guarda la asignación por tiempo
 export const confirmarAsignacionesPorTiempoController = async (req, res) => {
   try {
     console.log("📥 Body recibido en confirmAsignacionTiempo:");
@@ -162,6 +140,7 @@ export const confirmarAsignacionesPorTiempoController = async (req, res) => {
   }
 }
 
+// Previsualiza la asignación por calidad
 export const sugerirAsignacionCalidadIA = async (req, res) => {
   try {
     const { projectId } = req.params;
@@ -173,8 +152,7 @@ export const sugerirAsignacionCalidadIA = async (req, res) => {
   }
 }
 
-
-
+// Confirma y guarda la asignación por calidad
 export const confirmarAsignacionesPorCalidadController = async (req, res) => {
   try {
     console.log("📥 Body recibido en confirmAsignacionCalidad:");

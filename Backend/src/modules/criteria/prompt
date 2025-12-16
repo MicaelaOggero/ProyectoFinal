@@ -1,0 +1,90 @@
+
+  // 🧠 Prompt IA
+  const prompt = `
+Eres un asistente experto en planificación de proyectos y asignación óptima de recursos humanos.
+
+Objetivo:
+Teniendo en cuenta que candidatosxTarea guarda para cada tarea recomendaciones de desarrolladores, asignar cada tarea al desarrollador que pueda completarla si cumple con los requisitos minimos,
+considerando:
+- Disponibilidad diaria (horas por fecha)
+- Tiempo estimado de la tarea (tiempoEstimadoHoras)
+- Habilidades requeridas
+
+Reglas de asignación:
+
+1) PRIMER FILTRO (OBLIGATORIO)
+- Dentro cada lista de recomendados para cada tarea, validar que tenga disponibilidad suficiente dentro del rango de fechas estimadas para completar todas las horas de la tarea.
+Si ningún desarrollador pasa este filtro, omitir la tarea y explicar claramente la razón.
+
+2) SEGUNDO FILTRO - MUY IMPORTANTE
+Entre los desarrolladores filtrados en el primer filtro para cada tarea:
+- elegir al desarrollador que tenga las mayor cantidad de habilidades requeridas para la tarea.
+
+3) ASIGNACIÓN
+- Distribuir las horas de forma uniforme según disponibilidad.
+- Calcular horasEstimadasReales 
+- Calcular costoTotal según horasTotales y costoPorHora del desarrollador.
+
+4) CÁLCULOS GLOBALES DEL PROYECTO
+- costoTotalProyecto = suma de costosTotales
+- tiempoTotalEstimadoRealProyecto = suma de horasEstimadasReales
+- tiempoTotalAsignadoProyecto = suma de horasTotales
+- calidadPromedioTareas = promedio de calidadTarea
+- calidadPromedioProyecto = promedio del feedback de todos los desarrolladores asignados
+
+Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
+{
+  "asignaciones": [
+    {
+      "tareaId": "ID de la tarea",
+      "descripcion": "Descripción de la tarea",
+      "desarrolladorId": "ID del desarrollador elegido",
+      "nombre": "Nombre del desarrollador elegido",
+      "apellido": "Apellido del desarrollador elegido",
+      "rendimientoHistorico": {
+        "promedioPorcentaje": numero,
+        "tareasCompletadas": numero
+      }, (del dev elegido)
+      "dias": [
+        { "fecha": "YYYY-MM-DDT00:00:00.000Z", "horasAsignadas": 4 }
+      ], si o si debe estar lleno con la distribución de horas asignadas por día si la tarea fue asignada
+      "horasTotales": numero,
+      "tipoAsignacion": "basica",
+      "razon": "Explicación detallada de por qué fue asignado",
+      "costoTotal": "costo total de la tarea según horas y costo por hora del dev seleccionado",
+      "porcentajeRendimiento": "rendimientoHistorico.promedioPorcentaje del dev seleccionado",
+      "horasEstimadasReales": "resultado del calculo = horasTotales * (rendimientoHistorico.promedioPorcentaje / 100), redondeado a 2 decimales || horasTotales si no hay rendimientoHistorico",
+      "calidadTarea": "puntuacion promedio segun todos los TaskLog (puntuacionCalidad) del dev seleccionado || 0 si no tiene tareas previas",
+      "feedbackHistorico": {
+        "puntuacionPromedioFeedback": numero,
+        "vecesCalificadoFeedback": numero
+      } (del dev elegido) calcula el promedio segun performanceFeedback de proyectos previos || 0 si no tiene feedback
+    }
+  ],
+  "costoTotalProyecto": "costo total de todas las tareas asignadas según horas y costo por hora",
+  "tiempoTotalEstimadoRealProyecto": "tiempo que se estima va demorarse completar todas las tareas en horas (suma de horasEstimadasReales de todas las tareas), redondeado a 2 decimales",
+  "tiempoTotalAsignadoProyecto": "tiempo total en horas que se asignó a los desarrolladores para completar las tareas segun tiempoEstimadoHoras",
+  "calidadPromedioTareas": "promedio de las puntuaciones históricas de calidad de los devs seleccionados (calidadTarea)",
+  "calidadPromedioProyecto": "promedio de los feedbackHistorico de todos los desarrolladores asignados"
+  }
+
+Datos:
+${JSON.stringify({ tareas: tareasData, candidatosxTarea: devsDataPorTarea }, null, 2)}
+
+`;
+  console.log("Candidatos por tareas: ", candidatosPorTarea)
+  const completion = await client.responses.create({
+    model: "gpt-4o-mini",
+    temperature: 0.4,
+    input: prompt,
+  });
+
+  let texto = completion.output_text.trim();
+  texto = texto.replace(/```json|```/g, "").trim();
+
+  try {
+    return JSON.parse(texto);
+  } catch (err) {
+    console.error("Error parseando JSON de IA:", err, "Texto devuelto:", texto);
+    throw new Error("La respuesta de la IA no fue JSON válido");
+  }

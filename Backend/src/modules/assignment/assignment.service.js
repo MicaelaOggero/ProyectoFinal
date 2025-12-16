@@ -341,11 +341,6 @@ export const getAsignacionesPorProyectoService = async (proyectoId) => {
   }));
 };
 
-export async function asignarTareasBasico(projectId) {
-  return await asignarTareasConCalendario(projectId);
-}
 
-export const asignarPorCostoService = async (projectId) => {
-  return await asignarTareasPorCosto(projectId);
-};
+
 

@@ -48,6 +48,11 @@ export async function iniciarProyectoService(projectId, userId) {
     throw new Error("Proyecto no encontrado");
   }
 
+  const user = await projectDao.findUserById(userId);
+  if (!user) {
+    throw new Error("Usuario no encontrado");
+  }
+
   // Si ya estaba iniciado, evitamos duplicar
   if (proyecto.estado === "activo") {
     throw new Error("El proyecto ya está iniciado");
@@ -73,7 +78,7 @@ export async function iniciarProyectoService(projectId, userId) {
   proyecto.historial.push({
     accion: "Inicio de proyecto",
     usuario: userId,
-    descripcion: `El proyecto fue iniciado por el usuario ${userId}`
+    descripcion: `El proyecto fue iniciado por el usuario ${user.nombre}`,
   });
 
   await proyecto.save();
