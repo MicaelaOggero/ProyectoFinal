@@ -291,12 +291,9 @@ export async function completarAsignacionesManuales(resultadoIA) {
       continue;
     }
 
-    //agregar a asignacion un desarrolladorId antes de llamar a la función
-    asignacion.desarrolladorId = "692887c28e8c635a505b80d6";
+    //aca por cada tarea sinCandidatos se deberia mostrar un formulario para que el usuario elija el desarrollador manualmente y deberia actualizar la asiganacion agregandole el campo asignacion.desarrolladorId
 
-    // Si la tarea no tenía candidatos (caso sinCandidatos: true)
-    // llamamos a la función que permite asignarla manualmente
-    const asignacionManual = await asignarTareaManual(asignacion);
+    //aca en el se deberia llamar a la ruta asignar-manual por cada tarea sinCandidatos pasandole la asignacion con el desarrolladorId elegido por el usuario, asignacion-manual devuelve la asignacion completa como lo hace la IA
 
     // Si el usuario no asignó nadie (null/undefined), la dejamos tal cual
     if (!asignacionManual) {
