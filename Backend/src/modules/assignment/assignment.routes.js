@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { editarAsignacion, getAsignacionesPorProyecto, asignarAutomaticoBasico, asignarPorCosto, previsualizarAsignacionCosto, previewAsignacionBasica, confirmAsignacionBasica, confirmarAsignacionPorCostoController } from "./assignment.controller.js";
+import { editarAsignacion, getAsignacionesPorProyecto, previsualizarAsignacionCosto, previewAsignacionBasica, confirmAsignacionBasica, confirmarAsignacionPorCostoController, asignarTareaManualController } from "./assignment.controller.js";
 import { sugerirAsignacionTiempoIA, confirmarAsignacionesPorTiempoController, sugerirAsignacionCalidadIA, confirmarAsignacionesPorCalidadController } from "../assignment/assignment.controller.js";
 import { completarAsignacionesManualesController } from "../assignment/assignment.controller.js";
 import { authAdmin } from "../../middlewares/auth.js";
@@ -29,5 +29,8 @@ router.post("/iaconfirm/proyecto/:projectId/calidad", confirmarAsignacionesPorCa
 
 //Completar asignaciones manuales
 router.post("/completar-manual", completarAsignacionesManualesController); //authAdmin,
+
+//Asignar tareas manualmente
+router.post("/asignar-manual", asignarTareaManualController); //authAdmin,
 
 export default router;
