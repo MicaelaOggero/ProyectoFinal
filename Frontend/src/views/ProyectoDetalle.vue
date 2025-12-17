@@ -1090,7 +1090,7 @@
                     <th>Días Asignados</th>
                     <th v-if="selectedAssignmentType === 'cost'">Costo por Hora</th>
                     <th v-if="selectedAssignmentType === 'cost'">Costo Total</th>
-                    <th v-if="selectedAssignmentType === 'time' || selectedAssignmentType === 'quality'">Razón</th>
+                    <th>Razón</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1134,9 +1134,12 @@
                       </span>
                       <span v-else class="text-muted">-</span>
                     </td>
-                    <td v-if="selectedAssignmentType === 'time' || selectedAssignmentType === 'quality'">
-                      <span v-if="asignacion.razon" class="small text-muted">
-                        {{ asignacion.razon }}
+                    <td>
+                      <span v-if="asignacion.razon" class="small text-muted" :title="asignacion.razon">
+                        {{ asignacion.razon.length > 100 ? asignacion.razon.substring(0, 100) + '...' : asignacion.razon }}
+                      </span>
+                      <span v-else-if="asignacion.motivo" class="small text-warning">
+                        {{ asignacion.motivo }}
                       </span>
                       <span v-else class="text-muted">-</span>
                     </td>
@@ -2604,9 +2607,11 @@ export default {
           try {
             console.log(`Cargando ${criterioName}...`);
             const data = await serviceMethod(projectId);
+            console.log(`📊 Datos recibidos de ${criterioName}:`, data);
             const extracted = this.extractComparisonData(data, criterioKey);
-            // Actualizar solo este criterio en comparisonData
-            this.$set(this.comparisonData, criterioKey, extracted);
+            console.log(`📊 Datos extraídos de ${criterioName}:`, extracted);
+            // Actualizar solo este criterio en comparisonData (Vue 3: asignación directa)
+            this.comparisonData[criterioKey] = extracted;
             console.log(`${criterioName} cargado correctamente`);
             return extracted;
           } catch (err) {
@@ -2620,7 +2625,8 @@ export default {
               previewData: null,
               isLoading: false
             };
-            this.$set(this.comparisonData, criterioKey, errorData);
+            // Vue 3: asignación directa (this.$set no existe en Vue 3)
+            this.comparisonData[criterioKey] = errorData;
             return errorData;
           }
         };
@@ -2684,15 +2690,23 @@ export default {
             ? data.sugerencias.tiempoTotalEstimadoRealProyecto
             : null;
 
-        const calidad = typeof data.calidadPromedioProyecto === 'number'
-          ? data.calidadPromedioProyecto
-          : typeof data.sugerencias?.calidadPromedioProyecto === 'number'
-            ? data.sugerencias.calidadPromedioProyecto
-            : typeof data.calidadPromedioTareas === 'number'
-              ? data.calidadPromedioTareas
-              : typeof data.sugerencias?.calidadPromedioTareas === 'number'
-                ? data.sugerencias.calidadPromedioTareas
-                : null;
+        // Calidad: puede venir como número o string, manejar ambos casos
+        let calidad = null;
+        if (typeof data.calidadPromedioProyecto === 'number') {
+          calidad = data.calidadPromedioProyecto;
+        } else if (typeof data.sugerencias?.calidadPromedioProyecto === 'number') {
+          calidad = data.sugerencias.calidadPromedioProyecto;
+        } else if (typeof data.calidadPromedioTareas === 'number') {
+          calidad = data.calidadPromedioTareas;
+        } else if (typeof data.sugerencias?.calidadPromedioTareas === 'number') {
+          calidad = data.sugerencias.calidadPromedioTareas;
+        } else if (data.calidadPromedioTareas != null && data.calidadPromedioTareas !== '') {
+          // Intentar convertir string a número
+          const calidadNum = Number(data.calidadPromedioTareas);
+          if (!isNaN(calidadNum)) {
+            calidad = calidadNum;
+          }
+        }
 
         // Guardar los datos completos para la previsualización
         let confirmPayload = null;
