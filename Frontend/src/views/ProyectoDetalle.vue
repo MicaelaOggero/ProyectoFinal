@@ -2606,10 +2606,31 @@ export default {
         const loadCriterio = async (serviceMethod, criterioKey, criterioName) => {
           try {
             console.log(`Cargando ${criterioName}...`);
-            const data = await serviceMethod(projectId);
-            console.log(`📊 Datos recibidos de ${criterioName}:`, data);
-            const extracted = this.extractComparisonData(data, criterioKey);
+            
+            // 1. Llamar a la previsualización
+            const previewData = await serviceMethod(projectId);
+            console.log(`📊 Preview de ${criterioName} recibido:`, previewData);
+            
+            // 2. Verificar si hay tareas sin candidatos y pedir al usuario qué desarrollador asignar
+            const asignacionesConDev = await this.procesarTareasSinCandidatos(
+              previewData.asignaciones || [], 
+              criterioName
+            );
+            
+            // 3. Crear el resultadoIA con las asignaciones (con desarrolladorId si había sinCandidatos)
+            const resultadoIA = {
+              projectId: previewData.projectId || projectId,
+              asignaciones: asignacionesConDev
+            };
+            
+            // 4. Pasar el resultado a completar-manual
+            const resultadoCompleto = await AssignmentService.completeManualAssignments(resultadoIA);
+            console.log(`📊 Resultado completo de ${criterioName} (después de completar-manual):`, resultadoCompleto);
+            
+            // 5. Extraer los datos del resultado completo (que ya tiene los datos globales calculados)
+            const extracted = this.extractComparisonData(resultadoCompleto, criterioKey);
             console.log(`📊 Datos extraídos de ${criterioName}:`, extracted);
+            
             // Actualizar solo este criterio en comparisonData (Vue 3: asignación directa)
             this.comparisonData[criterioKey] = extracted;
             console.log(`${criterioName} cargado correctamente`);
@@ -2678,25 +2699,71 @@ export default {
             ? data.sugerencias.asignaciones
             : [];
 
-        const costoTotal = typeof data.costoTotalProyecto === 'number'
-          ? data.costoTotalProyecto
-          : typeof data.sugerencias?.costoTotalProyecto === 'number'
-            ? data.sugerencias.costoTotalProyecto
-            : null;
+        // Calcular valores globales desde las asignaciones si no vienen en la respuesta
+        // Primero intentar obtenerlos directamente de la respuesta
+        // Priorizar los campos que devuelve calcularDatosGlobalesSimulacion (costoTotalSimulado, tiempoTotalSimulado, calidadPromedioTareas)
+        let costoTotal = null;
+        // Buscar primero costoTotalSimulado (que devuelve calcularDatosGlobalesSimulacion)
+        if (typeof data.costoTotalSimulado === 'number') {
+          costoTotal = data.costoTotalSimulado;
+        } else if (data.costoTotalSimulado != null) {
+          const costoNum = Number(data.costoTotalSimulado);
+          if (!isNaN(costoNum)) costoTotal = costoNum;
+        } else if (typeof data.costoTotalProyecto === 'number') {
+          costoTotal = data.costoTotalProyecto;
+        } else if (typeof data.sugerencias?.costoTotalProyecto === 'number') {
+          costoTotal = data.sugerencias.costoTotalProyecto;
+        } else if (data.costoTotalProyecto != null) {
+          const costoNum = Number(data.costoTotalProyecto);
+          if (!isNaN(costoNum)) costoTotal = costoNum;
+        } else if (data.sugerencias?.costoTotalProyecto != null) {
+          const costoNum = Number(data.sugerencias.costoTotalProyecto);
+          if (!isNaN(costoNum)) costoTotal = costoNum;
+        }
+        
+        // Si no se encontró, calcular desde las asignaciones
+        if (costoTotal == null && asignaciones.length > 0) {
+          costoTotal = asignaciones.reduce((sum, a) => {
+            const costo = typeof a.costoTotal === 'number' ? a.costoTotal : Number(a.costoTotal) || 0;
+            return sum + costo;
+          }, 0);
+        }
 
-        const tiempoTotal = typeof data.tiempoTotalEstimadoRealProyecto === 'number'
-          ? data.tiempoTotalEstimadoRealProyecto
-          : typeof data.sugerencias?.tiempoTotalEstimadoRealProyecto === 'number'
-            ? data.sugerencias.tiempoTotalEstimadoRealProyecto
-            : null;
+        // Tiempo: buscar primero en la respuesta
+        // Priorizar tiempoTotalSimulado (que devuelve calcularDatosGlobalesSimulacion)
+        let tiempoTotal = null;
+        if (typeof data.tiempoTotalSimulado === 'number') {
+          tiempoTotal = data.tiempoTotalSimulado;
+        } else if (data.tiempoTotalSimulado != null) {
+          const tiempoNum = Number(data.tiempoTotalSimulado);
+          if (!isNaN(tiempoNum)) tiempoTotal = tiempoNum;
+        } else if (typeof data.tiempoTotalEstimadoRealProyecto === 'number') {
+          tiempoTotal = data.tiempoTotalEstimadoRealProyecto;
+        } else if (typeof data.sugerencias?.tiempoTotalEstimadoRealProyecto === 'number') {
+          tiempoTotal = data.sugerencias.tiempoTotalEstimadoRealProyecto;
+        } else if (data.tiempoTotalEstimadoRealProyecto != null) {
+          const tiempoNum = Number(data.tiempoTotalEstimadoRealProyecto);
+          if (!isNaN(tiempoNum)) tiempoTotal = tiempoNum;
+        } else if (data.sugerencias?.tiempoTotalEstimadoRealProyecto != null) {
+          const tiempoNum = Number(data.sugerencias.tiempoTotalEstimadoRealProyecto);
+          if (!isNaN(tiempoNum)) tiempoTotal = tiempoNum;
+        }
+        
+        // Si no se encontró, calcular desde las asignaciones
+        if (tiempoTotal == null && asignaciones.length > 0) {
+          tiempoTotal = asignaciones.reduce((sum, a) => {
+            // Usar horasEstimadasSegunRendimiento si existe, sino horasTotales
+            const horas = a.horasEstimadasSegunRendimiento != null 
+              ? (typeof a.horasEstimadasSegunRendimiento === 'number' ? a.horasEstimadasSegunRendimiento : Number(a.horasEstimadasSegunRendimiento) || 0)
+              : (a.horasTotales != null ? (typeof a.horasTotales === 'number' ? a.horasTotales : Number(a.horasTotales) || 0) : 0);
+            return sum + horas;
+          }, 0);
+        }
 
-        // Calidad: puede venir como número o string, manejar ambos casos
+        // Calidad: buscar primero en la respuesta
+        // Priorizar calidadPromedioTareas (que devuelve calcularDatosGlobalesSimulacion)
         let calidad = null;
-        if (typeof data.calidadPromedioProyecto === 'number') {
-          calidad = data.calidadPromedioProyecto;
-        } else if (typeof data.sugerencias?.calidadPromedioProyecto === 'number') {
-          calidad = data.sugerencias.calidadPromedioProyecto;
-        } else if (typeof data.calidadPromedioTareas === 'number') {
+        if (typeof data.calidadPromedioTareas === 'number') {
           calidad = data.calidadPromedioTareas;
         } else if (typeof data.sugerencias?.calidadPromedioTareas === 'number') {
           calidad = data.sugerencias.calidadPromedioTareas;
@@ -2705,6 +2772,27 @@ export default {
           const calidadNum = Number(data.calidadPromedioTareas);
           if (!isNaN(calidadNum)) {
             calidad = calidadNum;
+          }
+        } else if (typeof data.calidadPromedioProyecto === 'number') {
+          calidad = data.calidadPromedioProyecto;
+        } else if (typeof data.sugerencias?.calidadPromedioProyecto === 'number') {
+          calidad = data.sugerencias.calidadPromedioProyecto;
+        }
+        
+        // Si no se encontró, calcular desde las asignaciones
+        if (calidad == null && asignaciones.length > 0) {
+          const calidadesValidas = asignaciones
+            .map(a => {
+              const cal = a.calidadTarea != null 
+                ? (typeof a.calidadTarea === 'number' ? a.calidadTarea : Number(a.calidadTarea))
+                : null;
+              return isNaN(cal) ? null : cal;
+            })
+            .filter(cal => cal != null);
+          
+          if (calidadesValidas.length > 0) {
+            calidad = calidadesValidas.reduce((sum, cal) => sum + cal, 0) / calidadesValidas.length;
+            calidad = Number(calidad.toFixed(2));
           }
         }
 
@@ -2731,6 +2819,10 @@ export default {
             ...data,
             asignaciones,
             costoTotalProyecto: costoTotal,
+            costoTotalSimulado: costoTotal, // Asegurar que esté mapeado
+            tiempoTotalEstimadoRealProyecto: tiempoTotal, // Asegurar que esté mapeado
+            tiempoTotalSimulado: tiempoTotal, // Asegurar que esté mapeado
+            calidadPromedioTareas: calidad, // Asegurar que esté mapeado
             confirmPayload
           }
         };
@@ -2746,6 +2838,139 @@ export default {
           isLoading: false
         };
       }
+    },
+
+    // Procesar tareas sin candidatos y pedir al usuario qué desarrollador asignar
+    async procesarTareasSinCandidatos(asignaciones, criterioName) {
+      const asignacionesProcesadas = [];
+      const tareasSinCandidatos = asignaciones.filter(a => a.sinCandidatos === true);
+      
+      // Si no hay tareas sin candidatos, devolver las asignaciones tal cual
+      if (tareasSinCandidatos.length === 0) {
+        return asignaciones;
+      }
+      
+      // Si hay tareas sin candidatos, pedir al usuario qué desarrollador asignar
+      for (const asignacion of asignaciones) {
+        if (asignacion.sinCandidatos === true) {
+          // Pedir al usuario qué desarrollador asignar
+          const desarrolladorId = await this.pedirDesarrolladorParaTarea(
+            asignacion, 
+            criterioName
+          );
+          
+          if (desarrolladorId) {
+            // Agregar el desarrolladorId a la asignación antes de enviarla a completar-manual
+            asignacionesProcesadas.push({
+              ...asignacion,
+              desarrolladorId: desarrolladorId
+            });
+          } else {
+            // Si el usuario canceló, dejar la asignación sin desarrollador
+            asignacionesProcesadas.push(asignacion);
+          }
+        } else {
+          // Si ya tiene desarrollador, dejarla tal cual
+          asignacionesProcesadas.push(asignacion);
+        }
+      }
+      
+      return asignacionesProcesadas;
+    },
+
+    // Método para pedir al usuario qué desarrollador asignar (usando modal de Bootstrap)
+    async pedirDesarrolladorParaTarea(asignacion, criterioName) {
+      return new Promise((resolve) => {
+        // Obtener desarrolladores disponibles
+        const developers = this.availableUsers.length > 0 
+          ? this.availableUsers 
+          : this.users.filter(user => user.rol === 'user');
+        
+        if (developers.length === 0) {
+          alert('No hay desarrolladores disponibles para asignar.');
+          resolve(null);
+          return;
+        }
+
+        const tareaDesc = asignacion.descripcion || asignacion.tarea?.descripcion || 'Tarea sin descripción';
+        const tareaNombre = asignacion.nombre || asignacion.tarea?.nombre || 'Tarea';
+        
+        // Crear el HTML del modal
+        const modalId = `modal-asignar-dev-${Date.now()}`;
+        const modalHtml = `
+          <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}Label" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="${modalId}Label">Asignar Desarrollador Manualmente</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                  <p><strong>Tarea:</strong> ${tareaNombre}</p>
+                  <p class="text-muted small">${tareaDesc}</p>
+                  <p class="mb-3"><strong>Criterio:</strong> ${criterioName}</p>
+                  <p class="text-warning mb-3">Esta tarea no tiene candidatos disponibles. Por favor, selecciona un desarrollador para asignarla manualmente.</p>
+                  <label class="form-label">Desarrollador:</label>
+                  <select class="form-select" id="select-dev-${modalId}">
+                    <option value="">Seleccionar desarrollador...</option>
+                    ${developers.map(dev => 
+                      `<option value="${dev._id}">${dev.nombre} ${dev.apellido || ''} ${dev.aniosExperiencia ? `(${dev.aniosExperiencia} años exp.)` : ''}</option>`
+                    ).join('')}
+                  </select>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                  <button type="button" class="btn btn-primary" id="confirmAssignBtn-${modalId}">Asignar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        // Agregar el modal al DOM
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = modalHtml;
+        const modalElement = tempDiv.firstElementChild;
+        document.body.appendChild(modalElement);
+        
+        // Inicializar el modal de Bootstrap
+        const modal = new Modal(modalElement);
+        modal.show();
+        
+        const selectElement = document.getElementById(`select-dev-${modalId}`);
+        const confirmBtn = document.getElementById(`confirmAssignBtn-${modalId}`);
+        
+        // Handler para el botón de confirmar
+        const handleConfirm = () => {
+          const selectedId = selectElement.value;
+          modal.hide();
+          // Esperar a que el modal se oculte antes de removerlo
+          modalElement.addEventListener('hidden.bs.modal', () => {
+            document.body.removeChild(modalElement);
+          }, { once: true });
+          resolve(selectedId || null);
+        };
+        
+        // Handler para cancelar
+        const handleCancel = () => {
+          modal.hide();
+          modalElement.addEventListener('hidden.bs.modal', () => {
+            document.body.removeChild(modalElement);
+          }, { once: true });
+          resolve(null);
+        };
+        
+        confirmBtn.addEventListener('click', handleConfirm);
+        modalElement.querySelector('.btn-secondary').addEventListener('click', handleCancel);
+        modalElement.querySelector('.btn-close').addEventListener('click', handleCancel);
+        
+        // Permitir Enter en el select para confirmar
+        selectElement.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && selectElement.value) {
+            handleConfirm();
+          }
+        });
+      });
     },
 
     // Ver previsualización de un criterio específico desde la tabla (solo visual, sin confirmar)

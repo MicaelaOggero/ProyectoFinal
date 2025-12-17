@@ -1027,7 +1027,7 @@
                       <th>Días Asignados</th>
                       <th v-if="selectedAssignmentType === 'cost'">Costo por Hora</th>
                       <th v-if="selectedAssignmentType === 'cost'">Costo Total</th>
-                      <th v-if="selectedAssignmentType === 'time' || selectedAssignmentType === 'quality'">Razón</th>
+                      <th>Razón</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1071,9 +1071,12 @@
                         </span>
                         <span v-else class="text-muted">-</span>
                       </td>
-                      <td v-if="selectedAssignmentType === 'time' || selectedAssignmentType === 'quality'">
-                        <span v-if="asignacion.razon" class="small text-muted">
-                          {{ asignacion.razon }}
+                      <td>
+                        <span v-if="asignacion.razon" class="small text-muted" :title="asignacion.razon">
+                          {{ asignacion.razon.length > 100 ? asignacion.razon.substring(0, 100) + '...' : asignacion.razon }}
+                        </span>
+                        <span v-else-if="asignacion.motivo" class="small text-warning">
+                          {{ asignacion.motivo }}
                         </span>
                         <span v-else class="text-muted">-</span>
                       </td>
