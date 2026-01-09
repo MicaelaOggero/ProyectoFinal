@@ -1,6 +1,6 @@
 import {
   calcularDatosGlobalesSimulacion,
-  obtenerPreviewResumenService,
+  obtenerPreviewResumenService, verificarDisponibilidadAcumuladaAsignacionesManualesService
 } from "./simulationAssignment.service.js";
 
 export const calcularDatosGlobalesSimulacionController = async (req, res) => {
@@ -49,5 +49,49 @@ export async function obtenerPreviewResumenController(req, res) {
   } catch (error) {
     console.error("Error en obtenerPreviewResumenService:", error);
     return res.status(500).json({ error: error.message });
+  }
+}
+
+
+export async function verificarDisponibilidadAcumuladaAsignacionesManualesController(req, res) {
+  try {
+    const payload = req.body;
+
+    // Validación mínima (el service ya valida más)
+    if (!payload || typeof payload !== "object") {
+      return res.status(400).json({
+        ok: false,
+        message: "Body inválido. Se esperaba un objeto.",
+      });
+    }
+
+    const resultado = await verificarDisponibilidadAcumuladaAsignacionesManualesService(payload);
+
+    // Si el service marca ok=false, devolvemos 200 igual (es una validación),
+    // pero podés cambiar a 409 si preferís "conflicto de disponibilidad".
+    return res.status(200).json(resultado);
+  } catch (error) {
+    console.error("❌ Error en verificarDisponibilidadAcumuladaAsignacionesManualesController:", error);
+
+    // Errores esperables de validación
+    const msg = error?.message || "Error interno";
+
+    if (
+      msg.includes('Falta "asignaciones-manuales"') ||
+      msg.includes("Body inválido") ||
+      msg.includes("Se esperaba")
+    ) {
+      return res.status(400).json({
+        ok: false,
+        message: msg,
+      });
+    }
+
+    // Error genérico
+    return res.status(500).json({
+      ok: false,
+      message: "Error interno al verificar disponibilidad acumulada.",
+      error: msg,
+    });
   }
 }

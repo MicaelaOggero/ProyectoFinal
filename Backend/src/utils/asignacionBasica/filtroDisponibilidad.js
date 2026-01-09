@@ -1,4 +1,4 @@
-import { obtenerDiasDisponibles, obtenerDisponibilidadEnRango } from "./diasDisponible.js";
+import { obtenerDisponibilidadEnRango } from "./diasDisponible.js";
 
 /**
  * Verifica si un desarrollador tiene disponibilidad suficiente en el rango
