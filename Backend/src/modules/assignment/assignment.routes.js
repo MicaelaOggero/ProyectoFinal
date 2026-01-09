@@ -33,4 +33,6 @@ router.post("/completar-manual", completarAsignacionesManualesController); //aut
 //Asignar tareas manualmente
 router.post("/asignar-manual", asignarTareaManualController); //authAdmin,
 
+
+
 export default router;

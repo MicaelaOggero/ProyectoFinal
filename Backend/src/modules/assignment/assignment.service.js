@@ -223,7 +223,7 @@ export const asignarTareaManual = async (asignacion) => {
   }
 
   // 1) Verificar disponibilidad
-  const disponible = await tieneDisponibilidad( // <- si tu helper es sync, podés quitar await
+  const disponible = await tieneDisponibilidad(
     devNuevo,
     fechaInicio,
     fechaFin,
@@ -237,12 +237,12 @@ export const asignarTareaManual = async (asignacion) => {
   }
 
   // 2) Obtener disponibilidad por día
+  // ✅ IMPORTANTE: pasá el DEV (no el _id) si tu helper trabaja con el objeto.
   const diasDisponibles = await obtenerDisponibilidadEnRango(
-    devNuevo._id,
+    devNuevo,     // <-- antes tenías devNuevo._id
     fechaInicio,
     fechaFin
   );
-  // esperado: [{ fecha, horasDisponibles }]
 
   // 3) Distribuir horas
   let horasRestantes = horasNecesarias;
@@ -267,39 +267,43 @@ export const asignarTareaManual = async (asignacion) => {
   const horasTotalesAsignadas = diasAsignados.reduce((acc, d) => acc + d.horasAsignadas, 0);
 
   if (horasTotalesAsignadas < horasNecesarias) {
-    // Si tu regla es “si o si debe estar lleno si fue asignada”,
-    // entonces acá conviene tirar error para NO “asignar parcial”.
     throw new Error(
       `No se pudo cubrir la estimación completa: ${horasTotalesAsignadas}h de ${horasNecesarias}h.`
     );
   }
 
-  // 4) Métricas
-  const costoPorHora = Number(devNuevo.costoPorHora ?? 0);
-  const costoTotal = round2(horasTotalesAsignadas * costoPorHora);
+  // 4) Calcular costo total
+  const costoTotal = round2(calcularCostoDev(devNuevo, horasNecesarias));
 
-  const rendimientoHistorico = devNuevo.rendimientoHistorico ?? null;
-  const promedioPorcentaje = Number(rendimientoHistorico?.promedioPorcentaje);
+  // ==========================
+  // ✅ DEFINIR LO QUE TE FALTABA
+  // ==========================
 
+  const rendimientoHistorico = devNuevo?.rendimientoHistorico ?? null;
+
+  // horasEstimadasSegunRendimiento = horasTotales * (100 / promedioPorcentaje)
+  // redondeado a 2 decimales || horasTotales si no hay rendimiento/promedio 0
+  const promedio = Number(rendimientoHistorico?.promedioPorcentaje ?? 0);
   const horasEstimadasSegunRendimiento =
-    promedioPorcentaje && !Number.isNaN(promedioPorcentaje) && promedioPorcentaje > 0
-      ? round2(horasTotalesAsignadas * (100 / promedioPorcentaje))
-      : horasTotalesAsignadas;
+    promedio > 0
+      ? round2(horasTotalesAsignadas * (100 / promedio))
+      : round2(horasTotalesAsignadas);
 
-  const calidadTarea = devNuevo.puntuacionPromedioCalidad?.puntuacionPromedio ?? null;
-  const feedbackHistorico = devNuevo.feedbackHistorico?.puntuacionPromedio ?? null;
+  // calidadTarea y feedbackHistorico según tu contrato
+  const calidadTarea = devNuevo?.puntuacionPromedioCalidad?.puntuacionPromedio ?? 0;
+  const feedbackHistorico = devNuevo?.feedbackHistorico?.puntuacionPromedio ?? 0;
 
-  // 5) Formato IA (tu ejemplo mezcla números y strings; dejo strings donde suelen venir strings)
+  // 5) Formato IA
   return {
     tareaId: String(asignacion.tareaId),
     descripcion: asignacion.descripcion,
 
     desarrolladorId: String(devNuevo._id),
     nombre: devNuevo.nombre,
-    apellido: devNuevo.apellido,
+    apellido: devNuevo.apellido ?? "",
 
-    dias: diasAsignados,                 // ✅ lleno si asignada
-    horasTotales: horasTotalesAsignadas, // número
+    dias: diasAsignados,                 
+    horasTotales: horasTotalesAsignadas, 
 
     tipoAsignacion: asignacion.tipoAsignacion ?? "basica",
     razon: "Asignación realizada manualmente por el administrador.",
@@ -308,15 +312,15 @@ export const asignarTareaManual = async (asignacion) => {
 
     rendimientoHistorico: rendimientoHistorico
       ? {
-          promedioPorcentaje: rendimientoHistorico.promedioPorcentaje,
-          tareasCompletadas: rendimientoHistorico.tareasCompletadas
+          promedioPorcentaje: Number(rendimientoHistorico.promedioPorcentaje ?? 0),
+          tareasCompletadas: Number(rendimientoHistorico.tareasCompletadas ?? 0)
         }
-      : { promedioPorcentaje: null, tareasCompletadas: 0 },
+      : { promedioPorcentaje: 0, tareasCompletadas: 0 },
 
     horasEstimadasSegunRendimiento: String(horasEstimadasSegunRendimiento),
 
-    calidadTarea: calidadTarea != null ? String(calidadTarea) : null,
-    feedbackHistorico: feedbackHistorico != null ? String(feedbackHistorico) : null
+    calidadTarea: calidadTarea != null ? String(calidadTarea) : "0",
+    feedbackHistorico: feedbackHistorico != null ? String(feedbackHistorico) : "0"
   };
 };
 

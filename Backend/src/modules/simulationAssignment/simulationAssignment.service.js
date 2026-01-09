@@ -1,6 +1,7 @@
 import Task from "../task/task.model.js";      // ajustá ruta real
 import User from "../users/user.model.js";      // ajustá ruta real
 import { obtenerDisponibilidadEnRango } from "../../utils/asignacionBasica/diasDisponible.js"; // ajustá ruta real
+import { asignarTareaManual } from "../assignment/assignment.service.js"; // ajustá ruta real
 
 /**
  * Calcula los datos globales de una simulación a partir del resultado de la IA
@@ -342,3 +343,228 @@ export async function verificarDisponibilidadAcumuladaAsignacionesManualesServic
   };
 }
 
+
+
+const CRITERIOS = ["basica", "costo", "tiempoIA", "calidad"];
+
+function esNoAsignada(t) {
+  const devId = t?.desarrolladorId;
+  const tieneDev = devId !== null && devId !== undefined && String(devId).trim() !== "";
+  return Boolean(t?.sinCandidatos) || !tieneDev;
+}
+
+function normalizarTipoAsignacionPorCriterio(key) {
+  if (key === "tiempoIA") return "tiempo";
+  return key; // basica | costo | calidad
+}
+
+function buildAsignacionParaManualDesdeBasica(tareaBasica, desarrolladorId) {
+  const fechaEstimadaInicio = tareaBasica.fechaEstimadaInicio;
+  const fechaEstimadaFin = tareaBasica.fechaEstimadaFin;
+
+  const estimacionHoras =
+    tareaBasica.estimacionHoras ??
+    tareaBasica.tiempoEstimadoHoras ??
+    tareaBasica.horasTotales;
+
+  return {
+    tareaId: tareaBasica.tareaId,
+    desarrolladorId,
+    descripcion: tareaBasica.descripcion,
+
+    fechaEstimadaInicio,
+    fechaEstimadaFin,
+    estimacionHoras,
+
+    // el service luego lo clona por criterio, pero esta base puede ser "manual"
+    tipoAsignacion: "manual",
+    prioridad: tareaBasica.prioridad,
+    habilidadesRequeridas: tareaBasica.habilidadesRequeridas,
+  };
+}
+
+export async function aplicarAsignacionesManualesService(payload) {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("Body inválido. Se esperaba un objeto.");
+  }
+
+  const manuales = payload["asignaciones-manuales"];
+  if (!Array.isArray(manuales) || manuales.length === 0) {
+    throw new Error('Falta "asignaciones-manuales" o está vacío.');
+  }
+
+  if (!payload.basica || !Array.isArray(payload.basica.asignaciones)) {
+    throw new Error('Falta el criterio "basica" con su array de asignaciones.');
+  }
+
+  // Copia del objeto para no mutar req.body
+  const resultado = { ...payload };
+
+  for (const m of manuales) {
+    const tareaId = m?.tareaId;
+    const desarrolladorId = m?.desarrolladorId;
+
+    if (!tareaId || !desarrolladorId) {
+      throw new Error(
+        `Asignación manual inválida: se requiere tareaId y desarrolladorId. Recibido: ${JSON.stringify(m)}`
+      );
+    }
+
+    // 1) Buscar la tarea SOLO en BASICA (fuente de datos completos)
+    const idxBasica = resultado.basica.asignaciones.findIndex(
+      (t) => String(t?.tareaId) === String(tareaId)
+    );
+
+    if (idxBasica === -1) {
+      throw new Error(`La tarea ${tareaId} no existe en el criterio basica.`);
+    }
+
+    const tareaBasica = resultado.basica.asignaciones[idxBasica];
+
+    if (!esNoAsignada(tareaBasica)) {
+      throw new Error(`La tarea ${tareaId} en basica ya está asignada. No se aplica manual.`);
+    }
+
+    if (!tareaBasica.fechaEstimadaInicio || !tareaBasica.fechaEstimadaFin) {
+      throw new Error(
+        `La tarea ${tareaId} no tiene fechaEstimadaInicio/fechaEstimadaFin en basica.`
+      );
+    }
+
+    const asignacionParaManual = buildAsignacionParaManualDesdeBasica(tareaBasica, desarrolladorId);
+
+    if (!asignacionParaManual.estimacionHoras || Number(asignacionParaManual.estimacionHoras) <= 0) {
+      throw new Error(`La tarea ${tareaId} no tiene estimacionHoras válida en basica.`);
+    }
+
+    // 2) Llamar UNA sola vez a asignarTareaManual
+    const baseCorregida = await asignarTareaManual(asignacionParaManual);
+
+    // 3) Reemplazar en TODOS los criterios (si existe allí)
+    for (const criterioKey of CRITERIOS) {
+      const crit = resultado[criterioKey];
+      if (!crit || !Array.isArray(crit.asignaciones)) continue;
+
+      const idx = crit.asignaciones.findIndex((t) => String(t?.tareaId) === String(tareaId));
+      if (idx === -1) continue;
+
+      // Clonar y setear tipoAsignacion correcto por criterio
+      crit.asignaciones[idx] = {
+        ...baseCorregida,
+        tipoAsignacion: normalizarTipoAsignacionPorCriterio(criterioKey),
+      };
+    }
+  }
+
+  // 4) Remover bloque manual del response final
+  delete resultado["asignaciones-manuales"];
+
+  
+
+  return resultado;
+}
+
+export const calcularDatosGlobalesSimulacionPorCriterio = (resultadoCompleto) => {
+  if (!resultadoCompleto || typeof resultadoCompleto !== "object") {
+    throw new Error("Resultado inválido. Se esperaba un objeto con criterios.");
+  }
+
+  const CRITERIOS = ["basica", "costo", "tiempoIA", "calidad"];
+
+  // helper: calcula globales para 1 criterio (igual a tu función original)
+  const calcularUno = (resultadoIACompleto) => {
+    const { projectId, asignaciones } = resultadoIACompleto || {};
+
+    if (!projectId) throw new Error("Falta projectId en un criterio del resultado");
+    if (!Array.isArray(asignaciones) || asignaciones.length === 0) {
+      throw new Error("No hay asignaciones en un criterio del resultado");
+    }
+
+    const criterio = asignaciones[0]?.tipoAsignacion || "basica";
+
+    let tiempoTotalEstimado = 0;
+    let tiempoTotalSimulado = 0;
+    let sumaCalidadTareas = 0;
+    let sumaCalidadSimulada = 0;
+    let contadorCalidadTareas = 0;
+    let contadorCalidadSimulada = 0;
+    let costoTotalSimulado = 0;
+
+    for (const a of asignaciones) {
+      tiempoTotalEstimado += Number(a.horasTotales) || 0;
+
+      if (a.horasEstimadasSegunRendimiento != null) {
+        tiempoTotalSimulado += Number(a.horasEstimadasSegunRendimiento) || 0;
+      } else if (a.horasTotales != null) {
+        tiempoTotalSimulado += Number(a.horasTotales) || 0;
+      }
+
+      if (a.calidadTarea != null) {
+        sumaCalidadTareas += Number(a.calidadTarea) || 0;
+        contadorCalidadTareas++;
+      }
+
+      if (a.feedbackHistorico != null) {
+        sumaCalidadSimulada += Number(a.feedbackHistorico) || 0;
+        contadorCalidadSimulada++;
+      }
+
+      if (a.costoTotal != null) {
+        costoTotalSimulado += Number(a.costoTotal) || 0;
+      }
+    }
+
+    const calidadPromedioTareas =
+      contadorCalidadTareas > 0
+        ? Number((sumaCalidadTareas / contadorCalidadTareas).toFixed(2))
+        : 0;
+
+    const calidadPromedioSimulado =
+      contadorCalidadSimulada > 0
+        ? Number((sumaCalidadSimulada / contadorCalidadSimulada).toFixed(2))
+        : 0;
+
+    return {
+      proyecto: projectId,
+      criterio,
+      tiempoTotalEstimado: Number(tiempoTotalEstimado.toFixed(2)),
+      tiempoTotalSimulado: Number(tiempoTotalSimulado.toFixed(2)),
+      calidadPromedioTareas,
+      calidadPromedioSimulado,
+      costoTotalSimulado: Number(costoTotalSimulado.toFixed(2)),
+    };
+  };
+
+  // tomar projectId (del primero que exista)
+  const projectIdBase =
+    resultadoCompleto?.basica?.projectId ||
+    resultadoCompleto?.costo?.projectId ||
+    resultadoCompleto?.tiempoIA?.projectId ||
+    resultadoCompleto?.calidad?.projectId;
+
+  if (!projectIdBase) {
+    throw new Error("No se encontró projectId en el resultado completo.");
+  }
+
+  const globalesPorCriterio = {};
+
+  for (const key of CRITERIOS) {
+    if (!resultadoCompleto[key]) continue;
+
+    const globales = calcularUno(resultadoCompleto[key]);
+
+    // (opcional) validar que todos tengan el mismo projectId
+    if (String(globales.proyecto) !== String(projectIdBase)) {
+      throw new Error(
+        `projectId inconsistente en criterio ${key}. Esperado=${projectIdBase}, recibido=${globales.proyecto}`
+      );
+    }
+
+    globalesPorCriterio[key] = globales;
+  }
+
+  return {
+    proyecto: projectIdBase,
+    globalesPorCriterio,
+  };
+};

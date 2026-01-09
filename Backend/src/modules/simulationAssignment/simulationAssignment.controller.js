@@ -1,6 +1,6 @@
 import {
   calcularDatosGlobalesSimulacion,
-  obtenerPreviewResumenService, verificarDisponibilidadAcumuladaAsignacionesManualesService
+  obtenerPreviewResumenService, verificarDisponibilidadAcumuladaAsignacionesManualesService, aplicarAsignacionesManualesService, calcularDatosGlobalesSimulacionPorCriterio
 } from "./simulationAssignment.service.js";
 
 export const calcularDatosGlobalesSimulacionController = async (req, res) => {
@@ -95,3 +95,55 @@ export async function verificarDisponibilidadAcumuladaAsignacionesManualesContro
     });
   }
 }
+
+const normalizarCriterios = (obj) => {
+  if (!obj || typeof obj !== "object") return obj;
+
+  const resultado = { ...obj };
+
+  // Nivel directo
+  if (resultado.tiempoIA) {
+    resultado.tiempo = resultado.tiempoIA;
+    delete resultado.tiempoIA;
+  }
+
+  // Nivel globalesPorCriterio interno
+  if (resultado.globalesPorCriterio && typeof resultado.globalesPorCriterio === "object") {
+    const g = { ...resultado.globalesPorCriterio };
+
+    if (g.tiempoIA) {
+      g.tiempo = g.tiempoIA;
+      delete g.tiempoIA;
+    }
+
+    resultado.globalesPorCriterio = g;
+  }
+
+  return resultado;
+};
+
+
+export const aplicarAsignacionesManualesController = async (req, res) => {
+  try {
+    const resultadoCorregido = await aplicarAsignacionesManualesService(req.body);
+
+    // 👇 ACÁ el paso clave
+    const globalesPorCriterio =
+      calcularDatosGlobalesSimulacionPorCriterio(resultadoCorregido);
+
+    return res.status(200).json({
+      ok: true,
+      message: "Asignaciones manuales aplicadas correctamente.",
+      data: normalizarCriterios(resultadoCorregido),
+      globalesPorCriterio: normalizarCriterios(globalesPorCriterio.globalesPorCriterio),
+    });
+  } catch (error) {
+    console.error("❌ Error en aplicarAsignacionesManualesController:", error);
+
+    return res.status(500).json({
+      ok: false,
+      message: "Error interno al aplicar asignaciones manuales.",
+      error: error.message,
+    });
+  }
+};
