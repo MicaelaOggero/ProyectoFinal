@@ -1,12 +1,12 @@
-// controllers/simulacion.controller.js
-import calcularDatosGlobalesSimulacion from "../simulationAssignment/simulationAssignment.service.js"; 
-// ↑ ajustá la ruta según dónde tengas la función (o importala desde utils)
+import {
+  calcularDatosGlobalesSimulacion,
+  obtenerPreviewResumenService,
+} from "./simulationAssignment.service.js";
 
 export const calcularDatosGlobalesSimulacionController = async (req, res) => {
   try {
     const resultadoIACompleto = req.body;
 
-    // Validación mínima de payload
     if (!resultadoIACompleto || typeof resultadoIACompleto !== "object") {
       return res.status(400).json({
         ok: false,
@@ -17,10 +17,7 @@ export const calcularDatosGlobalesSimulacionController = async (req, res) => {
     const { projectId, asignaciones } = resultadoIACompleto;
 
     if (!projectId) {
-      return res.status(400).json({
-        ok: false,
-        message: "Falta projectId en el body.",
-      });
+      return res.status(400).json({ ok: false, message: "Falta projectId en el body." });
     }
 
     if (!Array.isArray(asignaciones) || asignaciones.length === 0) {
@@ -30,7 +27,7 @@ export const calcularDatosGlobalesSimulacionController = async (req, res) => {
       });
     }
 
-    // Cálculo
+    // ✅ ahora sí: devuelve el objeto
     const datosGlobales = calcularDatosGlobalesSimulacion(resultadoIACompleto);
 
     return res.status(200).json({
@@ -39,26 +36,18 @@ export const calcularDatosGlobalesSimulacionController = async (req, res) => {
       data: datosGlobales,
     });
   } catch (error) {
-    console.error("❌ Error en calcularDatosGlobalesSimulacionController:", error);
-
-    // Errores esperables lanzados por tu función
     const msg = error?.message || "Error interno";
-
-    if (
-      msg.includes("Falta projectId") ||
-      msg.includes("No hay asignaciones")
-    ) {
-      return res.status(400).json({
-        ok: false,
-        message: msg,
-      });
-    }
-
-    // Error genérico
-    return res.status(500).json({
-      ok: false,
-      message: "Error interno al calcular datos globales.",
-      error: msg,
-    });
+    return res.status(500).json({ ok: false, message: msg });
   }
 };
+
+export async function obtenerPreviewResumenController(req, res) {
+  try {
+    const { projectId } = req.params;
+    const resultado = await obtenerPreviewResumenService(projectId);
+    return res.json(resultado);
+  } catch (error) {
+    console.error("Error en obtenerPreviewResumenService:", error);
+    return res.status(500).json({ error: error.message });
+  }
+}
