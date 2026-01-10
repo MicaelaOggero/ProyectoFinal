@@ -175,39 +175,17 @@ export const confirmarAsignacionesPorCalidadController = async (req, res) => {
 
 // Asignar un desarrollador específico a una tarea manualmente SIN modificar la BD
 // controllers/asignacion.controller.js
-import { asignarTareaManual } from "../assignment/assignment.service.js";
+import { asignarManualService } from "../assignment/assignment.service.js";
 
-export const asignarTareaManualController = async (req, res) => {
+export async function asignarTareaManualController(req, res) {
   try {
-    const asignacion = req.body;
-
-    // Validaciones básicas
-    if (!asignacion?.tareaId) {
-      return res.status(400).json({ error: "Falta tareaId en la asignación" });
-    }
-    if (!asignacion?.desarrolladorId) {
-      return res.status(400).json({ error: "Falta desarrolladorId en la asignación" });
-    }
-    if (!asignacion?.fechaEstimadaInicio || !asignacion?.fechaEstimadaFin) {
-      return res.status(400).json({ error: "Faltan fechas de la tarea" });
-    }
-    if (asignacion.estimacionHoras == null) {
-      return res.status(400).json({ error: "Falta estimacionHoras de la tarea" });
-    }
-
-    // Llamar a la lógica de negocio (no toca BD, solo calcula)
-    const asignacionManual = asignarTareaManual(asignacion);
-
-    // Devolver al front la nueva asignación "completada"
-    return res.status(200).json(asignacionManual);
-
-  } catch (error) {
-    console.error("Error en asignarTareaManualController:", error);
-    return res.status(500).json({
-      error: error.message || "Error al asignar manualmente la tarea"
-    });
+    const result = await asignarManualService(req.body);
+    res.status(200).json(result);
+  } catch (e) {
+    res.status(400).json({ message: e.message });
   }
-};
+}
+
 
 // controllers/asignacionManual.controller.js
 
@@ -240,3 +218,4 @@ export const completarAsignacionesManualesController = async (req, res) => {
     });
   }
 };
+

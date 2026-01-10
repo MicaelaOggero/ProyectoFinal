@@ -199,21 +199,31 @@ export const editarAsignacionService = async (asignacionId, nuevoDevId, userId) 
  * @returns {Object}           - Objeto de asignación manual
  */
 
+
+function round2(n) {
+  return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+}
+
+function toISOStartOfDay(dateLike) {
+  const d = new Date(dateLike);
+  d.setUTCHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
 export const asignarTareaManual = async (asignacion) => {
   const fechaInicio = new Date(asignacion.fechaEstimadaInicio);
   const fechaFin = new Date(asignacion.fechaEstimadaFin);
 
   const devNuevo = await User.findById(asignacion.desarrolladorId);
-  console.log(devNuevo);
-  if (!devNuevo) {
-    throw new Error("Desarrollador no encontrado");
+  if (!devNuevo) throw new Error("Desarrollador no encontrado");
+
+  const horasNecesarias = Number(asignacion.estimacionHoras ?? 0);
+  if (!horasNecesarias || Number.isNaN(horasNecesarias) || horasNecesarias <= 0) {
+    throw new Error("La asignación no tiene estimacionHoras válida.");
   }
 
-  // Usar el campo de horas que tengas definido
-  const horasNecesarias = asignacion.estimacionHoras ?? 0;
-
-  // 1. Verificar disponibilidad del desarrollador en el rango
-  const disponible = tieneDisponibilidad(
+  // 1) Verificar disponibilidad
+  const disponible = await tieneDisponibilidad(
     devNuevo,
     fechaInicio,
     fechaFin,
@@ -226,88 +236,140 @@ export const asignarTareaManual = async (asignacion) => {
     );
   }
 
-  // 2. Obtener detalle de disponibilidad por día
-  const diasDisponibles = obtenerDisponibilidadEnRango(
-    devNuevo,
+  // 2) Obtener disponibilidad por día
+  // ✅ IMPORTANTE: pasá el DEV (no el _id) si tu helper trabaja con el objeto.
+  const diasDisponibles = await obtenerDisponibilidadEnRango(
+    devNuevo,     // <-- antes tenías devNuevo._id
     fechaInicio,
     fechaFin
   );
-  // diasDisponibles: [{ fecha, horasDisponibles }]
 
-  // 3. Armar el plan de asignación día a día (SIN modificar calendario real)
+  // 3) Distribuir horas
   let horasRestantes = horasNecesarias;
   const diasAsignados = [];
 
-  for (const dia of diasDisponibles) {
+  for (const dia of diasDisponibles || []) {
     if (horasRestantes <= 0) break;
 
-    const horasLibres = dia.horasDisponibles ?? dia.horas ?? 0;
-    if (horasLibres <= 0) continue;
+    const horasLibres = Number(dia.horasDisponibles ?? dia.horas ?? 0);
+    if (!horasLibres || horasLibres <= 0) continue;
 
     const horasAsignadas = Math.min(horasLibres, horasRestantes);
 
     diasAsignados.push({
-      fecha: new Date(dia.fecha),
+      fecha: toISOStartOfDay(dia.fecha),
       horasAsignadas
     });
 
     horasRestantes -= horasAsignadas;
   }
 
-  // Por seguridad: si algo raro pasó y no se cubrieron todas las horas
-  const horasTotalesAsignadas = diasAsignados.reduce(
-    (acc, d) => acc + d.horasAsignadas,
-    0
-  );
+  const horasTotalesAsignadas = diasAsignados.reduce((acc, d) => acc + d.horasAsignadas, 0);
 
   if (horasTotalesAsignadas < horasNecesarias) {
-    console.warn(
-      `⚠️ Solo se pudieron asignar ${horasTotalesAsignadas}h de ${horasNecesarias}h requeridas.`
+    throw new Error(
+      `No se pudo cubrir la estimación completa: ${horasTotalesAsignadas}h de ${horasNecesarias}h.`
     );
   }
 
-  // 4. Calcular métricas derivadas (igual que la IA)
-  const costoPorHora = devNuevo.costoPorHora ?? 0;
-  const costoTotal = horasTotalesAsignadas * costoPorHora;
+  // 4) Calcular costo total
+  const costoTotal = round2(calcularCostoDev(devNuevo, horasNecesarias));
 
-  const porcentajeRendimiento =
-    devNuevo.rendimientoHistorico?.promedioPorcentaje ?? 100;
+  // ==========================
+  // ✅ DEFINIR LO QUE TE FALTABA
+  // ==========================
 
-  const horasEstimadasSegunRendimiento = Number(
-  (horasTotalesAsignadas * (porcentajeRendimiento / 100)).toFixed(2)
-);
+  const rendimientoHistorico = devNuevo?.rendimientoHistorico ?? null;
 
-  const calidadTarea =
-    devNuevo.puntuacionPromedioCalidad?.puntuacionPromedio ?? 0;
+  // horasEstimadasSegunRendimiento = horasTotales * (100 / promedioPorcentaje)
+  // redondeado a 2 decimales || horasTotales si no hay rendimiento/promedio 0
+  const promedio = Number(rendimientoHistorico?.promedioPorcentaje ?? 0);
+  const horasEstimadasSegunRendimiento =
+    promedio > 0
+      ? round2(horasTotalesAsignadas * (100 / promedio))
+      : round2(horasTotalesAsignadas);
 
-  const feedbackHistorico =
-    devNuevo.feedbackHistorico?.puntuacionPromedio ?? 0;
+  // calidadTarea y feedbackHistorico según tu contrato
+  const calidadTarea = devNuevo?.puntuacionPromedioCalidad?.puntuacionPromedio ?? 0;
+  const feedbackHistorico = devNuevo?.feedbackHistorico?.puntuacionPromedio ?? 0;
 
-  // 5. Construir el objeto de asignación manual (misma forma que la IA)
-  const asignacionManual = {
-    tareaId: asignacion.tareaId.toString(),
+  // 5) Formato IA
+  return {
+    tareaId: String(asignacion.tareaId),
     descripcion: asignacion.descripcion,
 
-    desarrolladorId: devNuevo._id.toString(),
+    desarrolladorId: String(devNuevo._id),
     nombre: devNuevo.nombre,
-    apellido: devNuevo.apellido,
+    apellido: devNuevo.apellido ?? "",
 
-    rendimientoHistorico: devNuevo.rendimientoHistorico,
-    dias: diasAsignados,               // [{ fecha, horasAsignadas }]
-    horasTotales: horasTotalesAsignadas,
+    dias: diasAsignados,                 
+    horasTotales: horasTotalesAsignadas, 
 
-    tipoAsignacion: asignacion.tipoAsignacion,
-    razon: `Asignación realizada manualmente por el administrador".`,
+    tipoAsignacion: asignacion.tipoAsignacion ?? "basica",
+    razon: "Asignación realizada manualmente por el administrador.",
 
-    costoTotal,
-    porcentajeRendimiento,
-    horasEstimadasSegunRendimiento,
-    calidadTarea,
-    feedbackHistorico
+    costoTotal: String(costoTotal),
+
+    rendimientoHistorico: rendimientoHistorico
+      ? {
+          promedioPorcentaje: Number(rendimientoHistorico.promedioPorcentaje ?? 0),
+          tareasCompletadas: Number(rendimientoHistorico.tareasCompletadas ?? 0)
+        }
+      : { promedioPorcentaje: 0, tareasCompletadas: 0 },
+
+    horasEstimadasSegunRendimiento: String(horasEstimadasSegunRendimiento),
+
+    calidadTarea: calidadTarea != null ? String(calidadTarea) : "0",
+    feedbackHistorico: feedbackHistorico != null ? String(feedbackHistorico) : "0"
   };
-
-  return asignacionManual;
 };
+
+
+export async function asignarManualService(resultado) {
+  const { projectId, asignaciones } = resultado || {};
+  if (!projectId) throw new Error("Falta projectId");
+  if (!Array.isArray(asignaciones)) throw new Error("Falta asignaciones[]");
+
+  // Traemos proyecto para rango/fechas si lo necesitás (opcional)
+  const project = await Project.findById(projectId);
+  if (!project) throw new Error("Proyecto no encontrado");
+
+  // Completamos SOLO las que eran sinCandidatos y ahora tienen desarrolladorId
+  const nuevas = [];
+
+  for (const a of asignaciones) {
+    const esManual = a?.sinCandidatos === true && a?.desarrolladorId;
+
+    if (!esManual) {
+      nuevas.push(a);
+      continue;
+    }
+
+    // Para asignarTareaManual necesitás fechaEstimadaInicio/Fin y estimacionHoras
+    // Si no vienen en el JSON, las sacás de la Task:
+    const task = await Task.findById(a.tareaId);
+    if (!task) throw new Error(`Tarea no encontrada: ${a.tareaId}`);
+
+    const asignacionParaCompletar = {
+      ...a,
+      tareaId: a.tareaId,
+      descripcion: a.descripcion ?? task.descripcion ?? "",
+      estimacionHoras: a.estimacionHoras ?? task.horasEstimadas ?? task.estimacionHoras,
+      fechaEstimadaInicio: a.fechaEstimadaInicio ?? task.fechaEstimadaInicio ?? project.fechaInicio,
+      fechaEstimadaFin: a.fechaEstimadaFin ?? task.fechaEstimadaFin ?? project.fechaFin,
+    };
+
+    const completa = await asignarTareaManual(asignacionParaCompletar);
+
+    nuevas.push(completa);
+  }
+
+  return {
+    ...resultado,
+    projectId,
+    asignaciones: nuevas,
+  };
+}
 
 
 // Servicio para obtener asignaciones por proyecto
