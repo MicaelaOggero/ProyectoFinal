@@ -6,6 +6,164 @@ import { asignarTareaManual } from "../assignment/assignment.service.js"; // aju
 /**
  * Calcula los datos globales de una simulación a partir del resultado de la IA
  */
+
+// Helpers
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
+const sumDisponibilidad = (dias = []) =>
+  (dias || []).reduce((acc, d) => acc + (Number(d.horas) || 0), 0);
+
+const distribuirHorasDesdeDiasDisponibles = (diasDisponibles = [], horasNecesarias) => {
+  let restantes = Number(horasNecesarias) || 0;
+  const dias = [];
+
+  for (const d of diasDisponibles || []) {
+    if (restantes <= 0) break;
+
+    const libres = Number(d.horas) || 0;
+    if (libres <= 0) continue;
+
+    const asignadas = Math.min(libres, restantes);
+
+    dias.push({
+      // en tu payload de asignaciones usás Date ISO con T00:00:00.000Z
+      fecha: new Date(d.fecha).toISOString(),
+      horasAsignadas: asignadas,
+    });
+
+    restantes -= asignadas;
+  }
+
+  return {
+    ok: restantes <= 0,
+    dias,
+    horasTotales: dias.reduce((a, x) => a + (Number(x.horasAsignadas) || 0), 0),
+  };
+};
+
+const elegirCandidato = (criterio, candidatos = []) => {
+  if (!Array.isArray(candidatos) || candidatos.length === 0) return null;
+
+  const c = [...candidatos];
+
+  switch (criterio) {
+    case "basica":
+    case "disponibilidad":
+      // más horas disponibles acumuladas
+      c.sort((a, b) => sumDisponibilidad(b.diasDisponibles) - sumDisponibilidad(a.diasDisponibles));
+      return c[0];
+
+    case "costo":
+      c.sort((a, b) => (Number(a.costoPorHora) || Infinity) - (Number(b.costoPorHora) || Infinity));
+      return c[0];
+
+    case "tiempo":
+      c.sort((a, b) => {
+        const pa = Number(a?.rendimientoHistorico?.promedioPorcentaje) || 0;
+        const pb = Number(b?.rendimientoHistorico?.promedioPorcentaje) || 0;
+        if (pb !== pa) return pb - pa;
+        const ta = Number(a?.rendimientoHistorico?.tareasCompletadas) || 0;
+        const tb = Number(b?.rendimientoHistorico?.tareasCompletadas) || 0;
+        return tb - ta;
+      });
+      return c[0];
+
+    case "calidad":
+      c.sort((a, b) => {
+        const qa = Number(a?.puntuacionPromedioCalidad?.puntuacionPromedio) || 0;
+        const qb = Number(b?.puntuacionPromedioCalidad?.puntuacionPromedio) || 0;
+        if (qb !== qa) return qb - qa;
+        const fa = Number(a?.feedbackHistorico?.puntuacionPromedio) || 0;
+        const fb = Number(b?.feedbackHistorico?.puntuacionPromedio) || 0;
+        return fb - fa;
+      });
+      return c[0];
+
+    default:
+      return c[0];
+  }
+};
+
+const completarAsignacionSiIATiro = ({ criterioKey, asignacion }) => {
+  // Condición de “IA falló”: no asignó dev pero hay candidatos
+  const tieneDev = asignacion?.desarrolladorId != null && asignacion?.desarrolladorId !== "";
+  const candidatos = asignacion?.candidatosDisponibles;
+
+  if (tieneDev) return asignacion;
+  if (!Array.isArray(candidatos) || candidatos.length === 0) return asignacion;
+
+  // horas necesarias: en tu JSON de ejemplo, las tareas sin asignar usan estimacionHoras
+  // para las asignadas se usa horasTotales
+  const horasNecesarias =
+    Number(asignacion?.horasTotales) ||
+    Number(asignacion?.estimacionHoras) ||
+    Number(asignacion?.tiempoEstimadoHoras) ||
+    0;
+
+  if (!horasNecesarias || horasNecesarias <= 0) {
+    // no podemos distribuir sin horas
+    return asignacion;
+  }
+
+  const candidato = elegirCandidato(criterioKey, candidatos);
+  if (!candidato) return asignacion;
+
+  const dist = distribuirHorasDesdeDiasDisponibles(candidato.diasDisponibles, horasNecesarias);
+  if (!dist.ok) {
+    // candidato elegido no cubre todas las horas (en preview solo dejamos así)
+    return asignacion;
+  }
+
+  const costoPorHora = Number(candidato.costoPorHora) || 0;
+  const costoTotal = round2(costoPorHora * dist.horasTotales);
+
+  const rendimiento = candidato?.rendimientoHistorico ?? { promedioPorcentaje: 0, tareasCompletadas: 0 };
+  const promedio = Number(rendimiento?.promedioPorcentaje) || 0;
+  const horasEstimadasSegunRendimiento =
+    promedio > 0 ? round2(dist.horasTotales * (100 / promedio)) : round2(dist.horasTotales);
+
+  const calidadTarea = Number(candidato?.puntuacionPromedioCalidad?.puntuacionPromedio) || 0;
+  const feedbackHistorico = Number(candidato?.feedbackHistorico?.puntuacionPromedio) || 0;
+
+  return {
+    ...asignacion,
+    // completar datos clave
+    desarrolladorId: String(candidato.id),
+    nombre: candidato.nombre,
+    apellido: candidato.apellido,
+    dias: dist.dias,
+    horasTotales: dist.horasTotales,
+    tipoAsignacion: criterioKey, // "basica" | "costo" | "tiempo" | "calidad"
+    razon: `Corrección automática: IA no asignó la tarea pero había candidatos disponibles. Se eligió ${candidato.nombre} ${candidato.apellido}.`,
+    costoTotal,
+    rendimientoHistorico: {
+      promedioPorcentaje: Number(rendimiento.promedioPorcentaje || 0),
+      tareasCompletadas: Number(rendimiento.tareasCompletadas || 0),
+    },
+    horasEstimadasSegunRendimiento,
+    calidadTarea,
+    feedbackHistorico,
+    sinCandidatos: false, // por definición acá sí hay candidatos
+  };
+};
+
+const validarYAutocompletarPreview = (resumen) => {
+  const claves = ["basica", "costo", "tiempo", "calidad"];
+
+  for (const k of claves) {
+    const bloque = resumen?.[k];
+    if (!bloque?.asignaciones) continue;
+
+    bloque.asignaciones = bloque.asignaciones.map((a) =>
+      completarAsignacionSiIATiro({ criterioKey: k, asignacion: a })
+    );
+  }
+
+  return resumen;
+};
+
+
+
 export const calcularDatosGlobalesSimulacion = (resultadoIACompleto) => {
   const { projectId, asignaciones } = resultadoIACompleto;
 
@@ -85,13 +243,17 @@ export const obtenerPreviewResumenService = async (projectId) => {
     previewObtenerAsignacionesPorCalidadIA(projectId),
   ]);
 
-  return {
+  const resumen = {
     basica: jsonBasica,
     costo: jsonCosto,
-    tiempoIA: jsonTiempoIA,
+    tiempo: jsonTiempoIA,
     calidad: jsonCalidad,
   };
+
+  // ✅ corregir si IA dejó tareas sin asignar teniendo candidatos
+  return validarYAutocompletarPreview(resumen);
 };
+
 
 // src/modules/simulationAssignment/simulationAssignment.manualAccum.service.js
 // ESM
@@ -201,6 +363,8 @@ function distribuirHorasEnDias({ diasDisponibles, horasNecesarias, saldoPorFecha
  */
 
 export async function verificarDisponibilidadAcumuladaAsignacionesManualesService(payload) {
+  console.log("Payload recibido en verificarDisponibilidadAcumuladaAsignacionesManualesService:");
+  console.log(payload);
   if (!payload || typeof payload !== "object") {
     throw new Error("Body inválido. Se esperaba un objeto.");
   }
@@ -345,7 +509,7 @@ export async function verificarDisponibilidadAcumuladaAsignacionesManualesServic
 
 
 
-const CRITERIOS = ["basica", "costo", "tiempoIA", "calidad"];
+const CRITERIOS = ["basica", "costo", "tiempo", "calidad"];
 
 function esNoAsignada(t) {
   const devId = t?.desarrolladorId;
@@ -469,7 +633,7 @@ export const calcularDatosGlobalesSimulacionPorCriterio = (resultadoCompleto) =>
     throw new Error("Resultado inválido. Se esperaba un objeto con criterios.");
   }
 
-  const CRITERIOS = ["basica", "costo", "tiempoIA", "calidad"];
+  const CRITERIOS = ["basica", "costo", "tiempo", "calidad"];
 
   // helper: calcula globales para 1 criterio (igual a tu función original)
   const calcularUno = (resultadoIACompleto) => {
@@ -568,3 +732,96 @@ export const calcularDatosGlobalesSimulacionPorCriterio = (resultadoCompleto) =>
     globalesPorCriterio,
   };
 };
+
+function buildSinCandidatosFromTaskDB(taskDoc) {
+  return {
+    tareaId: String(taskDoc._id),
+    descripcion: taskDoc.descripcion,
+    fechaEstimadaInicio: taskDoc.fechaEstimadaInicio,
+    fechaEstimadaFin: taskDoc.fechaEstimadaFin,
+    habilidadesRequeridas: Array.isArray(taskDoc.habilidadesRequeridas)
+      ? taskDoc.habilidadesRequeridas
+      : [],
+    prioridad: taskDoc.prioridad,
+    estimacionHoras: Number(taskDoc.tiempoEstimadoHoras) || 0, // ✅ mapeo real
+    sinCandidatos: true,
+  };
+}
+
+import mongoose from "mongoose";
+
+function esSinCandidatosEnBasica(a) {
+  const sin = a?.sinCandidatos === true;
+  const candidatosVacios =
+    Array.isArray(a?.candidatosDisponibles) && a.candidatosDisponibles.length === 0;
+  return sin || candidatosVacios;
+}
+
+/**
+ * REQUIERE conexión a DB ya activa (NO llama connectDB).
+ * Reemplaza SOLO las tareas sin candidatos en basica por el formato mínimo reconstruido desde DB.
+ */
+export async function completarBasicaSinCandidatosConDB(payload) {
+  if (!payload?.basica?.asignaciones || !Array.isArray(payload.basica.asignaciones)) {
+    throw new Error('Falta "basica.asignaciones".');
+  }
+
+  const targets = payload.basica.asignaciones
+    .map((a, idx) => ({ a, idx }))
+    .filter(({ a }) => esSinCandidatosEnBasica(a));
+
+  if (targets.length === 0) return payload;
+
+  const ids = targets
+    .map(({ a }) => String(a?.tareaId || ""))
+    .filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+  const tasksDB = await Task.find({ _id: { $in: ids } }).lean();
+  const mapDB = new Map(tasksDB.map((t) => [String(t._id), t]));
+
+  const errores = [];
+
+  for (const { a, idx } of targets) {
+    const tareaId = String(a?.tareaId || "");
+
+    if (!mongoose.Types.ObjectId.isValid(tareaId)) {
+      errores.push({ idx, tareaId, motivo: "tareaId inválido (no ObjectId)" });
+      continue;
+    }
+
+    const taskDoc = mapDB.get(tareaId);
+    if (!taskDoc) {
+      errores.push({ idx, tareaId, motivo: "No existe en DB" });
+      continue;
+    }
+
+    const reconstruida = buildSinCandidatosFromTaskDB(taskDoc);
+
+    // si querés permitir 0, sacá este check
+    if (!(Number(reconstruida.estimacionHoras) > 0)) {
+      errores.push({
+        idx,
+        tareaId,
+        motivo: "tiempoEstimadoHoras inválido (<=0) en DB",
+      });
+      continue;
+    }
+
+    // ✅ reemplazo total en BASICA para mantener formato mínimo
+    payload.basica.asignaciones[idx] = reconstruida;
+  }
+
+  if (errores.length > 0) {
+    const err = new Error(
+      `No se pudieron reconstruir algunas tareas sin candidatos desde DB: ${JSON.stringify(
+        errores,
+        null,
+        2
+      )}`
+    );
+    err.statusCode = 400;
+    throw err;
+  }
+
+  return payload;
+}

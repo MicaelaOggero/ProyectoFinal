@@ -232,26 +232,34 @@ export async function actualizarCalendariosDeTodosLosDesarrolladores() {
 })(); */
 
 export async function actualizarPuntuacionCalidadDesarrollador(userId) {
-  // Obtener todos los logs del desarrollador
-  const logs = await TaskLog.find({ desarrollador: userId });
-  if (logs.length === 0) return; // No hay tareas registradas aún
+  const logs = await TaskLog.find({
+    desarrollador: userId,
+    puntuacionCalidad: { $ne: null },
+  }).select("puntuacionCalidad");
 
-  // Calcular el promedio de puntuación de calidad
-  let sumaPuntuaciones = 0;
-  for (const log of logs) {
-    sumaPuntuaciones += log.puntuacionCalidad;
+  if (logs.length === 0) {
+    await User.findByIdAndUpdate(userId, {
+      $set: {
+        "puntuacionPromedioCalidad.puntuacionPromedio": 0,
+        "puntuacionPromedioCalidad.tareasCalificadas": 0,
+      },
+    });
+    return 0;
   }
-  const promedioCalidad = sumaPuntuaciones / logs.length;
 
-  // Guardar en el usuario
+  const suma = logs.reduce((acc, l) => acc + Number(l.puntuacionCalidad || 0), 0);
+  const promedio = Number((suma / logs.length).toFixed(2));
+
   await User.findByIdAndUpdate(userId, {
     $set: {
-      "puntuacionPromedioCalidad.puntuacionPromedio": promedioCalidad,
+      "puntuacionPromedioCalidad.puntuacionPromedio": promedio,
       "puntuacionPromedioCalidad.tareasCalificadas": logs.length,
     },
   });
-  return promedioCalidad;
+
+  return promedio;
 }
+
 
 export async function actualizarPuntuacionesCalidadDeTodosLosDesarrolladores() {
   try {

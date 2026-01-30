@@ -1,6 +1,7 @@
 import * as projectDao from "./project.dao.js";
 import Project from "./project.model.js";
 import Task from "../task/task.model.js";
+import * as userDao from "../users/user.dao.js";
 
 // Obtener proyectos por administrador
 export const getProjects = async (adminId) => {
@@ -38,6 +39,27 @@ export const deleteProject = async (id) => {
   return await projectDao.remove(id);
 };
 
+function aMinutos(valorHoras) {
+  const h = Number(valorHoras) || 0;
+  return Math.round(h * 60);
+}
+
+export function recalcularTotalesProyectoDesdeTareas(tareas) {
+  let estimadoHoras = 0;
+  let invertidoMin = 0;
+
+  for (const t of tareas) {
+    estimadoHoras += Number(t.tiempoEstimadoHoras) || 0;
+    invertidoMin += aMinutos(t.tiempoInvertidoHoras);
+  }
+
+  return {
+    tiempoEstimadoTotalHoras: estimadoHoras,
+    tiempoInvertidoTotalMinutos: invertidoMin,
+  };
+}
+
+
 /**
  * Marca un proyecto como iniciado
  * @param {String} projectId - ID del proyecto
@@ -48,7 +70,7 @@ export async function iniciarProyectoService(projectId, userId) {
     throw new Error("Proyecto no encontrado");
   }
 
-  const user = await projectDao.findUserById(userId);
+  const user = await userDao.findUserById(userId);
   if (!user) {
     throw new Error("Usuario no encontrado");
   }
@@ -56,6 +78,11 @@ export async function iniciarProyectoService(projectId, userId) {
   // Si ya estaba iniciado, evitamos duplicar
   if (proyecto.estado === "activo") {
     throw new Error("El proyecto ya está iniciado");
+  }
+
+   // 🔹 Validar estado actual
+  if (proyecto.estado !== "pendiente" && proyecto.estado !== "pausado") {
+    throw new Error("Solo se pueden iniciar proyectos pendientes o pausados");
   }
 
    // Verificar si tiene tareas asociadas
@@ -74,6 +101,8 @@ export async function iniciarProyectoService(projectId, userId) {
   proyecto.fechaInicioReal = new Date(); // 🔹 fecha actual
   proyecto.estado = "en curso";
 
+  proyecto.enTrabajoDesde = new Date();
+
   // Actualizar historial
   proyecto.historial.push({
     accion: "Inicio de proyecto",
@@ -84,6 +113,7 @@ export async function iniciarProyectoService(projectId, userId) {
   await proyecto.save();
   return proyecto;
 }
+
 
 /**
  * Pausa un proyecto en curso y registra el cambio en su historial.
@@ -105,6 +135,16 @@ export async function pausarProyectoService(projectId, userId) {
     throw new Error("No se pueden pausar el proyecto mientras haya tareas en curso");
   }
 
+  if (proyecto.enTrabajoDesde) {
+    const ahora = new Date();
+    const diffMs = ahora - proyecto.enTrabajoDesde;
+    const minutosTrabajados = Math.round(diffMs / 60000);
+
+    proyecto.tiempoActivoMinutos += minutosTrabajados;
+
+    proyecto.enTrabajoDesde = null;
+  }
+
   // 🔹 Actualizar estado y agregar entrada al historial
   proyecto.estado = "pausado";
   proyecto.historial.push({
@@ -123,15 +163,26 @@ export async function finalizarProyectoService(projectId, userId) {
   if (!proyecto) throw new Error("Proyecto no encontrado");
   // 🔹 Validar estado actual
   if (proyecto.estado !== "en curso" && proyecto.estado !== "pausado") {
-    throw new Error("Solo se pueden finalizar proyectos en curso o pausados");
+    throw new Error("Solo se pueden finalizar proyectos en curso");
   }
   // 🔹 Verificar si todas las tareas están completadas
   const tareasIncompletas = await Task.find({ proyecto: projectId, estado: { $ne: "completada" } });
   if (tareasIncompletas.length) {
     throw new Error("No se pueden finalizar el proyecto mientras haya tareas incompletas");
   }
+
+  if (proyecto.enTrabajoDesde) {
+    const ahora = new Date();
+    const diffMs = ahora - proyecto.enTrabajoDesde;
+    const minutosTrabajados = Math.round(diffMs / 60000);
+
+    proyecto.tiempoActivoMinutos += minutosTrabajados;
+
+    proyecto.enTrabajoDesde = null;
+  }
+
   // 🔹 Actualizar estado y fecha de finalización
-  proyecto.estado = "completado";
+  proyecto.estado = "finalizado";
   proyecto.fechaFinReal = new Date();
   proyecto.historial.push({
     accion: "Finalización de proyecto",
@@ -139,6 +190,16 @@ export async function finalizarProyectoService(projectId, userId) {
     descripcion: `El proyecto fue finalizado por el usuario ${userId}`
   });
 
+  // 🔹 Recalcular totales desde tareas (estimado e invertido)
+  const tareas = await Task.find({ proyecto: projectId });
+  const { tiempoEstimadoTotalHoras, tiempoInvertidoTotalMinutos } =
+    recalcularTotalesProyectoDesdeTareas(tareas);
+
+  proyecto.tiempoEstimadoTotalHoras = tiempoEstimadoTotalHoras;
+  proyecto.tiempoInvertidoTotalMinutos = tiempoInvertidoTotalMinutos;
+
+
   await proyecto.save();
   return proyecto;
 }
+

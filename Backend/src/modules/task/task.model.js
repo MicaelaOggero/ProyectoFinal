@@ -64,7 +64,8 @@ const taskSchema = new mongoose.Schema({
   asignada: {
     type: Boolean,
     default: false
-  }
+  },
+  enTrabajoDesde: Date
 
 });
 

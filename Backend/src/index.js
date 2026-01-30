@@ -9,6 +9,7 @@ import skillRouter from '../src/modules/skills/skills.routes.js'
 import taskRouter from '../src/modules/task/task.routes.js'
 import assignmentRouter from '../src/modules/assignment/assignment.routes.js'
 import simulationAssignmentRouter from '../src/modules/simulationAssignment/simulationAssignment.routes.js'
+import notificationRouter from '../src/modules/notifications/notification.routes.js'
 import passport from 'passport'
 import cookieParser from 'cookie-parser'
 import cors from 'cors'
@@ -77,6 +78,7 @@ app.use('/api/task', taskRouter)
 app.use('/api/assignment', assignmentRouter)
 app.use('/api/feedback', feedbackRouter)
 app.use('/api/simulation-assignment', simulationAssignmentRouter)
+app.use('/api/notification', notificationRouter)
 
 // Conectar a la base de datos
 conectarDB()
