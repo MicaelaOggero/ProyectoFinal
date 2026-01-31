@@ -107,7 +107,7 @@ class TaskService {
   // Nota: el backend tiene un typo "inciar" en lugar de "iniciar"
   async iniciarTarea(taskId) {
     try {
-      const response = await axios.put(`${API_URL}/task/${taskId}/inciar`);
+      const response = await axios.put(`${API_URL}/task/${taskId}/iniciar`);
       return response.data;
     } catch (error) {
       console.error('Error en iniciarTarea:', error);
