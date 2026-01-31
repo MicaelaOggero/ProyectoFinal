@@ -2391,148 +2391,7 @@ export default {
         console.log('✅ CandidatesData construido:', this.candidatesData);
         
         // 5. Construir comparisonData desde el resumen completo para mostrar tabla comparativa
-        this.comparisonData = {};
-        
-        // Procesar cada criterio del resumen
-        // Mapear claves del resumen a claves de comparisonData
-        const criterios = [
-          { resumenKey: 'basica', comparacionKey: 'disponibilidad', name: 'Disponibilidad' },
-          { resumenKey: 'costo', comparacionKey: 'costo', name: 'Costo' },
-          { resumenKey: 'tiempo', comparacionKey: 'tiempo', name: 'Tiempo' },
-          { resumenKey: 'calidad', comparacionKey: 'calidad', name: 'Calidad' }
-        ];
-        
-        criterios.forEach(({ resumenKey, comparacionKey, name }) => {
-          const criterioData = resumen[resumenKey];
-          if (!criterioData || !criterioData.asignaciones) {
-            this.comparisonData[comparacionKey] = {
-              criterio: comparacionKey,
-              error: `No hay datos disponibles para ${name}`,
-              costoTotalSimulado: null,
-              tiempoTotalSimulado: null,
-              tiempoTotalEstimado: null,
-              calidadPromedioSimulado: null,
-              calidadPromedioTareas: null,
-              costoTotal: null,
-              tiempoTotal: null,
-              calidad: null,
-              previewData: null,
-              isLoading: false
-            };
-            return;
-          }
-          
-          const asignaciones = criterioData.asignaciones || [];
-          
-          const parseNumber = (value) => {
-            if (typeof value === 'number') return value;
-            if (value == null) return null;
-            const num = Number(value);
-            return Number.isNaN(num) ? null : num;
-          };
-          
-          // Priorizar los globales del backend si vienen en el resumen
-          let costoTotalSimulado = parseNumber(
-            criterioData.costoTotalSimulado ??
-            criterioData.costoTotalProyecto ??
-            criterioData.sugerencias?.costoTotalProyecto
-          );
-          
-          if (costoTotalSimulado == null) {
-            costoTotalSimulado = asignaciones.reduce((sum, a) => {
-              const costo = typeof a.costoTotal === 'number' ? a.costoTotal : Number(a.costoTotal) || 0;
-              return sum + costo;
-            }, 0);
-          }
-          
-          // Calcular tiempos desde las asignaciones si no vienen del backend
-          let tiempoTotalEstimado = parseNumber(
-            criterioData.tiempoTotalEstimado ??
-            criterioData.sugerencias?.tiempoTotalEstimado
-          );
-          
-          if (tiempoTotalEstimado == null) {
-            tiempoTotalEstimado = asignaciones.reduce((sum, a) => {
-              const horasTotales = a.horasTotales != null
-                ? (typeof a.horasTotales === 'number' ? a.horasTotales : Number(a.horasTotales) || 0)
-                : 0;
-              return sum + horasTotales;
-            }, 0);
-          }
-          
-          let tiempoTotalSimulado = parseNumber(
-            criterioData.tiempoTotalSimulado ??
-            criterioData.tiempoTotalEstimadoRealProyecto ??
-            criterioData.sugerencias?.tiempoTotalEstimadoRealProyecto
-          );
-          
-          if (tiempoTotalSimulado == null) {
-            tiempoTotalSimulado = asignaciones.reduce((sum, a) => {
-              const horasSimuladas = a.horasEstimadasSegunRendimiento != null
-                ? (typeof a.horasEstimadasSegunRendimiento === 'number' ? a.horasEstimadasSegunRendimiento : Number(a.horasEstimadasSegunRendimiento) || 0)
-                : (a.horasTotales != null ? (typeof a.horasTotales === 'number' ? a.horasTotales : Number(a.horasTotales) || 0) : 0);
-              return sum + horasSimuladas;
-            }, 0);
-          }
-          
-          // Calcular calidad promedio de tareas
-          let calidadPromedioTareas = parseNumber(criterioData.calidadPromedioTareas);
-          const calidadesValidas = asignaciones
-            .map(a => {
-              const cal = a.calidadTarea != null 
-                ? (typeof a.calidadTarea === 'number' ? a.calidadTarea : Number(a.calidadTarea))
-                : null;
-              return isNaN(cal) ? null : cal;
-            })
-            .filter(cal => cal != null && cal > 0);
-          
-          if (calidadPromedioTareas == null && calidadesValidas.length > 0) {
-            calidadPromedioTareas = calidadesValidas.reduce((sum, cal) => sum + cal, 0) / calidadesValidas.length;
-            calidadPromedioTareas = Number(calidadPromedioTareas.toFixed(2));
-          }
-          
-          // Calcular calidad promedio del proyecto (feedback histórico)
-          let calidadPromedioSimulado = parseNumber(criterioData.calidadPromedioSimulado);
-          const feedbacksValidos = asignaciones
-            .map(a => {
-              const fb = a.feedbackHistorico != null
-                ? (typeof a.feedbackHistorico === 'number' ? a.feedbackHistorico : Number(a.feedbackHistorico))
-                : null;
-              return isNaN(fb) || fb === 0 ? null : fb;
-            })
-            .filter(fb => fb != null && fb > 0);
-          
-          if (calidadPromedioSimulado == null && feedbacksValidos.length > 0) {
-            calidadPromedioSimulado = feedbacksValidos.reduce((sum, fb) => sum + fb, 0) / feedbacksValidos.length;
-            calidadPromedioSimulado = Number(calidadPromedioSimulado.toFixed(2));
-          }
-          
-          // Guardar las asignaciones completas tal como vienen del resumen
-          // Esto incluye todos los campos: descripcion, desarrolladorId, nombre, apellido, dias, horasTotales, razon, etc.
-          console.log(`📋 Guardando asignaciones para ${comparacionKey}:`, asignaciones);
-          
-          this.comparisonData[comparacionKey] = {
-            criterio: comparacionKey,
-            costoTotalSimulado: costoTotalSimulado > 0 ? costoTotalSimulado : null,
-            tiempoTotalSimulado: tiempoTotalSimulado > 0 ? tiempoTotalSimulado : null,
-            tiempoTotalEstimado: tiempoTotalEstimado > 0 ? tiempoTotalEstimado : null,
-            calidadPromedioSimulado: calidadPromedioSimulado,
-            calidadPromedioTareas: calidadPromedioTareas,
-            costoTotal: costoTotalSimulado > 0 ? costoTotalSimulado : null,
-            tiempoTotal: tiempoTotalSimulado > 0 ? tiempoTotalSimulado : null,
-            calidad: calidadPromedioSimulado ?? calidadPromedioTareas ?? null,
-            isLoading: false,
-            previewData: {
-              asignaciones: asignaciones, // Array completo de asignaciones con todos sus campos del resumen
-              costoTotalProyecto: costoTotalSimulado > 0 ? costoTotalSimulado : null,
-              tiempoTotalEstimado: tiempoTotalEstimado > 0 ? tiempoTotalEstimado : null,
-              tiempoTotalSimulado: tiempoTotalSimulado > 0 ? tiempoTotalSimulado : null,
-              calidadPromedioTareas: calidadPromedioTareas,
-              calidadPromedioSimulado: calidadPromedioSimulado,
-              projectId: criterioData.projectId || null
-            }
-          };
-        });
+        this.comparisonData = this.buildComparisonDataFromResumen(resumen);
         
         console.log('✅ ComparisonData construido desde resumen:', this.comparisonData);
         console.log('✅ Asignaciones en disponibilidad:', this.comparisonData?.disponibilidad?.previewData?.asignaciones);
@@ -2549,6 +2408,142 @@ export default {
         this.isLoadingCandidates = false;
         this.isLoadingComparison = false;
       }
+    },
+
+    buildComparisonDataFromResumen(resumen) {
+      const comparisonData = {};
+      const criterios = [
+        { resumenKey: 'basica', comparacionKey: 'disponibilidad', name: 'Disponibilidad' },
+        { resumenKey: 'costo', comparacionKey: 'costo', name: 'Costo' },
+        { resumenKey: 'tiempo', comparacionKey: 'tiempo', name: 'Tiempo' },
+        { resumenKey: 'calidad', comparacionKey: 'calidad', name: 'Calidad' }
+      ];
+
+      criterios.forEach(({ resumenKey, comparacionKey, name }) => {
+        const criterioData = resumen?.[resumenKey];
+        if (!criterioData || !criterioData.asignaciones) {
+          comparisonData[comparacionKey] = {
+            criterio: comparacionKey,
+            error: `No hay datos disponibles para ${name}`,
+            costoTotalSimulado: null,
+            tiempoTotalSimulado: null,
+            tiempoTotalEstimado: null,
+            calidadPromedioSimulado: null,
+            calidadPromedioTareas: null,
+            costoTotal: null,
+            tiempoTotal: null,
+            calidad: null,
+            previewData: null,
+            isLoading: false
+          };
+          return;
+        }
+
+        const asignaciones = criterioData.asignaciones || [];
+
+        const parseNumber = (value) => {
+          if (typeof value === 'number') return value;
+          if (value == null) return null;
+          const num = Number(value);
+          return Number.isNaN(num) ? null : num;
+        };
+
+        let costoTotalSimulado = parseNumber(
+          criterioData.costoTotalSimulado ??
+          criterioData.costoTotalProyecto ??
+          criterioData.sugerencias?.costoTotalProyecto
+        );
+
+        if (costoTotalSimulado == null) {
+          costoTotalSimulado = asignaciones.reduce((sum, a) => {
+            const costo = typeof a.costoTotal === 'number' ? a.costoTotal : Number(a.costoTotal) || 0;
+            return sum + costo;
+          }, 0);
+        }
+
+        let tiempoTotalEstimado = parseNumber(
+          criterioData.tiempoTotalEstimado ??
+          criterioData.sugerencias?.tiempoTotalEstimado
+        );
+
+        if (tiempoTotalEstimado == null) {
+          tiempoTotalEstimado = asignaciones.reduce((sum, a) => {
+            const horasTotales = a.horasTotales != null
+              ? (typeof a.horasTotales === 'number' ? a.horasTotales : Number(a.horasTotales) || 0)
+              : 0;
+            return sum + horasTotales;
+          }, 0);
+        }
+
+        let tiempoTotalSimulado = parseNumber(
+          criterioData.tiempoTotalSimulado ??
+          criterioData.tiempoTotalEstimadoRealProyecto ??
+          criterioData.sugerencias?.tiempoTotalEstimadoRealProyecto
+        );
+
+        if (tiempoTotalSimulado == null) {
+          tiempoTotalSimulado = asignaciones.reduce((sum, a) => {
+            const horasSimuladas = a.horasEstimadasSegunRendimiento != null
+              ? (typeof a.horasEstimadasSegunRendimiento === 'number' ? a.horasEstimadasSegunRendimiento : Number(a.horasEstimadasSegunRendimiento) || 0)
+              : (a.horasTotales != null ? (typeof a.horasTotales === 'number' ? a.horasTotales : Number(a.horasTotales) || 0) : 0);
+            return sum + horasSimuladas;
+          }, 0);
+        }
+
+        let calidadPromedioTareas = parseNumber(criterioData.calidadPromedioTareas);
+        const calidadesValidas = asignaciones
+          .map(a => {
+            const cal = a.calidadTarea != null
+              ? (typeof a.calidadTarea === 'number' ? a.calidadTarea : Number(a.calidadTarea))
+              : null;
+            return isNaN(cal) ? null : cal;
+          })
+          .filter(cal => cal != null && cal > 0);
+
+        if (calidadPromedioTareas == null && calidadesValidas.length > 0) {
+          calidadPromedioTareas = calidadesValidas.reduce((sum, cal) => sum + cal, 0) / calidadesValidas.length;
+          calidadPromedioTareas = Number(calidadPromedioTareas.toFixed(2));
+        }
+
+        let calidadPromedioSimulado = parseNumber(criterioData.calidadPromedioSimulado);
+        const feedbacksValidos = asignaciones
+          .map(a => {
+            const fb = a.feedbackHistorico != null
+              ? (typeof a.feedbackHistorico === 'number' ? a.feedbackHistorico : Number(a.feedbackHistorico))
+              : null;
+            return isNaN(fb) || fb === 0 ? null : fb;
+          })
+          .filter(fb => fb != null && fb > 0);
+
+        if (calidadPromedioSimulado == null && feedbacksValidos.length > 0) {
+          calidadPromedioSimulado = feedbacksValidos.reduce((sum, fb) => sum + fb, 0) / feedbacksValidos.length;
+          calidadPromedioSimulado = Number(calidadPromedioSimulado.toFixed(2));
+        }
+
+        comparisonData[comparacionKey] = {
+          criterio: comparacionKey,
+          costoTotalSimulado: costoTotalSimulado > 0 ? costoTotalSimulado : null,
+          tiempoTotalSimulado: tiempoTotalSimulado > 0 ? tiempoTotalSimulado : null,
+          tiempoTotalEstimado: tiempoTotalEstimado > 0 ? tiempoTotalEstimado : null,
+          calidadPromedioSimulado: calidadPromedioSimulado,
+          calidadPromedioTareas: calidadPromedioTareas,
+          costoTotal: costoTotalSimulado > 0 ? costoTotalSimulado : null,
+          tiempoTotal: tiempoTotalSimulado > 0 ? tiempoTotalSimulado : null,
+          calidad: calidadPromedioSimulado ?? calidadPromedioTareas ?? null,
+          isLoading: false,
+          previewData: {
+            asignaciones: asignaciones,
+            costoTotalProyecto: costoTotalSimulado > 0 ? costoTotalSimulado : null,
+            tiempoTotalEstimado: tiempoTotalEstimado > 0 ? tiempoTotalEstimado : null,
+            tiempoTotalSimulado: tiempoTotalSimulado > 0 ? tiempoTotalSimulado : null,
+            calidadPromedioTareas: calidadPromedioTareas,
+            calidadPromedioSimulado: calidadPromedioSimulado,
+            projectId: criterioData.projectId || this.$route.params.id
+          }
+        };
+      });
+
+      return comparisonData;
     },
     
     // Construir lista de candidatos con disponibilidad
@@ -2885,8 +2880,7 @@ export default {
           
           // Construir comparisonData desde el resumen existente si está disponible
           if (this.resumenSimulacion) {
-            this.comparisonData = {};
-            // Los datos comparativos ya están en el resumen, no necesitamos recargarlos
+            this.comparisonData = this.buildComparisonDataFromResumen(this.resumenSimulacion);
             console.log('Mostrando tabla comparativa con resumen existente');
           }
         }
@@ -3483,21 +3477,25 @@ export default {
         let confirmPayload = null;
         if (this.selectedAssignmentType === 'time') {
           confirmPayload = {
-            success: previewResult.success !== undefined ? previewResult.success : true,
+            projectId,
+            asignaciones,
+            costoTotalSimulado: costoTotal,
+            tiempoTotalEstimado: previewResult.tiempoTotalEstimado ?? previewResult.sugerencias?.tiempoTotalEstimado ?? null,
+            tiempoTotalSimulado: previewResult.tiempoTotalSimulado ?? previewResult.sugerencias?.tiempoTotalSimulado ?? null,
+            calidadPromedioTareas: previewResult.calidadPromedioTareas ?? previewResult.sugerencias?.calidadPromedioTareas ?? null,
+            calidadPromedioSimulado: previewResult.calidadPromedioSimulado ?? previewResult.sugerencias?.calidadPromedioSimulado ?? null,
             criterio: 'tiempo',
-            sugerencias: previewResult.sugerencias || {
-              asignaciones,
-              costoTotalProyecto: costoTotal
-            }
           };
         } else if (this.selectedAssignmentType === 'quality') {
           confirmPayload = {
-            success: previewResult.success !== undefined ? previewResult.success : true,
+            projectId,
+            asignaciones,
+            costoTotalSimulado: costoTotal,
+            tiempoTotalEstimado: previewResult.tiempoTotalEstimado ?? previewResult.sugerencias?.tiempoTotalEstimado ?? null,
+            tiempoTotalSimulado: previewResult.tiempoTotalSimulado ?? previewResult.sugerencias?.tiempoTotalSimulado ?? null,
+            calidadPromedioTareas: previewResult.calidadPromedioTareas ?? previewResult.sugerencias?.calidadPromedioTareas ?? null,
+            calidadPromedioSimulado: previewResult.calidadPromedioSimulado ?? previewResult.sugerencias?.calidadPromedioSimulado ?? null,
             criterio: 'calidad',
-            sugerencias: previewResult.sugerencias || {
-              asignaciones,
-              costoTotalProyecto: costoTotal
-            }
           };
         }
 
@@ -3556,6 +3554,75 @@ export default {
       this.previewData = null;
       this.selectedAssignmentType = null;
       this.showComparisonTable = false;
+    },
+
+    // Construir payload de confirmación cuando viene desde comparación/resumen
+    buildConfirmPayloadFromPreview(criterio) {
+      const asignaciones = this.previewData?.asignaciones
+        || this.previewData?.sugerencias?.asignaciones
+        || [];
+
+      if (!asignaciones.length) {
+        return null;
+      }
+
+      const sumNumber = (value) => (value == null || Number.isNaN(Number(value)) ? 0 : Number(value));
+
+      const computedCostoTotal = asignaciones.reduce((sum, a) => sum + sumNumber(a.costoTotal), 0);
+      const computedTiempoTotalEstimado = asignaciones.reduce((sum, a) => sum + sumNumber(a.horasTotales), 0);
+      const computedTiempoTotalSimulado = asignaciones.reduce((sum, a) => {
+        const horas = a.horasEstimadasSegunRendimiento != null
+          ? a.horasEstimadasSegunRendimiento
+          : a.horasTotales;
+        return sum + sumNumber(horas);
+      }, 0);
+
+      const calidadesTareas = asignaciones
+        .map(a => (a.calidadTarea != null ? Number(a.calidadTarea) : null))
+        .filter(c => c != null && !Number.isNaN(c) && c > 0);
+      const computedCalidadPromedioTareas = calidadesTareas.length
+        ? calidadesTareas.reduce((sum, c) => sum + c, 0) / calidadesTareas.length
+        : 0;
+
+      const calidadesSimuladas = asignaciones
+        .map(a => (a.feedbackHistorico != null ? Number(a.feedbackHistorico) : null))
+        .filter(c => c != null && !Number.isNaN(c) && c > 0);
+      const computedCalidadPromedioSimulado = calidadesSimuladas.length
+        ? calidadesSimuladas.reduce((sum, c) => sum + c, 0) / calidadesSimuladas.length
+        : 0;
+
+      const costoTotalSimulado = this.previewData?.costoTotalSimulado
+        ?? this.previewData?.costoTotalProyecto
+        ?? this.previewData?.sugerencias?.costoTotalProyecto
+        ?? computedCostoTotal;
+
+      const tiempoTotalEstimado = this.previewData?.tiempoTotalEstimado
+        ?? this.previewData?.sugerencias?.tiempoTotalEstimado
+        ?? computedTiempoTotalEstimado;
+
+      const tiempoTotalSimulado = this.previewData?.tiempoTotalSimulado
+        ?? this.previewData?.tiempoTotalEstimadoRealProyecto
+        ?? this.previewData?.sugerencias?.tiempoTotalEstimadoRealProyecto
+        ?? computedTiempoTotalSimulado;
+
+      const calidadPromedioTareas = this.previewData?.calidadPromedioTareas
+        ?? this.previewData?.sugerencias?.calidadPromedioTareas
+        ?? computedCalidadPromedioTareas;
+
+      const calidadPromedioSimulado = this.previewData?.calidadPromedioSimulado
+        ?? this.previewData?.sugerencias?.calidadPromedioSimulado
+        ?? computedCalidadPromedioSimulado;
+
+      return {
+        projectId: this.$route.params.id,
+        asignaciones,
+        costoTotalSimulado,
+        tiempoTotalEstimado,
+        tiempoTotalSimulado,
+        calidadPromedioTareas,
+        calidadPromedioSimulado,
+        criterio
+      };
     },
 
     // Confirmar y guardar asignaciones
@@ -3649,20 +3716,24 @@ export default {
           
           confirmResult = await AssignmentService.confirmCostAssignment(projectId, payload);
         } else if (this.selectedAssignmentType === 'time') {
-          if (!this.previewData.confirmPayload) {
+          const confirmPayload = this.previewData.confirmPayload
+            || this.buildConfirmPayloadFromPreview('tiempo');
+          if (!confirmPayload) {
             throw new Error('No hay sugerencias disponibles para confirmar (tiempo).');
           }
           confirmResult = await AssignmentService.confirmTimeAssignment(
             projectId,
-            this.previewData.confirmPayload
+            confirmPayload
           );
         } else if (this.selectedAssignmentType === 'quality') {
-          if (!this.previewData.confirmPayload) {
+          const confirmPayload = this.previewData.confirmPayload
+            || this.buildConfirmPayloadFromPreview('calidad');
+          if (!confirmPayload) {
             throw new Error('No hay sugerencias disponibles para confirmar (calidad).');
           }
           confirmResult = await AssignmentService.confirmQualityAssignment(
             projectId,
-            this.previewData.confirmPayload
+            confirmPayload
           );
         }
 
