@@ -31,7 +31,7 @@ export const previewObtenerAsignacionesPorCalidadIA = async (projectId) => {
   }).populate("proyecto");
 
   if (!tareas.length)
-    throw new Error("No hay tareas para este proyecto");
+    throw new Error("No hay tareas sin asignar para este proyecto");
 
   // Ordenar tareas por prioridad y dificultad
   tareas = ordenarTareas(tareas);
@@ -49,17 +49,6 @@ export const previewObtenerAsignacionesPorCalidadIA = async (projectId) => {
       tieneHabilidadesSuficientes(dev, tarea.habilidadesRequeridas, 0.5)
     );
 
-    /* console.log("Candidatos que pasan filtro de habilidades:");
-    console.log(JSON.stringify(
-      candidatosPorHabilidad.map(d => ({
-        id: d._id,
-        nombre: d.nombre,
-        habilidades: d.habilidades
-      })), 
-      null, 
-      2
-    )); */
-
     // --- SEGUNDO FILTRO: disponibilidad suficiente en el rango de la tarea ---
     const candidatosConDisponibilidad = candidatosPorHabilidad.filter(dev =>
       tieneDisponibilidad(
@@ -70,115 +59,70 @@ export const previewObtenerAsignacionesPorCalidadIA = async (projectId) => {
       )
     );
 
-    /* console.log("Candidatos que pasan filtro de disponibilidad:");
-    console.log(JSON.stringify(
-      candidatosConDisponibilidad.map(d => ({
-        id: d._id,
-        nombre: d.nombre
-      })), 
-      null, 
-      2
-    )); */
+    // Guardar info de la tarea y sus candidatos
+    const tareaKey = String(tarea._id);
 
-    // Si NO hay candidatos, avisar y marcar la tarea
-    if (candidatosConDisponibilidad.length === 0) {
-      console.warn(`⚠️  La tarea "${tarea.descripcion}" NO tiene candidatos disponibles.`);
+    const tareaInfo = {
+      id: tarea._id,
+      nombre: tarea.nombre,
+      descripcion: tarea.descripcion,
+      fechaEstimadaInicio: tarea.fechaEstimadaInicio,
+      fechaEstimadaFin: tarea.fechaEstimadaFin,
+      habilidadesRequeridas: tarea.habilidadesRequeridas,
+      prioridad: tarea.prioridad,
+      estimacionHoras: tarea.tiempoEstimadoHoras
+    };
 
-      devsDataPorTarea[tarea._id] = {
-        tarea: {
-          id: tarea._id,
-          nombre: tarea.nombre,
-          descripcion: tarea.descripcion,
-          fechaEstimadaInicio: tarea.fechaEstimadaInicio,
-          fechaEstimadaFin: tarea.fechaEstimadaFin,
-          habilidadesRequeridas: tarea.habilidadesRequeridas,
-          prioridad: tarea.prioridad,
-          estimacionHoras: tarea.tiempoEstimadoHoras
-        },
-        desarrolladoresCandidatos: [],
-        sinCandidatos: true      // <-- agregado para marcar la situación
-      };
+    const desarrolladoresCandidatos = await Promise.all(
+      (candidatosConDisponibilidad ?? []).map(async (dev) => {
+        const diasDisponibles = obtenerDisponibilidadEnRango(
+          dev,
+          tarea.fechaEstimadaInicio,
+          tarea.fechaEstimadaFin
+        );
 
-      // Continuar con la siguiente tarea
+        return {
+          id: dev._id,
+          nombre: dev.nombre,
+          apellido: dev.apellido,
+
+          aniosExperiencia: dev.aniosExperiencia,
+          habilidades: dev.habilidades?.map(h => ({
+            nombre: h.nombre,
+            nivel: h.nivel
+          })) ?? [],
+
+          preferenciasHabilidad: dev.preferenciasHabilidad ?? [],
+          costoPorHora: dev.costoPorHora,
+
+          rendimientoHistorico: dev.rendimientoHistorico,
+          puntuacionPromedioCalidad: dev.puntuacionPromedioCalidad,
+          feedbackHistorico: dev.feedbackHistorico,
+
+          diasDisponibles // [{fecha, horasDisponibles}]
+        };
+      })
+    );
+
+    devsDataPorTarea[tareaKey] = {
+      tarea: tareaInfo,
+      desarrolladoresCandidatos,
+      sinCandidatos: desarrolladoresCandidatos.length === 0
+    };
+
+    if (desarrolladoresCandidatos.length === 0) {
+      console.warn(`⚠️  La tarea "${tarea.descripcion}" no tiene candidatos disponibles.`);
       continue;
     }
 
+    // Guardar lista de candidatos por tarea
+    candidatosPorTarea[tareaKey] = desarrolladoresCandidatos;
 
-    // Guardar candidatos simples (lo que verá la IA en una lista resumida)
-    candidatosPorTarea[tarea._id] = candidatosConDisponibilidad.map(dev => ({
-      id: dev._id,
-      nombre: dev.nombre,
-      apellido: dev.apellido,
-
-      habilidades: dev.habilidades, // [{nombre, nivel}]
-      aniosExperiencia: dev.aniosExperiencia,
-      costoPorHora: dev.costoPorHora,
-
-      // Preferencias y gustos
-      preferenciasHabilidad: dev.preferenciasHabilidad ?? [],
-
-      // Métricas históricas
-      rendimientoHistorico: dev.rendimientoHistorico,
-      puntuacionPromedioCalidad: dev.puntuacionPromedioCalidad,
-      feedbackHistorico: dev.feedbackHistorico,
-
-    }));
-
-
-    // --- CÁLCULO DE DISPONIBILIDAD REAL POR CANDIDATO ---
-    devsDataPorTarea[tarea._id] = {
-      tarea: {
-        id: tarea._id,
-        nombre: tarea.nombre,
-        descripcion: tarea.descripcion,
-        fechaEstimadaInicio: tarea.fechaEstimadaInicio,
-        fechaEstimadaFin: tarea.fechaEstimadaFin,
-        habilidadesRequeridas: tarea.habilidadesRequeridas,
-        prioridad: tarea.prioridad,
-        estimacionHoras: tarea.tiempoEstimadoHoras
-        // lo que tengas y sea útil para decidir
-      },
-      desarrolladoresCandidatos: await Promise.all(
-        candidatosPorHabilidad.map(async (dev) => {
-          const diasDisponibles = obtenerDisponibilidadEnRango(
-            dev,
-            tarea.fechaEstimadaInicio,
-            tarea.fechaEstimadaFin
-          );
-
-          return {
-            id: dev._id,
-            nombre: dev.nombre,
-            apellido: dev.apellido,
-
-            aniosExperiencia: dev.aniosExperiencia,
-            habilidades: dev.habilidades?.map(h => ({
-              nombre: h.nombre,
-              nivel: h.nivel
-            })) ?? [],
-
-            preferenciasHabilidad: dev.preferenciasHabilidad ?? [],
-            costoPorHora: dev.costoPorHora,
-
-            rendimientoHistorico: dev.rendimientoHistorico,
-            puntuacionPromedioCalidad: dev.puntuacionPromedioCalidad,
-            feedbackHistorico: dev.feedbackHistorico,
-
-            disponibilidad: {
-              diasDisponibles // [{fecha, horasDisponibles}]
-            }
-          };
-        })
-      )
-    };
-
-    /* console.log("Estructura final para IA de esta tarea:");
-    console.log(JSON.stringify(devsDataPorTarea[tarea._id], null, 2)); */
   }
 
   // Retornar data completa para todas las tareas (devsDataPorTarea)
-  console.log("Data completa para IA de todas las tareas:");
-  console.log(JSON.stringify(devsDataPorTarea, null, 2));
+  // console.log("Data completa para IA de todas las tareas:");
+  // console.log(JSON.stringify(devsDataPorTarea, null, 2));
 
   const payloadIA = {
     projectId,
@@ -189,41 +133,30 @@ export const previewObtenerAsignacionesPorCalidadIA = async (projectId) => {
 Eres un asistente experto en planificación de proyectos y asignación óptima de recursos humanos.
 
 Objetivo:
-Teniendo en cuenta que devsDataPorTarea guarda para cada tarea una lista de desarrolladores que pasan los filtros obligatorios, asignar cada tarea al desarrollador dentro de cada lista que tenga la mejor puntuacionPromedioCalidad y feedbackHistorico, ya que esto indica que va a completar la tarea con más calidad,
-considerando:
-- Disponibilidad diaria (horas por fecha)
-- Tiempo estimado de la tarea (tiempoEstimadoHoras)
-- Habilidades requeridas de la tarea
-- Habilidades del desarrollador
-- puntuacionPromedioCalidad
-- feedbackHistorico
+Teniendo en cuenta que desarrolladoresCandidatos guarda para cada tarea una lista de desarrolladores que pasan los filtros obligatorios, asignar cada tarea a uno de los desarrolladores que esta dentro de cada lista (desarrolladoresCandidatos) según las siguientes reglas de asignación y considerando SOLAMENTE los siguientes factores:
+- Disponibilidad de horas por día (diasDisponibles)
+- Tiempo estimado de la tarea (estimacionHoras)
+- Habilidades requeridas de la tarea (habilidadesRequeridas)
+- Habilidades del desarrollador (habilidades)
+- Años de experiencia (aniosExperiencia)
+- Preferencias de habilidades (preferenciasHabilidad)
+- Calidad de las tareas (puntuacionPromedioCalidad)
+- Calidad de los proyectos (feedbackHistorico)
 
 Reglas de asignación:
 
-1) FILTRO (OBLIGATORIO)
-- Dentro cada lista de desarrolladores para cada tarea, seleccionar al que tengan la mejor puntuacionPromedioCalidad y feedbackHistorico, ya que esto indica que va a completar la tarea con más calidad. En caso de empate, elegir teniendo en cuenta la disponibilidad (elegir el que tenga mas disponibilidad), los años de experiencia y las preferencias de habilidades (preferenciasHabilidad) del desarrollador, priorizando aquellos que tengan mejor puntuación promedio en las habilidades requeridas por la tarea. (NO SELECCIONAR UN DESARROLLADOR QUE NO ESTE EN LA LISTA DE CANDIDATOS DE LA TAREA)
+1) PRIMER FILTRO (OBLIGATORIO)
+- Dentro cada lista de desarrolladoresCandidatos (mientras no esté vacía) para cada tarea, seleccionar al que tengan la mejor puntuacionPromedioCalidad y feedbackHistorico (haciendo un promedio entre ambas), ya que esto indica que va a completar la tarea con más calidad. (NO SELECCIONAR UN DESARROLLADOR QUE NO ESTE EN LA LISTA desarrolladoresCandidatos DE LA TAREA). Si desarrolladoresCandidatos es vacía, no asignar la tarea.
 
-2) En en el caso de que la tarea no tenga desarrolladoresCandidatos ("sinCandidatos": true), no asignar ningún desarrollador y en el json que se pide solo mostrar los siguientes campos en el formato que corresponde al json para esa tarea:
-  id: tarea._id,
-  nombre: tarea.nombre,
-  descripcion: tarea.descripcion,
-  fechaEstimadaInicio: tarea.fechaEstimadaInicio,
-  fechaEstimadaFin: tarea.fechaEstimadaFin,
-  habilidadesRequeridas: tarea.habilidadesRequeridas,
-  prioridad: tarea.prioridad,
-  estimacionHoras: tarea.horasTotales
-  sinCandidatos: true para esa tarea. 
+2) SEGUNDO FILTRO - En caso de empate, elegir teniendo en cuenta la cantidad de veces que el desarrollador fue clasificado (puntuacionPromedioCalidad.tareasCalificadas y feedbackHistorico.vecesCalificado). En caso de otro empate, elegir teniendo en cuenta la disponibilidad (elegir el que tenga mas disponibilidad), los años de experiencia y las preferencias de habilidades (preferenciasHabilidad) del desarrollador.
 
-3) ASIGNACIÓN
-- MUY IMPORTANTE: solo se deben tener en cuenta para la selección la puntuacionPromedioCalidad y feedbackHistorico del desarrollador como prioridad y luego la disponibilidad, preferencias, años de experiencia, las habilidades requeridas de la tarea y las habilidades del desarrollador. No considerar ninguno de los otros factores, costo por hora, rendimiento histórico para la selección del desarrollador.
-- Distribuir las horas de forma uniforme entre los dias disponibles.
-- Calcular horasEstimadasSegunRendimiento 
-- Calcular costoTotal según horasTotales y costoPorHora del desarrollador.
+3) MUY IMPORTANTE: solo se deben tener en cuenta para la selección la puntuacionPromedioCalidad y feedbackHistorico del desarrollador como prioridad y luego (en caso de empate) la disponibilidad, preferencias, años de experiencia, las habilidades requeridas de la tarea y las habilidades del desarrollador. No considerar ninguno de los otros factores, costo por hora y rendimiento histórico para la selección del desarrollador. Es muy importante distribuir las horas de forma uniforme entre los dias disponibles.
 
 Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
 {
   projectId: "ID del proyecto",
   "asignaciones": [
+  (si la tarea tuvo desarrolladoresCandidatos)
     {
       "tareaId": "ID de la tarea",
       "descripcion": "Descripción de la tarea",
@@ -244,6 +177,18 @@ Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
       "horasEstimadasSegunRendimiento": "resultado del calculo = horasTotales * (100 / rendimientoHistorico.promedioPorcentaje), redondeado a 2 decimales || horasTotales si no hay rendimientoHistorico",
       "calidadTarea": "puntuacionPromedioCalidad.puntuacionPromedio (del dev elegido)",
       "feedbackHistorico": "feedbackHistorico.puntuacionPromedio (del dev elegido)" 
+    },
+  (si la tarea NO tuvo desarrolladoresCandidatos)
+    {
+      tareaId: tarea._id,
+      nombre: tarea.nombre,
+      descripcion: tarea.descripcion,
+      fechaEstimadaInicio: tarea.fechaEstimadaInicio,
+      fechaEstimadaFin: tarea.fechaEstimadaFin,
+      habilidadesRequeridas: tarea.habilidadesRequeridas,
+      prioridad: tarea.prioridad,
+      estimacionHoras: tarea.horasTotales,
+      sinCandidatos: true
     }
   ]
 }

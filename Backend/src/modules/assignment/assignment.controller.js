@@ -102,7 +102,7 @@ export async function confirmarAsignacionPorCostoController(req, res) {
     const resultado = await confirmarAsignacionPorCosto(projectId, sugerencias);
     res.json(resultado);
   } catch (error) {
-    console.error("Error en confirmarAsignacionBasica:", error);
+    console.error("Error en confirmarAsignacionPorCosto:", error);
     res.status(500).json({ error: error.message });
   }
 }

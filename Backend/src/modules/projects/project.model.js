@@ -62,6 +62,28 @@ const projectSchema = new mongoose.Schema({
   costoTotal: {
     type: Number,
     default: 0
+  },
+  tiempoActivoMinutos: {
+    type: Number,
+    default: 0 // en minutos
+  },
+  enTrabajoDesde: {
+    type: Date,
+    default: null
+  },
+  tiempoInvertidoTotalMinutos: {
+    type: Number,
+    default: 0 // en minutos
+  },
+  tiempoEstimadoTotalHoras: {
+    type: Number,
+    default: 0 // en horas
+  },
+  puntajeCalidad: {
+    type: Number,
+    min: 1,
+    max: 5,
+    default: null
   }
 });
 

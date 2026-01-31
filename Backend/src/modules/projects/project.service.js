@@ -1,6 +1,10 @@
 import * as projectDao from "./project.dao.js";
 import Project from "./project.model.js";
 import Task from "../task/task.model.js";
+import * as userDao from "../users/user.dao.js";
+import { crearNotificacionFeedbackProyecto } from "../notifications/notification.service.js";
+import User from "../users/user.model.js";
+import Notification from "../notifications/notification.model.js";
 
 // Obtener proyectos por administrador
 export const getProjects = async (adminId) => {
@@ -38,6 +42,27 @@ export const deleteProject = async (id) => {
   return await projectDao.remove(id);
 };
 
+function aMinutos(valorHoras) {
+  const h = Number(valorHoras) || 0;
+  return Math.round(h * 60);
+}
+
+export function recalcularTotalesProyectoDesdeTareas(tareas) {
+  let estimadoHoras = 0;
+  let invertidoMin = 0;
+
+  for (const t of tareas) {
+    estimadoHoras += Number(t.tiempoEstimadoHoras) || 0;
+    invertidoMin += aMinutos(t.tiempoInvertidoHoras);
+  }
+
+  return {
+    tiempoEstimadoTotalHoras: estimadoHoras,
+    tiempoInvertidoTotalMinutos: invertidoMin,
+  };
+}
+
+
 /**
  * Marca un proyecto como iniciado
  * @param {String} projectId - ID del proyecto
@@ -48,7 +73,7 @@ export async function iniciarProyectoService(projectId, userId) {
     throw new Error("Proyecto no encontrado");
   }
 
-  const user = await projectDao.findUserById(userId);
+  const user = await userDao.findUserById(userId);
   if (!user) {
     throw new Error("Usuario no encontrado");
   }
@@ -58,7 +83,12 @@ export async function iniciarProyectoService(projectId, userId) {
     throw new Error("El proyecto ya está iniciado");
   }
 
-   // Verificar si tiene tareas asociadas
+  // 🔹 Validar estado actual
+  if (proyecto.estado !== "pendiente" && proyecto.estado !== "pausado") {
+    throw new Error("Solo se pueden iniciar proyectos pendientes o pausados");
+  }
+
+  // Verificar si tiene tareas asociadas
   const tareas = await Task.find({ proyecto: projectId });
   if (!tareas || tareas.length === 0) {
     throw new Error("No se puede iniciar un proyecto sin tareas asociadas");
@@ -74,6 +104,8 @@ export async function iniciarProyectoService(projectId, userId) {
   proyecto.fechaInicioReal = new Date(); // 🔹 fecha actual
   proyecto.estado = "en curso";
 
+  proyecto.enTrabajoDesde = new Date();
+
   // Actualizar historial
   proyecto.historial.push({
     accion: "Inicio de proyecto",
@@ -84,6 +116,7 @@ export async function iniciarProyectoService(projectId, userId) {
   await proyecto.save();
   return proyecto;
 }
+
 
 /**
  * Pausa un proyecto en curso y registra el cambio en su historial.
@@ -105,6 +138,16 @@ export async function pausarProyectoService(projectId, userId) {
     throw new Error("No se pueden pausar el proyecto mientras haya tareas en curso");
   }
 
+  if (proyecto.enTrabajoDesde) {
+    const ahora = new Date();
+    const diffMs = ahora - proyecto.enTrabajoDesde;
+    const minutosTrabajados = Math.round(diffMs / 60000);
+
+    proyecto.tiempoActivoMinutos += minutosTrabajados;
+
+    proyecto.enTrabajoDesde = null;
+  }
+
   // 🔹 Actualizar estado y agregar entrada al historial
   proyecto.estado = "pausado";
   proyecto.historial.push({
@@ -123,15 +166,26 @@ export async function finalizarProyectoService(projectId, userId) {
   if (!proyecto) throw new Error("Proyecto no encontrado");
   // 🔹 Validar estado actual
   if (proyecto.estado !== "en curso" && proyecto.estado !== "pausado") {
-    throw new Error("Solo se pueden finalizar proyectos en curso o pausados");
+    throw new Error("Solo se pueden finalizar proyectos en curso");
   }
   // 🔹 Verificar si todas las tareas están completadas
   const tareasIncompletas = await Task.find({ proyecto: projectId, estado: { $ne: "completada" } });
   if (tareasIncompletas.length) {
     throw new Error("No se pueden finalizar el proyecto mientras haya tareas incompletas");
   }
+
+  if (proyecto.enTrabajoDesde) {
+    const ahora = new Date();
+    const diffMs = ahora - proyecto.enTrabajoDesde;
+    const minutosTrabajados = Math.round(diffMs / 60000);
+
+    proyecto.tiempoActivoMinutos += minutosTrabajados;
+
+    proyecto.enTrabajoDesde = null;
+  }
+
   // 🔹 Actualizar estado y fecha de finalización
-  proyecto.estado = "completado";
+  proyecto.estado = "finalizado";
   proyecto.fechaFinReal = new Date();
   proyecto.historial.push({
     accion: "Finalización de proyecto",
@@ -139,6 +193,145 @@ export async function finalizarProyectoService(projectId, userId) {
     descripcion: `El proyecto fue finalizado por el usuario ${userId}`
   });
 
+  // 🔹 Recalcular totales desde tareas (estimado e invertido)
+  const tareas = await Task.find({ proyecto: projectId });
+  const { tiempoEstimadoTotalHoras, tiempoInvertidoTotalMinutos } =
+    recalcularTotalesProyectoDesdeTareas(tareas);
+
+  proyecto.tiempoEstimadoTotalHoras = tiempoEstimadoTotalHoras;
+  proyecto.tiempoInvertidoTotalMinutos = tiempoInvertidoTotalMinutos;
+
   await proyecto.save();
+
+  // ✅ Crear notificación para calificar devs
+  await crearNotificacionFeedbackProyecto(projectId);
+
   return proyecto;
 }
+
+// services/proyectoFeedback.service.js
+
+export async function calificarDesarrolladoresProyectoService(
+  projectId,
+  adminId,
+  calificaciones,
+  notificationId = null
+) {
+  const proyecto = await Project.findById(projectId);
+  if (!proyecto) throw new Error("Proyecto no encontrado");
+
+  // 🔐 Seguridad: solo el admin del proyecto
+  if (String(proyecto.administrador) !== String(adminId)) {
+    throw new Error("No tenés permisos para calificar este proyecto");
+  }
+
+  if (proyecto.puntajeCalidad != null) {
+    throw new Error("El proyecto ya fue calificado anteriormente");
+  }
+
+  if (proyecto.estado !== "finalizado") {
+    throw new Error("Solo se puede calificar cuando el proyecto está finalizado");
+  }
+
+  if (!Array.isArray(calificaciones) || calificaciones.length === 0) {
+    throw new Error("calificaciones debe ser un array con al menos un elemento");
+  }
+
+  // Validación básica
+  for (const c of calificaciones) {
+    if (!c?.desarrolladorId) {
+      throw new Error("Falta desarrolladorId en una calificación");
+    }
+    const p = Number(c?.puntuacion);
+    if (!Number.isFinite(p) || p < 1 || p > 5) {
+      throw new Error(`Puntuación inválida para ${c.desarrolladorId}. Debe ser 1 a 5`);
+    }
+  }
+
+  const updates = [];
+
+  // 🔄 Actualizar feedbackHistorico de cada dev
+  for (const c of calificaciones) {
+    const dev = await User.findById(c.desarrolladorId);
+    if (!dev) throw new Error(`Desarrollador no encontrado: ${c.desarrolladorId}`);
+
+    const prevProm = Number(dev.feedbackHistorico?.puntuacionPromedio ?? 0);
+    const prevCount = Number(dev.feedbackHistorico?.vecesCalificado ?? 0);
+
+    const nuevoCount = prevCount + 1;
+    const nuevoProm = ((prevProm * prevCount) + Number(c.puntuacion)) / nuevoCount;
+
+    dev.feedbackHistorico = {
+      puntuacionPromedio: Number(nuevoProm.toFixed(2)),
+      vecesCalificado: nuevoCount
+    };
+
+    await dev.save();
+
+    updates.push({
+      desarrolladorId: dev._id,
+      puntuacion: Number(c.puntuacion),
+      feedbackHistorico: dev.feedbackHistorico
+    });
+  }
+
+  // 🔔 Actualizar notificación de proyecto (si se envía)
+  // -------------------------------------
+  // 🔹 Calcular puntaje de calidad del proyecto
+  // -------------------------------------
+  if (Array.isArray(calificaciones) && calificaciones.length > 0) {
+    const sumaCalificaciones = calificaciones.reduce(
+      (sum, c) => sum + Number(c.puntuacion),
+      0
+    );
+
+    const promedioCalificaciones =
+      sumaCalificaciones / calificaciones.length;
+
+    proyecto.puntajeCalidad = Number(promedioCalificaciones.toFixed(2));
+    await proyecto.save();
+  }
+
+  // -------------------------------------
+  // 🔹 Resolver notificación (si existe)
+  // -------------------------------------
+  if (notificationId) {
+    const notif = await Notification.findById(notificationId);
+
+    if (
+      notif &&
+      String(notif.receptor) === String(adminId) &&
+      notif.tipo === "CALIFICAR_PROYECTO_LOTE"
+    ) {
+      const map = new Map(
+        calificaciones.map(c => [
+          String(c.desarrolladorId),
+          Number(c.puntuacion),
+        ])
+      );
+
+      notif.data.desarrolladores = (notif.data.desarrolladores || []).map(d => ({
+        ...d,
+        puntuacion: map.has(String(d.desarrolladorId))
+          ? map.get(String(d.desarrolladorId))
+          : d.puntuacion,
+        calificadoEn: map.has(String(d.desarrolladorId))
+          ? new Date()
+          : d.calificadoEn,
+      }));
+
+      notif.resuelta = true;
+      notif.resueltaEn = new Date();
+
+      await notif.save();
+    }
+  }
+
+  return {
+    ok: true,
+    projectId,
+    actualizados: updates.length,
+    detalle: updates
+  };
+}
+

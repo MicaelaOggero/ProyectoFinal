@@ -139,3 +139,43 @@ export const finalizarProyecto = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+// controllers/proyectoFeedback.controller.js
+import { calificarDesarrolladoresProyectoService } from "../projects/project.service.js";
+
+export async function calificarDesarrolladoresProyectoController(req, res) {
+  try {
+    const { projectId } = req.params;
+
+    // ✅ Ideal: adminId viene del token
+    const adminId = req.user._id ;
+    
+    // (Solo para test si no tenés auth aún)
+    // const adminId = req.user?._id || req.body.adminId;
+
+    if (!adminId) {
+      return res.status(401).json({ ok: false, message: "No autenticado (adminId отсутствante)" });
+    }
+
+    const { calificaciones, notificationId } = req.body;
+
+    const result = await calificarDesarrolladoresProyectoService(
+      projectId,
+      adminId,
+      calificaciones,
+      notificationId ?? null
+    );
+
+    return res.status(200).json({
+      ok: true,
+      message: "Feedback del proyecto registrado correctamente",
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      ok: false,
+      message: "Error al calificar desarrolladores del proyecto",
+      error: error.message,
+    });
+  }
+}

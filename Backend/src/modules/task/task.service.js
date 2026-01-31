@@ -14,6 +14,8 @@ import Project from "../projects/project.model.js";
 import User from "../users/user.model.js";
 import TaskLog from "../task/taskLog.model.js"; // 👈 importar el modelo
 import Task from "../task/task.model.js";
+import { actualizarRendimientoDesarrollador } from "../users/user.service.js";
+import Notification from "../notifications/notification.model.js";
 
 export async function addTask(taskData) {
   // 1️⃣ Verificar que el proyecto exista
@@ -143,10 +145,17 @@ export const obtenerTareasOrdenadasPorProyecto = async (projectId) => {
 };
 
 export async function iniciarTareaService(taskId, userId) {
+  
   //Buscar la tarea
   const tarea = await getTaskByIdDAO(taskId);
   if (!tarea) {
     throw new Error("Tarea no encontrada");
+  }
+
+  //validar que el proyecto esté en curso
+  const proyecto = await Project.findById(tarea.proyecto);
+  if (!proyecto || proyecto.estado !== "en curso") {
+    throw new Error("Proyecto no encontrado o no está en curso");
   }
 
   //Buscar el desarrollador
@@ -161,7 +170,7 @@ export async function iniciarTareaService(taskId, userId) {
   }
 
   //Validar estado actual
-  if (tarea.estado !== "pendiente") {
+  if (tarea.estado !== "pendiente" && tarea.estado !== "pausada") {
     throw new Error("Solo se pueden iniciar tareas en estado 'pendiente'");
   }
 
@@ -186,8 +195,6 @@ export async function iniciarTareaService(taskId, userId) {
   return tarea;
 }
 
-
-
 export async function pausarOCompletarTarea(taskId, userId, accion = "pausar") {
   const tarea = await getTaskByIdDAO(taskId);
   if (!tarea) throw new Error("Tarea no encontrada");
@@ -195,7 +202,6 @@ export async function pausarOCompletarTarea(taskId, userId, accion = "pausar") {
   const desarrollador = await User.findById(userId);
   if (!desarrollador) throw new Error("Desarrollador no encontrado");
 
-  //validar que el desarrollador sea el asignado a la tarea
   if (tarea.desarrolladorAsignado.toString() !== desarrollador._id.toString()) {
     throw new Error("No estás asignado a esta tarea");
   }
@@ -204,46 +210,73 @@ export async function pausarOCompletarTarea(taskId, userId, accion = "pausar") {
     throw new Error("Solo se pueden pausar o completar tareas en curso");
   }
 
-  // 🔹 Calcular tiempo transcurrido desde que empezó
+  let nuevoPromedio = null; // 👈 declarar antes
+
+  // 🔹 Calcular tiempo trabajado
   if (tarea.enTrabajoDesde) {
     const ahora = new Date();
     const diffMs = ahora - tarea.enTrabajoDesde;
-    const horasTrabajadas = diffMs / (1000 * 60 * 60);
-    tarea.tiempoInvertidoHoras += horasTrabajadas;
-    tarea.enTrabajoDesde = null; // ya no está trabajando
+    const minutosTrabajados = Math.round(diffMs / 60000);
+    tarea.tiempoInvertidoHoras += minutosTrabajados;
+    tarea.enTrabajoDesde = null;
   }
 
-  // 🔹 Si es completar
   if (accion === "completar") {
-  tarea.estado = "completada";
-  tarea.fechaRealFin = new Date();
+    tarea.estado = "completada";
+    tarea.fechaRealFin = new Date();
 
-  // 🔹 Registrar el TaskLog
-  const estadoFinal =
-    tarea.tiempoInvertidoHoras > tarea.tiempoEstimadoHoras
-      ? "retrasada"
-      : tarea.tiempoInvertidoHoras < tarea.tiempoEstimadoHoras
-      ? "adelantada"
-      : "completada";
+    const estadoFinal =
+      tarea.tiempoInvertidoHoras > tarea.tiempoEstimadoHoras
+        ? "retrasada"
+        : tarea.tiempoInvertidoHoras < tarea.tiempoEstimadoHoras
+          ? "adelantada"
+          : "completada";
 
-  await TaskLog.create({
-    tarea: tarea._id,
-    desarrollador: desarrollador._id,
-    duracionEstimadaHoras: tarea.tiempoEstimadoHoras,
-    tiempoInvertidoHoras: tarea.tiempoInvertidoHoras,
-    estado: estadoFinal,
-  });
+    // 1) Crear TaskLog
+    const log = await TaskLog.create({
+      proyecto: tarea.proyecto?._id ?? tarea.proyecto,
+      tarea: tarea._id,
+      desarrollador: userId,
+      duracionEstimadaHoras: tarea.tiempoEstimadoHoras,
+      tiempoInvertidoHoras: tarea.tiempoInvertidoHoras,
+      estado: estadoFinal,
+      puntuacionCalidad: null,
+    });
 
-  // 🔹 Actualizar el rendimiento histórico del dev usando todos sus logs
-  const nuevoPromedio = await actualizarRendimientoDesarrollador(userId);
-}
+    // 2) Buscar admin desde el proyecto
+    const proyecto = await Project.findById(tarea.proyecto?._id ?? tarea.proyecto).select("administrador");
+    if (!proyecto?.administrador) {
+      throw new Error("El proyecto no tiene administrador asignado");
+    }
 
-  // 🔹 Registrar en historial de la tarea
+    // 3) Crear notificación
+    await Notification.create({
+      receptor: proyecto.administrador,
+      emisor: userId,
+      tipo: "CALIFICAR_TAREA",
+      proyecto: proyecto._id,
+      tarea: tarea._id,
+      taskLog: log._id,
+      titulo: "Tarea completada: requiere calificación",
+      mensaje: `El desarrollador completó una tarea y requiere puntuación de calidad.`,
+    });
+    
+    // 4) actualizar rendimiento
+    nuevoPromedio = await actualizarRendimientoDesarrollador(userId);
+  }
+
+  //si la accion es pausar
+  if (accion === "pausar") {
+    tarea.estado = "pausada";
+
+  }
+  //Actualizar historial
+
   tarea.historial.push({
     campo: "estado",
     valorAnterior: "en curso",
     valorNuevo: tarea.estado,
-    cambiadoPor: desarrollador._id,
+    cambiadoPor: userId,
     fechaCambio: new Date()
   });
 
@@ -252,9 +285,12 @@ export async function pausarOCompletarTarea(taskId, userId, accion = "pausar") {
   return {
     message: `Tarea ${accion === "completar" ? "completada" : "pausada"} correctamente`,
     horasTotales: tarea.tiempoInvertidoHoras.toFixed(2),
-    rendimientoActualizado: nuevoPromedio.toFixed(2)
+    rendimientoActualizado: nuevoPromedio !== null
+      ? nuevoPromedio.toFixed(2)
+      : null
   };
 }
+
 
 /**
  * Busca los desarrolladores más afines a una tarea,
@@ -357,7 +393,7 @@ export async function buscarDesarrolladoresSimilares(taskId, devDisponibles = []
  */
 export async function actualizarPuntuacionCalidad() {
   try {
-  
+
     // 🔹 Obtener todos los registros
     const taskLogs = await TaskLog.find();
     console.log(`🔍 Registros encontrados: ${taskLogs.length}`);

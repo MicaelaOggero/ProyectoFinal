@@ -7,6 +7,106 @@ import SimulacionAsignacion from "../simulationAssignment/simulationAssignment.m
 import User from "../users/user.model.js";
 import { obtenerDisponibilidadEnRango } from "../../utils/asignacionBasica/diasDisponible.js";
 
+export async function recalcularDatosGlobales(simulacionActualizada, costoTotalSimulado) {
+  if (!simulacionActualizada) throw new Error("Simulación inválida");
+  if (!Array.isArray(simulacionActualizada.asignaciones)) {
+    throw new Error("La simulación no tiene asignaciones pobladas");
+  }
+
+  const asignaciones = simulacionActualizada.asignaciones;
+
+  // Helpers
+  const parseNum = (v) => {
+    if (typeof v === "number") return v;
+    if (v == null) return 0;
+    const n = Number(v);
+    return Number.isNaN(n) ? 0 : n;
+  };
+
+  // Acumuladores
+  let tiempoTotalEstimado = 0;
+  let tiempoTotalSimulado = 0;
+
+  let sumaCalidadTareas = 0;
+  let contadorCalidadTareas = 0;
+
+  let sumaCalidadSimulada = 0;
+  let contadorCalidadSimulada = 0;
+
+  // Si querés calcular costo desde asignaciones en lugar de pasar costoTotalSimulado por parámetro,
+  // podés usar esto:
+  // let costoTotalSimuladoCalc = 0;
+
+  for (const a of asignaciones) {
+    // --- Tiempo estimado (plan) ---
+    // Preferimos horasTotales de la asignación si existe; si no, caemos a tarea.tiempoEstimadoHoras
+    const horasEstimadasPlan =
+      a?.horasTotales != null
+        ? parseNum(a.horasTotales)
+        : parseNum(a?.tarea?.tiempoEstimadoHoras);
+
+    tiempoTotalEstimado += horasEstimadasPlan;
+
+    // --- Tiempo simulado (real estimado por rendimiento) ---
+    // Tu lógica previa: usar horasEstimadasSegunRendimiento si viene, sino horasTotales
+    const horasSimuladas =
+      a?.horasEstimadasSegunRendimiento != null
+        ? parseNum(a.horasEstimadasSegunRendimiento)
+        : horasEstimadasPlan;
+
+    tiempoTotalSimulado += horasSimuladas;
+
+    // --- Calidad de tareas ---
+    // En tu payload suele venir como calidadTarea (o puntuacionCalidad según tu asignación)
+    const calidadTarea =
+      a?.calidadTarea != null ? parseNum(a.calidadTarea) :
+      a?.puntuacionCalidad != null ? parseNum(a.puntuacionCalidad) :
+      0;
+
+    if (calidadTarea > 0) {
+      sumaCalidadTareas += calidadTarea;
+      contadorCalidadTareas++;
+    }
+
+    // --- Calidad simulada (feedback histórico) ---
+    // Tu asignación tiene feedbackHistorico, o dev.feedbackHistorico.puntuacionPromedio
+    const feedback =
+      a?.feedbackHistorico != null ? parseNum(a.feedbackHistorico) :
+      a?.desarrollador?.feedbackHistorico?.puntuacionPromedio != null
+        ? parseNum(a.desarrollador.feedbackHistorico.puntuacionPromedio)
+        : 0;
+
+    if (feedback > 0) {
+      sumaCalidadSimulada += feedback;
+      contadorCalidadSimulada++;
+    }
+
+    // --- Costo (opcional calcular desde asignación) ---
+    // Si en Asignacion guardás costoTarea:
+    // costoTotalSimuladoCalc += parseNum(a?.costoTarea);
+    // o si guardás costoPorHora:
+    // costoTotalSimuladoCalc += parseNum(a?.costoPorHora) * horasEstimadasPlan;
+  }
+
+  const calidadPromedioTareas =
+    contadorCalidadTareas > 0 ? Number((sumaCalidadTareas / contadorCalidadTareas).toFixed(2)) : 0;
+
+  const calidadPromedioSimulado =
+    contadorCalidadSimulada > 0 ? Number((sumaCalidadSimulada / contadorCalidadSimulada).toFixed(2)) : 0;
+
+  // ✅ Actualizar la simulación (documento Mongoose)
+  simulacionActualizada.tiempoTotalEstimado = Number(tiempoTotalEstimado.toFixed(2));
+  simulacionActualizada.tiempoTotalSimulado = Number(tiempoTotalSimulado.toFixed(2));
+  simulacionActualizada.calidadPromedioTareas = calidadPromedioTareas;
+  simulacionActualizada.calidadPromedioSimulado = calidadPromedioSimulado;
+  simulacionActualizada.costoTotalSimulado = Number(parseNum(costoTotalSimulado).toFixed(2));
+
+  // No hago save acá porque vos ya hacés:
+  // await simulacionActualizada.save();
+  return simulacionActualizada;
+}
+
+
 // 🔧 Helper para registrar cambios automáticamente
 function registrarCambio(tarea, campo, valorAnterior, valorNuevo, userId = null) {
   // Evitar registrar si no cambió realmente

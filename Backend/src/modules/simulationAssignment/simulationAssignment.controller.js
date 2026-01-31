@@ -1,7 +1,9 @@
 import {
   calcularDatosGlobalesSimulacion,
-  obtenerPreviewResumenService, verificarDisponibilidadAcumuladaAsignacionesManualesService, aplicarAsignacionesManualesService, calcularDatosGlobalesSimulacionPorCriterio
+  obtenerPreviewResumenService, verificarDisponibilidadAcumuladaAsignacionesManualesService, aplicarAsignacionesManualesService, calcularDatosGlobalesSimulacionPorCriterio, completarBasicaSinCandidatosConDB
 } from "./simulationAssignment.service.js";
+
+
 
 export const calcularDatosGlobalesSimulacionController = async (req, res) => {
   try {
@@ -45,7 +47,11 @@ export async function obtenerPreviewResumenController(req, res) {
   try {
     const { projectId } = req.params;
     const resultado = await obtenerPreviewResumenService(projectId);
-    return res.json(resultado);
+    return res
+      .status(200)
+      .type("application/json")
+      .send(JSON.stringify(resultado, null, 2));
+
   } catch (error) {
     console.error("Error en obtenerPreviewResumenService:", error);
     return res.status(500).json({ error: error.message });
@@ -125,20 +131,34 @@ const normalizarCriterios = (obj) => {
 
 export const aplicarAsignacionesManualesController = async (req, res) => {
   try {
+    await completarBasicaSinCandidatosConDB(req.body);
+
     const resultadoCorregido = await aplicarAsignacionesManualesService(req.body);
 
-    // 👇 ACÁ el paso clave
     const globalesPorCriterio =
       calcularDatosGlobalesSimulacionPorCriterio(resultadoCorregido);
 
-    return res.status(200).json({
-      ok: true,
-      message: "Asignaciones manuales aplicadas correctamente.",
-      data: normalizarCriterios(resultadoCorregido),
-      globalesPorCriterio: normalizarCriterios(globalesPorCriterio.globalesPorCriterio),
-    });
+    return res
+      .status(200)
+      .type("application/json")
+      .send(
+        JSON.stringify(
+          {
+            ok: true,
+            message: "Asignaciones manuales aplicadas correctamente.",
+            data: normalizarCriterios(resultadoCorregido),
+            globalesPorCriterio: normalizarCriterios(
+              globalesPorCriterio.globalesPorCriterio
+            ),
+          },
+          null,
+          2
+        )
+      );
+
+
   } catch (error) {
-    console.error("❌ Error en aplicarAsignacionesManualesController:", error);
+    console.error("Error en aplicarAsignacionesManualesController:", error);
 
     return res.status(500).json({
       ok: false,

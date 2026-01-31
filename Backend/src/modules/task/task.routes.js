@@ -42,7 +42,7 @@ router.get("/proyecto/:projectId/desarrollador/:developerId", auth, listarTasksP
 router.get("/ordenadas/:projectId", authAdmin, obtenerTareasOrdenadasController);
 
 // Cambiar el estado de una tarea a "en curso"
-router.put("/:taskId/inciar", auth, iniciarTareas)
+router.put("/:taskId/iniciar", auth, iniciarTareas)
 
 // Cambiar el estado de una tarea a "pausada-completada"
 router.put("/:taskId/accion", auth, pausarOCompletarTareaController);
