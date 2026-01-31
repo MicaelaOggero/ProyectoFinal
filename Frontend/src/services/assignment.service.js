@@ -30,7 +30,7 @@ class AssignmentService {
     }
   }
 
-  // MÿÿTODOS DEPRECADOS - Usar preview/confirm en su lugar
+  // Mï¿½ï¿½TODOS DEPRECADOS - Usar preview/confirm en su lugar
   async runAutomaticAssignment(projectId) {
     try {
       const response = await axios.post(`${API_URL}/assignment/asignar-automatico/${projectId}`, {});
@@ -61,7 +61,7 @@ class AssignmentService {
     }
   }
 
-  // NUEVOS MÿÿTODOS CON PREVIEW Y CONFIRM
+  // NUEVOS Mï¿½ï¿½TODOS CON PREVIEW Y CONFIRM
 
   // Preview de asignaci?n b?sica (por disponibilidad y habilidades)
   async previewBasicAssignment(projectId) {
@@ -127,13 +127,18 @@ class AssignmentService {
         throw new Error('No se recibieron sugerencias para confirmar (tiempo).');
       }
 
-      const body = payload.success && payload.criterio && payload.sugerencias
-        ? payload
-        : {
-            success: true,
-            criterio: 'tiempo',
-            sugerencias: payload
-          };
+      let body = payload;
+
+      if (!Array.isArray(body.asignaciones) && payload.sugerencias?.asignaciones) {
+        body = payload.sugerencias;
+      }
+
+      if (!body.projectId) {
+        body = {
+          ...body,
+          projectId
+        };
+      }
 
       const response = await axios.post(`${API_URL}/assignment/iaconfirm/proyecto/${projectId}/tiempo`, body);
       return response.data;
@@ -161,13 +166,18 @@ class AssignmentService {
         throw new Error('No se recibieron sugerencias para confirmar (calidad).');
       }
 
-      const body = payload.success && payload.criterio && payload.sugerencias
-        ? payload
-        : {
-            success: true,
-            criterio: 'calidad',
-            sugerencias: payload
-          };
+      let body = payload;
+
+      if (!Array.isArray(body.asignaciones) && payload.sugerencias?.asignaciones) {
+        body = payload.sugerencias;
+      }
+
+      if (!body.projectId) {
+        body = {
+          ...body,
+          projectId
+        };
+      }
 
       const response = await axios.post(`${API_URL}/assignment/iaconfirm/proyecto/${projectId}/calidad`, body);
       return response.data;
@@ -206,7 +216,7 @@ class AssignmentService {
     }
   }
 
-  // NUEVOS MÿÿTODOS PARA SIMULACIÿÿN DE ASIGNACIONES
+  // NUEVOS Mï¿½ï¿½TODOS PARA SIMULACIï¿½ï¿½N DE ASIGNACIONES
 
   // Obtener resumen de simulaci?n con los 4 criterios (basica, costo, tiempoIA, calidad)
   async getResumenSimulacion(projectId) {
