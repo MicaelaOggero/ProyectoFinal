@@ -2398,7 +2398,7 @@ export default {
         const criterios = [
           { resumenKey: 'basica', comparacionKey: 'disponibilidad', name: 'Disponibilidad' },
           { resumenKey: 'costo', comparacionKey: 'costo', name: 'Costo' },
-          { resumenKey: 'tiempoIA', comparacionKey: 'tiempo', name: 'Tiempo IA' },
+          { resumenKey: 'tiempo', comparacionKey: 'tiempo', name: 'Tiempo' },
           { resumenKey: 'calidad', comparacionKey: 'calidad', name: 'Calidad' }
         ];
         
@@ -2817,7 +2817,7 @@ export default {
               const criterios = [
                 { resumenKey: 'basica', comparacionKey: 'disponibilidad', name: 'Disponibilidad' },
                 { resumenKey: 'costo', comparacionKey: 'costo', name: 'Costo' },
-                { resumenKey: 'tiempoIA', comparacionKey: 'tiempo', name: 'Tiempo IA' },
+                { resumenKey: 'tiempo', comparacionKey: 'tiempo', name: 'Tiempo' },
                 { resumenKey: 'calidad', comparacionKey: 'calidad', name: 'Calidad' }
               ];
 
