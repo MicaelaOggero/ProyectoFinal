@@ -2,6 +2,9 @@ import * as projectDao from "./project.dao.js";
 import Project from "./project.model.js";
 import Task from "../task/task.model.js";
 import * as userDao from "../users/user.dao.js";
+import { crearNotificacionFeedbackProyecto } from "../notifications/notification.service.js";
+import User from "../users/user.model.js";
+import Notification from "../notifications/notification.model.js";
 
 // Obtener proyectos por administrador
 export const getProjects = async (adminId) => {
@@ -80,12 +83,12 @@ export async function iniciarProyectoService(projectId, userId) {
     throw new Error("El proyecto ya está iniciado");
   }
 
-   // 🔹 Validar estado actual
+  // 🔹 Validar estado actual
   if (proyecto.estado !== "pendiente" && proyecto.estado !== "pausado") {
     throw new Error("Solo se pueden iniciar proyectos pendientes o pausados");
   }
 
-   // Verificar si tiene tareas asociadas
+  // Verificar si tiene tareas asociadas
   const tareas = await Task.find({ proyecto: projectId });
   if (!tareas || tareas.length === 0) {
     throw new Error("No se puede iniciar un proyecto sin tareas asociadas");
@@ -198,8 +201,137 @@ export async function finalizarProyectoService(projectId, userId) {
   proyecto.tiempoEstimadoTotalHoras = tiempoEstimadoTotalHoras;
   proyecto.tiempoInvertidoTotalMinutos = tiempoInvertidoTotalMinutos;
 
-
   await proyecto.save();
+
+  // ✅ Crear notificación para calificar devs
+  await crearNotificacionFeedbackProyecto(projectId);
+
   return proyecto;
+}
+
+// services/proyectoFeedback.service.js
+
+export async function calificarDesarrolladoresProyectoService(
+  projectId,
+  adminId,
+  calificaciones,
+  notificationId = null
+) {
+  const proyecto = await Project.findById(projectId);
+  if (!proyecto) throw new Error("Proyecto no encontrado");
+
+  // 🔐 Seguridad: solo el admin del proyecto
+  if (String(proyecto.administrador) !== String(adminId)) {
+    throw new Error("No tenés permisos para calificar este proyecto");
+  }
+
+  if (proyecto.puntajeCalidad != null) {
+    throw new Error("El proyecto ya fue calificado anteriormente");
+  }
+
+  if (proyecto.estado !== "finalizado") {
+    throw new Error("Solo se puede calificar cuando el proyecto está finalizado");
+  }
+
+  if (!Array.isArray(calificaciones) || calificaciones.length === 0) {
+    throw new Error("calificaciones debe ser un array con al menos un elemento");
+  }
+
+  // Validación básica
+  for (const c of calificaciones) {
+    if (!c?.desarrolladorId) {
+      throw new Error("Falta desarrolladorId en una calificación");
+    }
+    const p = Number(c?.puntuacion);
+    if (!Number.isFinite(p) || p < 1 || p > 5) {
+      throw new Error(`Puntuación inválida para ${c.desarrolladorId}. Debe ser 1 a 5`);
+    }
+  }
+
+  const updates = [];
+
+  // 🔄 Actualizar feedbackHistorico de cada dev
+  for (const c of calificaciones) {
+    const dev = await User.findById(c.desarrolladorId);
+    if (!dev) throw new Error(`Desarrollador no encontrado: ${c.desarrolladorId}`);
+
+    const prevProm = Number(dev.feedbackHistorico?.puntuacionPromedio ?? 0);
+    const prevCount = Number(dev.feedbackHistorico?.vecesCalificado ?? 0);
+
+    const nuevoCount = prevCount + 1;
+    const nuevoProm = ((prevProm * prevCount) + Number(c.puntuacion)) / nuevoCount;
+
+    dev.feedbackHistorico = {
+      puntuacionPromedio: Number(nuevoProm.toFixed(2)),
+      vecesCalificado: nuevoCount
+    };
+
+    await dev.save();
+
+    updates.push({
+      desarrolladorId: dev._id,
+      puntuacion: Number(c.puntuacion),
+      feedbackHistorico: dev.feedbackHistorico
+    });
+  }
+
+  // 🔔 Actualizar notificación de proyecto (si se envía)
+  // -------------------------------------
+  // 🔹 Calcular puntaje de calidad del proyecto
+  // -------------------------------------
+  if (Array.isArray(calificaciones) && calificaciones.length > 0) {
+    const sumaCalificaciones = calificaciones.reduce(
+      (sum, c) => sum + Number(c.puntuacion),
+      0
+    );
+
+    const promedioCalificaciones =
+      sumaCalificaciones / calificaciones.length;
+
+    proyecto.puntajeCalidad = Number(promedioCalificaciones.toFixed(2));
+    await proyecto.save();
+  }
+
+  // -------------------------------------
+  // 🔹 Resolver notificación (si existe)
+  // -------------------------------------
+  if (notificationId) {
+    const notif = await Notification.findById(notificationId);
+
+    if (
+      notif &&
+      String(notif.receptor) === String(adminId) &&
+      notif.tipo === "CALIFICAR_PROYECTO_LOTE"
+    ) {
+      const map = new Map(
+        calificaciones.map(c => [
+          String(c.desarrolladorId),
+          Number(c.puntuacion),
+        ])
+      );
+
+      notif.data.desarrolladores = (notif.data.desarrolladores || []).map(d => ({
+        ...d,
+        puntuacion: map.has(String(d.desarrolladorId))
+          ? map.get(String(d.desarrolladorId))
+          : d.puntuacion,
+        calificadoEn: map.has(String(d.desarrolladorId))
+          ? new Date()
+          : d.calificadoEn,
+      }));
+
+      notif.resuelta = true;
+      notif.resueltaEn = new Date();
+
+      await notif.save();
+    }
+  }
+
+  return {
+    ok: true,
+    projectId,
+    actualizados: updates.length,
+    detalle: updates
+  };
 }
 

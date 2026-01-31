@@ -4,6 +4,7 @@ import Notification from "../notifications/notification.model.js";
 import TaskLog from "../task/taskLog.model.js";
 import Project from "../projects/project.model.js";
 import { actualizarPuntuacionCalidadDesarrollador } from "../users/user.service.js"; // ajustá el path real
+import Task from "../task/task.model.js";
 
 export const calificarCalidadDesdeNotificacionService = async ({
   notificationId,
@@ -77,3 +78,64 @@ export const calificarCalidadDesdeNotificacionService = async ({
     notificationId,
   };
 };
+
+
+export async function crearNotificacionFeedbackProyecto(projectId) {
+  const proyecto = await Project.findById(projectId).select("administrador");
+  if (!proyecto) throw new Error("Proyecto no encontrado");
+
+  const adminId = proyecto.administrador;
+  if (!adminId) throw new Error("El proyecto no tiene administrador asignado");
+
+  // Devs participantes = tareas con desarrolladorAsignado
+  const tareas = await Task.find({ proyecto: projectId })
+    .select("desarrolladorAsignado")
+    .lean();
+
+  const devIds = [...new Set(
+    tareas
+      .map(t => t.desarrolladorAsignado)
+      .filter(Boolean)
+      .map(id => String(id))
+  )];
+
+  if (devIds.length === 0) {
+    return { created: false, reason: "No hay desarrolladores asignados en tareas del proyecto" };
+  }
+
+  // ✅ Evitar duplicados: notificación pendiente por proyecto/admin
+  const existente = await Notification.findOne({
+    receptor: adminId,
+    tipo: "CALIFICAR_PROYECTO_LOTE",   // ✅ asegurate de tenerlo en el enum
+    proyecto: projectId,
+    resuelta: false
+  }).select("_id");
+
+  if (existente) {
+    return { created: false, reason: "Ya existe una notificación pendiente para este proyecto", notificationId: existente._id };
+  }
+
+  const notif = await Notification.create({
+    receptor: adminId,
+    emisor: null,
+    tipo: "CALIFICAR_PROYECTO_LOTE",
+    proyecto: proyecto._id,
+
+    // ⚠️ Para que esto sea válido, tarea/taskLog deben NO ser requeridos para este tipo
+    tarea: undefined,
+    taskLog: undefined,
+
+    titulo: "Calificar desempeño del equipo",
+    mensaje: "El proyecto fue finalizado. Asigná una calificación (1 a 5) a cada desarrollador.",
+
+    leida: false,
+    resuelta: false,
+
+    data: {
+      proyectoId: String(proyecto._id),
+      desarrolladores: devIds.map(id => ({ desarrolladorId: String(id), puntuacion: null })),
+    },
+  });
+
+  return { created: true, notificationId: notif._id, devs: devIds.length };
+}

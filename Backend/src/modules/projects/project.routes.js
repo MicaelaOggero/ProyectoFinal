@@ -29,4 +29,9 @@ router.put("/:projectId/pausar",authAdmin, projectController.pausarProyecto);
 // Finalizar un proyecto
 router.put("/:projectId/finalizar", authAdmin, projectController.finalizarProyecto);
 
+// Calificar desarrolladores del proyecto
+
+router.post("/:projectId/feedback", authAdmin, projectController.calificarDesarrolladoresProyectoController);
+
+
 export default router;

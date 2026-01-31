@@ -7,8 +7,7 @@ export const calificarCalidadDesdeNotificacionController = async (req, res) => {
     const { puntuacionCalidad } = req.body;
 
     // ✅ asumo que tenés middleware auth que setea req.user._id
-    const adminId = req.user?._id || req.body.adminId; // fallback si no tenés auth armado
-
+    const adminId = req.user._id  // fallback si no tenés auth armado
     const resultado = await calificarCalidadDesdeNotificacionService({
       notificationId,
       adminId,

@@ -78,6 +78,12 @@ const projectSchema = new mongoose.Schema({
   tiempoEstimadoTotalHoras: {
     type: Number,
     default: 0 // en horas
+  },
+  puntajeCalidad: {
+    type: Number,
+    min: 1,
+    max: 5,
+    default: null
   }
 });
 
