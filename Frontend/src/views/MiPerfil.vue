@@ -67,10 +67,6 @@
                     </span>
                   </li>
                   <li class="mb-2">
-                    <i class="bi bi-clock me-2 text-muted"></i>
-                    <strong>Disponibilidad:</strong> {{ user.horasSemanalMaxima || 'No especificada' }} hs/semana
-                  </li>
-                  <li class="mb-2">
                     <i class="bi bi-currency-dollar me-2 text-muted"></i>
                     <strong>Costo por Hora:</strong> ${{ user.costoPorHora || 'No especificado' }}
                   </li>
@@ -224,15 +220,11 @@
            <div class="card-body">
              <!-- Estadísticas para Usuarios Normales -->
              <div v-if="user && user.rol !== 'admin'" class="row text-center">
-               <div class="col-md-4 mb-3">
+               <div class="col-md-6 mb-3">
                  <h3 class="text-success">{{ user.habilidades ? user.habilidades.length : 0 }}</h3>
                  <p class="text-muted mb-0">Habilidades</p>
                </div>
-               <div class="col-md-4 mb-3">
-                 <h3 class="text-info">{{ user.horasSemanalMaxima || 'N/A' }}</h3>
-                 <p class="text-muted mb-0">Horas/Semana</p>
-               </div>
-               <div class="col-md-4 mb-3">
+               <div class="col-md-6 mb-3">
                  <h3 class="text-warning">${{ user.costoPorHora || 'N/A' }}</h3>
                  <p class="text-muted mb-0">Costo/Hora</p>
                </div>

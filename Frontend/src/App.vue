@@ -29,9 +29,8 @@ async created() {
 
 watch: {
   '$route'() {
-    if (this.$route.path !== '/login') {
-      this.checkAuthStatus();
-    }
+    // Siempre verificar estado de auth al cambiar de ruta (incluyendo al ir a /login tras cerrar sesión)
+    this.checkAuthStatus();
   }
 },
 

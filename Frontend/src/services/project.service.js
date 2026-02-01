@@ -178,6 +178,24 @@ class ProjectService {
       throw error;
     }
   }
+
+  /**
+   * Enviar feedback/calificaciones de desarrolladores de un proyecto finalizado (solo admin).
+   * POST /api/project/:projectId/feedback
+   * Body: { calificaciones: [ { desarrolladorId, puntuacion: 1-5 } ], notificationId }
+   */
+  async enviarFeedbackProyecto(projectId, { calificaciones, notificationId }) {
+    try {
+      const response = await axios.post(`${API_URL}/project/${projectId}/feedback`, {
+        calificaciones,
+        notificationId: notificationId || undefined
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error en enviarFeedbackProyecto:', error);
+      throw error;
+    }
+  }
 }
 
 export default new ProjectService();

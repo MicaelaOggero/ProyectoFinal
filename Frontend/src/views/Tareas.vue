@@ -177,10 +177,18 @@
                     <button 
                       v-if="task.estado === 'en curso'"
                       class="btn btn-sm btn-warning" 
-                      @click="pausarOCompletarTarea(task)" 
-                      title="Pausar o completar tarea"
+                      @click="pausarTarea(task)" 
+                      title="Pausar tarea"
                     >
-                      <i class="bi bi-pause-fill"></i> Pausar/Completar
+                      <i class="bi bi-pause-fill"></i> Pausar
+                    </button>
+                    <button 
+                      v-if="task.estado === 'en curso'"
+                      class="btn btn-sm btn-success" 
+                      @click="completarTarea(task)" 
+                      title="Completar tarea"
+                    >
+                      <i class="bi bi-check-circle"></i> Completar
                     </button>
                     <button 
                       v-if="task.estado === 'pausada'"
@@ -3172,37 +3180,43 @@ export default {
       }
     },
     
-    async pausarOCompletarTarea(task) {
-      // Validar que task existe
-      if (!task) {
-        console.error('Error: task es undefined o null', task);
+    async pausarTarea(task) {
+      if (!task?._id) {
         alert('Error: No se pudo obtener la información de la tarea. Por favor, recarga la página.');
         return;
       }
-      
-      // Validar que task tiene _id
-      if (!task._id) {
-        console.error('Error: task._id es undefined', task);
-        alert('Error: La tarea no tiene un ID válido. Por favor, recarga la página.');
+      if (!this.user?._id) {
+        alert('Debes iniciar sesión para pausar una tarea.');
         return;
       }
-      
-      const action = task.estado === 'en curso' ? 'pausar o completar' : 'completar';
-      if (window.confirm(`¿Estás seguro de que quieres ${action} esta tarea?`)) {
-        try {
-          await TaskService.pausarOCompletarTarea(task._id);
-          alert('✅ Tarea actualizada correctamente');
-          await this.loadTasks();
-        } catch (error) {
-          console.error('Error actualizando tarea:', error);
-          const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
-          
-          if (error.response?.status === 400) {
-            alert(`⚠️ No se puede actualizar la tarea:\n\n${errorMessage}`);
-          } else {
-            alert(`❌ Error al actualizar la tarea:\n\n${errorMessage}`);
-          }
-        }
+      if (!window.confirm('¿Pausar esta tarea?')) return;
+      try {
+        await TaskService.pausarTarea(task._id, this.user._id);
+        alert('✅ Tarea pausada correctamente');
+        await this.loadTasks();
+      } catch (error) {
+        const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
+        alert(error.response?.status === 400 ? `⚠️ ${errorMessage}` : `❌ Error al pausar la tarea:\n\n${errorMessage}`);
+      }
+    },
+
+    async completarTarea(task) {
+      if (!task?._id) {
+        alert('Error: No se pudo obtener la información de la tarea. Por favor, recarga la página.');
+        return;
+      }
+      if (!this.user?._id) {
+        alert('Debes iniciar sesión para completar una tarea.');
+        return;
+      }
+      if (!window.confirm('¿Marcar esta tarea como completada?')) return;
+      try {
+        await TaskService.completarTarea(task._id, this.user._id);
+        alert('✅ Tarea completada correctamente');
+        await this.loadTasks();
+      } catch (error) {
+        const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
+        alert(error.response?.status === 400 ? `⚠️ ${errorMessage}` : `❌ Error al completar la tarea:\n\n${errorMessage}`);
       }
     }
   }

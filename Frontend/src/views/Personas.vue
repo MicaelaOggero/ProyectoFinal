@@ -19,7 +19,6 @@
               <th scope="col">DNI</th>
               <th scope="col">Habilidades</th>
               <th scope="col">Años Exp.</th>
-              <th scope="col">Disponibilidad (hs/sem)</th>
               <th scope="col">Calificación</th>
               <th scope="col">Acciones</th>
             </tr>
@@ -34,7 +33,6 @@
               <td>{{ person.dni }}</td>
               <td>{{ displaySkills(person.habilidades) }}</td>
               <td>{{ person.aniosExperiencia || 'N/A' }}</td>
-              <td>{{ person.horasSemanalMaxima }}</td>
               <td>
                 <div v-if="getUserRating(person)">
                   <div class="d-flex align-items-center">
@@ -187,26 +185,6 @@
                 </div>
               </div>
               
-              <div class="row">
-                 
-                <div class="col-md-6 mb-3">
-                  <label for="personAvailability" class="form-label">Disponibilidad Semanal (horas) *</label>
-                  <input 
-                    type="number" 
-                    class="form-control" 
-                    :class="{ 'is-invalid': hasFieldError('availability') }"
-                    id="personAvailability" 
-                    v-model.number="editablePerson.availability" 
-                    required
-                    min="1"
-                    max="168"
-                    placeholder="Ej: 40"
-                  >
-                  <div class="invalid-feedback" v-if="hasFieldError('availability')">
-                    {{ getFieldError('availability') }}
-                  </div>
-                </div>
-              </div>
               <div class="row">
                 <div class="col-md-6 mb-3">
                   <label for="personYearsExperience" class="form-label">Años de Experiencia</label>
@@ -444,15 +422,6 @@ export default {
     } else {
       console.log('🔍 DNI está vacío o undefined (válido para usuarios de Google)');
     }
-
-      // Validar disponibilidad semanal
-      if (!this.editablePerson.availability || this.editablePerson.availability <= 0) {
-        this.validationErrors.availability = 'La disponibilidad semanal es requerida y debe ser mayor a 0';
-        isValid = false;
-      } else if (this.editablePerson.availability > 168) { // 24 * 7 = 168 horas por semana
-        this.validationErrors.availability = 'La disponibilidad semanal no puede exceder 168 horas';
-        isValid = false;
-      }
 
       // Validar costo por hora
       if (!this.editablePerson.costPerHour || this.editablePerson.costPerHour <= 0) {

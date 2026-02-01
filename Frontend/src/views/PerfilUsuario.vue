@@ -47,7 +47,6 @@
                   </li>
                   <li><strong>Email:</strong> {{ user.email }}</li>
                   <li><strong>Años de Experiencia:</strong> {{ user.aniosExperiencia || 'No especificado' }}</li>
-                  <li><strong>Disponibilidad:</strong> {{ user.horasSemanalMaxima }} hs/semana</li>
                   <li><strong>Costo por Hora:</strong> ${{ user.costoPorHora }}</li>
                 </ul>
               </div>
@@ -130,10 +129,6 @@
               <div class="mb-3">
                 <h3 class="text-primary">{{ user.habilidades ? user.habilidades.length : 0 }}</h3>
                 <p class="text-muted mb-0">Habilidades</p>
-              </div>
-              <div class="mb-3">
-                <h3 class="text-success">{{ user.horasSemanalMaxima }}</h3>
-                <p class="text-muted mb-0">Horas/Semana</p>
               </div>
               <div class="mb-3">
                 <h3 class="text-warning">{{ user.aniosExperiencia || 'N/A' }}</h3>
