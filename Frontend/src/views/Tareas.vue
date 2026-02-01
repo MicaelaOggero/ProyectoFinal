@@ -358,7 +358,7 @@
               </div>
 
               <div class="row">
-                <div class="col-md-6 mb-3">
+                <div class="mb-3" :class="taskForm.estado === 'completada' ? 'col-md-6' : 'col-12'">
                   <label for="taskEstimatedHours" class="form-label">Tiempo Estimado (horas)</label>
                   <input 
                     type="number" 
@@ -369,7 +369,7 @@
                     step="0.5"
                   >
                 </div>
-                <div class="col-md-6 mb-3">
+                <div class="col-md-6 mb-3" v-if="taskForm.estado === 'completada'">
                   <label for="taskTimeSpent" class="form-label">Tiempo Invertido (horas)</label>
                   <input 
                     type="number" 
@@ -1039,9 +1039,9 @@
                         <strong>{{ asignacion.tarea?.descripcion || asignacion.descripcion || 'Tarea sin descripción' }}</strong>
                       </td>
                       <td>
-                        <span v-if="asignacion.desarrollador || asignacion.desarrolladorAsignado">
+                        <span v-if="getDeveloperDisplayName(asignacion)">
                           <i class="bi bi-person-check text-success me-1"></i>
-                          {{ asignacion.desarrollador?.nombre || asignacion.desarrolladorAsignado?.nombre || '' }} {{ asignacion.desarrollador?.apellido || asignacion.desarrolladorAsignado?.apellido || '' }}
+                          {{ getDeveloperDisplayName(asignacion) }}
                         </span>
                         <span v-else class="text-warning">
                           <i class="bi bi-exclamation-triangle me-1"></i>
@@ -2233,6 +2233,44 @@ export default {
       return names[criterio] || criterio;
     },
 
+    // Nombre de tarea para mensajes de error (disponibilidad)
+    getTaskNameForError(tareaId) {
+      if (this.candidatesData && this.candidatesData[tareaId] && this.candidatesData[tareaId].tarea) {
+        return this.candidatesData[tareaId].tarea.descripcion || 'Sin nombre';
+      }
+      const basica = this.resumenSimulacion?.basica?.asignaciones;
+      if (Array.isArray(basica)) {
+        const a = basica.find(asig => String(asig.tareaId) === String(tareaId));
+        return a?.descripcion || 'Sin nombre';
+      }
+      return 'Tarea';
+    },
+
+    // Nombre de desarrollador para mensajes de error (disponibilidad)
+    getDeveloperNameForError(desarrolladorId) {
+      const dev = (this.allDevelopers && this.allDevelopers.length ? this.allDevelopers : (this.users || [])).find(
+        d => String(d._id) === String(desarrolladorId)
+      );
+      return dev ? `${dev.nombre || ''} ${dev.apellido || ''}`.trim() : 'Desarrollador';
+    },
+
+    // Nombre a mostrar en "Desarrollador Sugerido" (IA o manual con nombre desde backend o desde users)
+    getDeveloperDisplayName(asignacion) {
+      if (asignacion.desarrollador || asignacion.desarrolladorAsignado) {
+        const d = asignacion.desarrollador || asignacion.desarrolladorAsignado;
+        return `${d.nombre || ''} ${d.apellido || ''}`.trim() || null;
+      }
+      const razon = (asignacion.razon || '').toLowerCase();
+      if (razon.includes('manual')) {
+        if (asignacion.nombre) return `${asignacion.nombre} ${asignacion.apellido || ''}`.trim();
+        if (asignacion.desarrolladorId && this.users && this.users.length) {
+          const u = this.users.find(us => String(us._id) === String(asignacion.desarrolladorId));
+          if (u) return `${u.nombre || ''} ${u.apellido || ''}`.trim();
+        }
+      }
+      return null;
+    },
+
     // Formatear calidad (estrellas)
     formatCalidad(calidad) {
       if (calidad === null || calidad === undefined) return 'N/A';
@@ -2658,29 +2696,45 @@ export default {
           
           console.log('Resultado de verificación de disponibilidad:', verificacion);
           
-          // 3. Si la verificación falla, mostrar errores y no continuar
+          // 3. Si la verificación falla: mensaje amigable y quitar asignaciones fallidas para poder elegir otro desarrollador
           if (!verificacion.ok) {
+            const tareaIdsConError = new Set();
             let mensajesError = [];
-            
+
             if (verificacion.resultados && Array.isArray(verificacion.resultados)) {
               verificacion.resultados.forEach(r => {
                 if (!r.disponible) {
-                  mensajesError.push(`Tarea ${r.tareaId}: ${r.motivo}`);
+                  tareaIdsConError.add(r.tareaId);
+                  const nombreTarea = this.getTaskNameForError(r.tareaId);
+                  const nombreDev = this.getDeveloperNameForError(r.desarrolladorId);
+                  const necesita = r.detalle?.horasNecesarias ?? '—';
+                  const restante = r.detalle?.totalRestante ?? '—';
+                  mensajesError.push(`• Tarea «${nombreTarea}» – ${nombreDev} no tiene horas suficientes en el período. Necesita ${necesita} h, tiene ${restante} h disponibles.`);
                 }
               });
             }
-            
-            if (verificacion.errores && Array.isArray(verificacion.errores)) {
+
+            if (mensajesError.length === 0 && verificacion.errores && Array.isArray(verificacion.errores)) {
               mensajesError.push(...verificacion.errores);
             }
-            
             if (mensajesError.length === 0) {
               mensajesError.push('Uno o más desarrolladores no tienen disponibilidad suficiente.');
             }
-            
-            alert('Error de disponibilidad:\n\n' + mensajesError.join('\n'));
+
+            mensajesError.push('\nSe ha quitado la asignación de las tareas con error. Puede elegir otro desarrollador en el desplegable de cada tarea.');
+            alert('Error de disponibilidad\n\n' + mensajesError.join('\n\n'));
+
+            // Quitar asignaciones manuales fallidas para que el usuario pueda elegir otro desarrollador
+            tareaIdsConError.forEach(tid => {
+              delete this.manualAssignments[tid];
+              if (this.candidatesData && this.candidatesData[tid] && this.candidatesData[tid].asignacionManual) {
+                delete this.candidatesData[tid].asignacionManual;
+              }
+            });
+            this.$forceUpdate();
+
             this.isConfirming = false;
-            return; // No continuar si hay errores
+            return;
           }
           
           // 4. Si OK, aplicar asignaciones manuales al resumen completo
