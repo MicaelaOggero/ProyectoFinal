@@ -5,6 +5,7 @@ import TaskLog from "../task/taskLog.model.js";
 import Project from "../projects/project.model.js";
 import { actualizarPuntuacionCalidadDesarrollador } from "../users/user.service.js"; // ajustá el path real
 import Task from "../task/task.model.js";
+import { findNotificationsByUserDAO } from "../notifications/notification.dao.js";
 
 export const calificarCalidadDesdeNotificacionService = async ({
   notificationId,
@@ -139,3 +140,12 @@ export async function crearNotificacionFeedbackProyecto(projectId) {
 
   return { created: true, notificationId: notif._id, devs: devIds.length };
 }
+
+export const obtenerNotificacionesService = async (userId) => {
+  if (!userId) {
+    throw new Error("userId requerido");
+  }
+
+  // acá podrías filtrar por tipo, estado, etc en el futuro
+  return await findNotificationsByUserDAO(userId);
+};

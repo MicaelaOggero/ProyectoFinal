@@ -29,7 +29,7 @@ export async function findTasksByProject(projectId) {
 // Listar tareas por desarrollador
 export async function findTasksByDeveloper(userId) {
   return await Task.find({ desarrolladorAsignado: userId })
-    .populate("proyecto", "nombre")
+    .populate("proyecto")
     .populate("desarrolladorAsignado", "nombre email");
 }
 

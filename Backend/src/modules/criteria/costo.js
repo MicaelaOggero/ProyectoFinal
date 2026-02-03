@@ -154,6 +154,7 @@ Es muy importante distribuir las horas de forma uniforme entre los dias disponib
 
 Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
 {
+  (Si o si tienen que estar todos los campos según cada caso)
   projectId: "ID del proyecto",
   "asignaciones": [
   (si la tarea tuvo desarrolladoresCandidatos)
