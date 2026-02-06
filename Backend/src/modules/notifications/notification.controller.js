@@ -1,5 +1,5 @@
 // controllers/notifications.controller.js
-import { calificarCalidadDesdeNotificacionService } from "../notifications/notification.service.js";
+import { calificarCalidadDesdeNotificacionService, obtenerNotificacionesService } from "../notifications/notification.service.js";
 
 export const calificarCalidadDesdeNotificacionController = async (req, res) => {
   try {
@@ -25,6 +25,32 @@ export const calificarCalidadDesdeNotificacionController = async (req, res) => {
       ok: false,
       message: "Error al calificar la tarea.",
       error: error.message,
+    });
+  }
+};
+
+export const obtenerNotificacionesController = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({
+        ok: false,
+        message: "No autenticado"
+      });
+    }
+
+    const notificaciones = await obtenerNotificacionesService(userId);
+
+    return res.status(200).json({
+      ok: true,
+      data: notificaciones
+    });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      message: "Error al obtener notificaciones",
+      error: error.message
     });
   }
 };
