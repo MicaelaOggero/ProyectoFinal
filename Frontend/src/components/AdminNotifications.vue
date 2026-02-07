@@ -11,6 +11,39 @@
           <button type="button" class="btn-close" @click="closeModal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
+          <!-- Vista para desarrolladores -->
+          <div v-if="!isAdmin">
+            <div v-if="loadingDeveloperNotifications" class="text-center py-4">
+              <div class="spinner-border text-primary" role="status"></div>
+              <p class="mt-2">Cargando notificaciones...</p>
+            </div>
+            <div v-else-if="developerNotifications.length === 0" class="text-center py-4">
+              <div class="empty-state">
+                <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+                <h5 class="mt-3">No tenés notificaciones</h5>
+                <p class="text-muted">Cuando te califiquen una tarea o un proyecto, aparecerá aquí.</p>
+              </div>
+            </div>
+            <div v-else class="developer-notifications-list">
+              <div v-for="notif in developerNotifications" :key="notif._id" class="task-notif-card card mb-3">
+                <div class="card-body">
+                  <div class="d-flex align-items-start">
+                    <i class="bi bi-star-fill text-info me-3 mt-1" style="font-size: 1.5rem;"></i>
+                    <div>
+                      <h6 class="card-title mb-1">{{ notif.titulo }}</h6>
+                      <p class="card-text text-muted small mb-1">{{ notif.mensaje }}</p>
+                      <small v-if="notif.creadaEn" class="text-muted">
+                        <i class="bi bi-clock me-1"></i>{{ formatDate(notif.creadaEn) }}
+                      </small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Vista para administradores -->
+          <template v-if="isAdmin">
           <!-- Tabs -->
           <ul class="nav nav-tabs mb-3" role="tablist">
             <li class="nav-item" role="presentation">
@@ -265,6 +298,7 @@
               </div>
             </div>
           </div>
+          </template>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" @click="closeModal">Cerrar</button>
@@ -286,30 +320,43 @@ export default {
   data() {
     return {
       modalInstance: null,
+      currentUser: null,
       activeTab: 'solicitudes',
       pendingUsers: [],
       loading: true,
       processingUser: null,
       taskNotifications: [],
       loadingTaskNotifications: false,
+      developerNotifications: [],
+      loadingDeveloperNotifications: false,
       calificandoId: null,
       puntuacionSeleccionada: null,
       calificandoProyectoId: null,
       puntuacionesProyecto: {} // { [notificationId]: { [desarrolladorId]: number | null } }
     };
   },
+  computed: {
+    isAdmin() {
+      return AuthService.isAdmin(this.currentUser);
+    }
+  },
   mounted() {
     this.modalInstance = new Modal(document.getElementById('adminNotificationsModal'));
   },
   methods: {
     async show() {
-      this.loading = true;
-      this.pendingUsers = [];
-      this.taskNotifications = [];
-      this.activeTab = 'solicitudes';
+      this.currentUser = await AuthService.checkSession();
       this.modalInstance.show();
-      await this.loadPendingUsers();
-      await this.loadTaskNotifications();
+      if (AuthService.isAdmin(this.currentUser)) {
+        this.loading = true;
+        this.pendingUsers = [];
+        this.taskNotifications = [];
+        this.activeTab = 'solicitudes';
+        await this.loadPendingUsers();
+        await this.loadTaskNotifications();
+      } else {
+        await this.loadDeveloperNotifications();
+      }
     },
     closeModal() {
       this.modalInstance.hide();
@@ -410,11 +457,31 @@ export default {
         minute: '2-digit'
       });
     },
+    async loadDeveloperNotifications() {
+      this.loadingDeveloperNotifications = true;
+      try {
+        const list = await NotificationService.getMisNotificaciones();
+        const todas = Array.isArray(list) ? list : [];
+        // Notificaciones para desarrolladores: TAREA_CALIFICADA, PROYECTO_CALIFICADO, etc.
+        this.developerNotifications = todas.filter(
+          n => n.tipo === 'TAREA_CALIFICADA' || n.tipo === 'PROYECTO_CALIFICADO'
+        );
+      } catch (error) {
+        console.error('Error cargando notificaciones del desarrollador:', error);
+        this.developerNotifications = [];
+      } finally {
+        this.loadingDeveloperNotifications = false;
+      }
+    },
     async loadTaskNotifications() {
       this.loadingTaskNotifications = true;
       try {
         const list = await NotificationService.getMisNotificaciones();
-        this.taskNotifications = Array.isArray(list) ? list : [];
+        // Mostrar solo las pendientes de calificar (resuelta: false)
+        const todas = Array.isArray(list) ? list : [];
+        this.taskNotifications = todas.filter(
+          n => !n.resuelta && (n.tipo === 'CALIFICAR_TAREA' || n.tipo === 'CALIFICAR_PROYECTO_LOTE')
+        );
       } catch (error) {
         console.error('Error cargando notificaciones de tareas:', error);
         this.taskNotifications = [];
@@ -521,7 +588,8 @@ export default {
   overflow-y: auto;
 }
 
-.task-notifications-list {
+.task-notifications-list,
+.developer-notifications-list {
   max-height: 500px;
   overflow-y: auto;
 }

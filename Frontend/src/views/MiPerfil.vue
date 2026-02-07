@@ -220,13 +220,22 @@
            <div class="card-body">
              <!-- Estadísticas para Usuarios Normales -->
              <div v-if="user && user.rol !== 'admin'" class="row text-center">
-               <div class="col-md-6 mb-3">
+               <div class="col-md-4 mb-3">
                  <h3 class="text-success">{{ user.habilidades ? user.habilidades.length : 0 }}</h3>
                  <p class="text-muted mb-0">Habilidades</p>
                </div>
-               <div class="col-md-6 mb-3">
+               <div class="col-md-4 mb-3">
                  <h3 class="text-warning">${{ user.costoPorHora || 'N/A' }}</h3>
                  <p class="text-muted mb-0">Costo/Hora</p>
+               </div>
+               <div class="col-md-4 mb-3">
+                 <h3 class="text-info">
+                   {{ formatCalificacionPromedio(user.puntuacionPromedioCalidad) }}
+                 </h3>
+                 <p class="text-muted mb-0">Calificación de calidad</p>
+                 <small class="text-muted" v-if="user.puntuacionPromedioCalidad?.tareasCalificadas">
+                   {{ user.puntuacionPromedioCalidad.tareasCalificadas }} tarea(s) calificada(s)
+                 </small>
                </div>
              </div>
              <!-- Estadísticas para Administrador -->
@@ -601,6 +610,12 @@ export default {
     },
     getRoleClass(role) {
       return role === 'admin' ? 'bg-danger' : 'bg-primary';
+    },
+    formatCalificacionPromedio(puntuacionPromedioCalidad) {
+      const prom = puntuacionPromedioCalidad?.puntuacionPromedio;
+      const tareas = puntuacionPromedioCalidad?.tareasCalificadas ?? 0;
+      if (tareas === 0 || prom == null) return '—';
+      return Number(prom).toFixed(1) + '/5';
     },
     getNivelText(nivel) {
       const niveles = {

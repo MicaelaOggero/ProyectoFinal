@@ -30,15 +30,14 @@ class NotificationService {
   }
 
   /**
-   * Obtener notificaciones del admin (tareas completadas para calificar).
-   * Cuando el backend exponga GET /api/notification (o GET /api/notification/mis-notificaciones),
-   * implementar aquí la llamada y devolver la lista. Por ahora devuelve array vacío.
+   * Obtener notificaciones del usuario logueado (receptor).
+   * GET /api/notification - requiere auth.
+   * Respuesta: { ok: true, data: [ { _id, tipo, titulo, mensaje, proyecto, tarea, taskLog, emisor, data, leida, resuelta, creadaEn, ... } ] }
    */
   async getMisNotificaciones() {
-    // TODO: Backend debe exponer GET /api/notification para el admin logueado (receptor = userId, resuelta: false)
-    // Ej: const response = await axios.get(`${API_URL}/notification`);
-    // return response.data;
-    return [];
+    const response = await axios.get(`${API_URL}/notification`);
+    const data = response.data?.data;
+    return Array.isArray(data) ? data : [];
   }
 }
 

@@ -7,7 +7,7 @@
           <i class="bi bi-house-door-fill home-icon me-3" title="Inicio"></i>
         </router-link>
         <i
-          v-if="isUserAdmin"
+          v-if="isAuthenticated"
           class="bi bi-bell notification-icon me-3"
           title="Notificaciones"
           @click="openNotifications"
