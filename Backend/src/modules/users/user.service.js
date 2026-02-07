@@ -5,7 +5,7 @@ import Task from "../task/task.model.js";
 import TaskLog from "../task/taskLog.model.js";
 import User from "./user.model.js";
 import PerformanceFeedback from "../performanceFeedback/performanceFeedback.model.js";
-
+import { tieneDisponibilidad } from "../../utils/asignacionBasica/filtroDisponibilidad.js";
 
 // Obtener todos los usuarios (si es admin devuelve los 'user', si es user devuelve lista vacía)
 export const getUsers = async (rol) => {
@@ -100,6 +100,59 @@ export const obtenerCalendarioService = async (userId, month = null) => {
 
   return calendarioFiltrado;
 };
+
+export async function buscarUsuariosDisponiblesParaTareaService(payload) {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("Body inválido. Se esperaba un objeto.");
+  }
+
+  const {
+    fechaEstimadaInicio,
+    fechaEstimadaFin,
+    estimacionHoras,
+  } = payload;
+
+  if (!fechaEstimadaInicio || !fechaEstimadaFin) {
+    throw new Error('Faltan "fechaEstimadaInicio" y/o "fechaEstimadaFin".');
+  }
+
+  const horasNecesarias = Number(estimacionHoras);
+  if (!Number.isFinite(horasNecesarias) || horasNecesarias <= 0) {
+    throw new Error('"estimacionHoras" debe ser un número > 0.');
+  }
+
+  const inicio = new Date(fechaEstimadaInicio);
+  const fin = new Date(fechaEstimadaFin);
+
+  if (isNaN(inicio.getTime()) || isNaN(fin.getTime())) {
+    throw new Error("Fechas inválidas en fechaEstimadaInicio/fechaEstimadaFin.");
+  }
+  if (inicio > fin) {
+    throw new Error("fechaEstimadaInicio no puede ser mayor a fechaEstimadaFin.");
+  }
+
+  // Trae solo usuarios rol="user" con calendario (lo mínimo necesario)
+  const users = await User.find({ rol: "user" })
+    .select("nombre email rol calendario habilidades") // ajustá campos
+    .lean();
+
+  const candidatos = [];
+
+  for (const u of users /* o usersFiltrados */) {
+    const ok = tieneDisponibilidad(u, inicio, fin, horasNecesarias);
+    if (ok) {
+      candidatos.push({
+        _id: u._id,
+        nombre: u.nombre,
+        email: u.email,
+        // extra útil para el front:
+        // habilidades: u.habilidades,
+      });
+    }
+  }
+
+  return candidatos;
+}
 
 /**
  * Editar calendario de un desarrollador

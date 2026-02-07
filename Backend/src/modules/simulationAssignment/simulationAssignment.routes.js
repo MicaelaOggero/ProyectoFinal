@@ -1,17 +1,18 @@
 //ruta para calcular datos globales de simulacion
 import {calcularDatosGlobalesSimulacionController} from "../simulationAssignment/simulationAssignment.controller.js";
-import { obtenerPreviewResumenController, verificarDisponibilidadAcumuladaAsignacionesManualesController, aplicarAsignacionesManualesController } from "../simulationAssignment/simulationAssignment.controller.js";
+import { obtenerPreviewResumenController, verificarDisponibilidadAcumuladaAsignacionesManualesController, aplicarAsignacionesManualesController, obtenerSimulacionPorProyectoController } from "../simulationAssignment/simulationAssignment.controller.js";
 import { Router } from "express";
 import { authAdmin } from "../../middlewares/auth.js";
 
 const router = Router();
+
+router.get("/:projectId", authAdmin, obtenerSimulacionPorProyectoController);
 
 router.post("/calcular-datos-globales", authAdmin, calcularDatosGlobalesSimulacionController);
 
 router.get("/resumen-simulacion/:projectId", obtenerPreviewResumenController);
 
 /**
- * POST /simulationAssignment/asignaciones-manuales/verificar-disponibilidad-acumulada
  *
  * Body esperado:
  * {

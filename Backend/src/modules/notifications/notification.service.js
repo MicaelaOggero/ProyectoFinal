@@ -69,6 +69,20 @@ export const calificarCalidadDesdeNotificacionService = async ({
   // 6) Recalcular promedio de calidad del dev
   const promedioActualizado = await actualizarPuntuacionCalidadDesarrollador(log.desarrollador);
 
+  // 7) Enviar notificación al dev de que fue calificado (opcional, no lo tenías en tu controller pero es buena práctica)
+  await Notification.create({
+    receptor: log.desarrollador,
+    emisor: adminId,
+    tipo: "CALIFICACION_RECIBIDA",
+    proyecto: proyectoId,
+    tarea: log.tarea,
+    taskLog: log._id,
+    titulo: "Has recibido una calificación de calidad",
+    mensaje: `Tu tarea ha sido calificada con un ${puntaje} por el administrador del proyecto.`,
+    leida: false,
+    resuelta: false,
+  });
+
   return {
     taskLogId: log._id,
     proyectoId: proyectoId,

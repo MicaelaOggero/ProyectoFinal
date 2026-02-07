@@ -1,8 +1,35 @@
 import {
   calcularDatosGlobalesSimulacion,
-  obtenerPreviewResumenService, verificarDisponibilidadAcumuladaAsignacionesManualesService, aplicarAsignacionesManualesService, calcularDatosGlobalesSimulacionPorCriterio, completarBasicaSinCandidatosConDB
+  obtenerPreviewResumenService, verificarDisponibilidadAcumuladaAsignacionesManualesService, aplicarAsignacionesManualesService, calcularDatosGlobalesSimulacionPorCriterio, completarBasicaSinCandidatosConDB, obtenerSimulacionPorProyectoService
 } from "./simulationAssignment.service.js";
 
+
+export const obtenerSimulacionPorProyectoController = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    if (!projectId) {
+      return res.status(400).json({
+        ok: false,
+        message: "projectId es requerido"
+      });
+    }
+
+    const simulaciones = await obtenerSimulacionPorProyectoService(projectId);
+
+    return res.status(200).json({
+      ok: true,
+      data: simulaciones
+    });
+  } catch (error) {
+    console.error("Error al obtener simulaciones:", error);
+    return res.status(500).json({
+      ok: false,
+      message: "Error al obtener simulaciones del proyecto",
+      error: error.message
+    });
+  }
+};
 
 
 export const calcularDatosGlobalesSimulacionController = async (req, res) => {

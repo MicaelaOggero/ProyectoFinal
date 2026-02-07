@@ -273,6 +273,16 @@ export async function calificarDesarrolladoresProyectoService(
       puntuacion: Number(c.puntuacion),
       feedbackHistorico: dev.feedbackHistorico
     });
+
+    // 🔔 Crear notificación de calificación recibida para el de
+    await Notification.create({
+      receptor: dev._id,
+      emisor: adminId,
+      tipo: "CALIFICACION_RECIBIDA",
+      proyecto: projectId,
+      titulo: "Has recibido una calificación",
+      mensaje: `Tu desempeño en el proyecto "${proyecto.nombre}" ha sido calificado con ${c.puntuacion} estrellas. ¡Sigue así!`
+    });
   }
 
   // 🔔 Actualizar notificación de proyecto (si se envía)
