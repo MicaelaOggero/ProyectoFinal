@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8080/api';
+const API_URL = process.env.VUE_APP_API_URL || 'http://localhost:8080/api';
 
 // Configurar axios para incluir cookies en todas las requests
 axios.defaults.withCredentials = true;

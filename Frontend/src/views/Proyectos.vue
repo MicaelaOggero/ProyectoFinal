@@ -262,11 +262,12 @@ export default {
       });
     },
     getStatusClass(status) {
-      if (status === 'En Curso') return 'bg-success';
-      if (status === 'Pendiente') return 'bg-secondary';
-      if (status === 'Pausado') return 'bg-warning text-dark';
-      if (status === 'Finalizado') return 'bg-dark';
-      return 'bg-light';
+      const s = (status || '').toString();
+      if (s === 'En Curso' || s === 'Activo') return 'bg-success text-white';
+      if (s === 'Pendiente') return 'bg-secondary text-white';
+      if (s === 'Pausado') return 'bg-warning text-dark';
+      if (s === 'Finalizado') return 'bg-dark text-white';
+      return 'bg-secondary text-white';
     },
     getPriorityClass(priority) {
       if (priority === 'Baja') return 'bg-success';
@@ -312,29 +313,30 @@ export default {
           console.log('🔍 Proyectos - Tareas del usuario cargadas:', userTasks);
 
           // Para usuarios normales, las tareas ya vienen con el proyecto populado desde el backend
-          // Extraer proyectos únicos de las tareas (ya vienen con la información completa)
+          // Mapear al mismo formato que usa el admin (ProjectService._mapToFrontend)
           const uniqueProjects = new Map();
+          const difficultyMap = { 1: 'Baja', 2: 'Baja', 3: 'Media', 4: 'Alta', 5: 'Alta' };
+          const statusMap = { 'pendiente': 'Pendiente', 'en curso': 'En Curso', 'pausado': 'Pausado', 'finalizado': 'Finalizado', 'activo': 'En Curso' };
+          const priorityMap = { 'baja': 'Baja', 'media': 'Media', 'alta': 'Alta' };
           if (userTasks) {
             userTasks.forEach(task => {
-              console.log('🔍 Proyectos - Procesando tarea:', task.descripcion, 'Proyecto:', task.proyecto);
               if (task.proyecto && task.proyecto._id) {
-                // Mapear el proyecto populado al formato que espera el frontend
+                const p = task.proyecto;
+                const fechaInicio = p.fechaInicioEstimada ? (typeof p.fechaInicioEstimada === 'string' ? p.fechaInicioEstimada.split('T')[0] : new Date(p.fechaInicioEstimada).toISOString().split('T')[0]) : '';
+                const fechaFin = p.fechaFinEstimada ? (typeof p.fechaFinEstimada === 'string' ? p.fechaFinEstimada.split('T')[0] : new Date(p.fechaFinEstimada).toISOString().split('T')[0]) : '';
                 const mappedProject = {
-                  _id: task.proyecto._id,
-                  name: task.proyecto.nombre, // El backend envía 'nombre', lo mapeamos a 'name'
-                  nombre: task.proyecto.nombre, // Mantener también el original
-                  description: task.proyecto.descripcion || '', // Agregar descripción si está disponible
-                  startDate: task.proyecto.fechaInicio || '',
-                  endDate: task.proyecto.fechaFin || '',
-                  difficulty: task.proyecto.dificultad || 'Media',
-                  priority: task.proyecto.prioridad || 'Media',
-                  status: task.proyecto.estado || 'Activo',
-                  fechaCreacion: task.proyecto.fechaCreacion || new Date().toISOString()
+                  _id: p._id,
+                  name: p.nombre,
+                  nombre: p.nombre,
+                  description: p.descripcion || '',
+                  startDate: fechaInicio,
+                  endDate: fechaFin,
+                  difficulty: difficultyMap[p.nivelDificultad] || 'Media',
+                  priority: priorityMap[(p.prioridad || '').toLowerCase()] || 'Media',
+                  status: statusMap[(p.estado || '').toLowerCase()] || 'Pendiente',
+                  fechaCreacion: p.fechaCreacion || new Date().toISOString()
                 };
-                uniqueProjects.set(task.proyecto._id, mappedProject);
-                console.log('🔍 Proyectos - Proyecto agregado al mapa:', mappedProject);
-              } else {
-                console.log('🔍 Proyectos - Tarea sin proyecto válido:', task);
+                uniqueProjects.set(p._id, mappedProject);
               }
             });
           }
