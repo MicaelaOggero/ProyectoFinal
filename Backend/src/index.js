@@ -41,13 +41,6 @@ app.use((req, res, next) => {
   }
 });
 
-app.use(cors({
-  origin: ["http://localhost:8081", "http://smartassistant.com.ar/"],
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-  credentials: true
-}));
-
-
 app.use(express.json())
 app.use(cookieParser())
 app.use('/static', express.static('public'))
