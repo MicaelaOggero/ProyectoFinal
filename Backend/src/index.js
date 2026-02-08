@@ -45,17 +45,23 @@ app.use(express.json())
 app.use(cookieParser())
 app.use('/static', express.static('public'))
 
+app.set("trust proxy", 1);
+
+const isProd = process.env.NODE_ENV === "production";
+
 app.use(session({
   store: MongoStore.create({
     mongoUrl: process.env.MONGO,
     ttl: 60 * 60
   }),
-  secret: process.env.SECRET_SESSION || 'tu-secreto',
+  secret: process.env.SECRET_SESSION,
   resave: false,
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    secure: false
+    secure: isProd,                 // ✅ true en prod (HTTPS)
+    sameSite: isProd ? "none" : "lax", // ✅ cross-site necesita "none"
+    maxAge: 60 * 60 * 1000
   }
 }));
 
