@@ -21,25 +21,16 @@ import feedbackRouter from '../src/modules/performanceFeedback/performanceFeedba
 dotenv.config()
 const app=express()
 
-// Configuración CORS
-app.use((req, res, next) => {
-  const allowedOrigins = ['http://localhost:8081', 'http://localhost:8082', "http://smartassistant.com.ar/"]; // Puertos del frontend Vue
-  const origin = req.headers.origin;
-  
-  if (allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
-  
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-  } else {
-    next();
-  }
-});
+app.use(cors({
+  origin: [
+    "https://smartassistant.com.ar",
+    "http://localhost:8081"
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
 
 app.use(express.json())
 app.use(cookieParser())
