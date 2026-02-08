@@ -23,7 +23,7 @@ const app=express()
 
 // Configuración CORS
 app.use((req, res, next) => {
-  const allowedOrigins = ['http://localhost:8081', 'http://localhost:8082']; // Puertos del frontend Vue
+  const allowedOrigins = ['http://localhost:8081', 'http://localhost:8082', "https://smartassistant.com.ar"]; // Puertos del frontend Vue
   const origin = req.headers.origin;
   
   if (allowedOrigins.includes(origin)) {
@@ -40,13 +40,6 @@ app.use((req, res, next) => {
     next();
   }
 });
-
-app.use(cors({
-  origin: ["http://localhost:8081", "http://smartassistant.com.ar/"],
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-  credentials: true
-}));
-
 
 app.use(express.json())
 app.use(cookieParser())
