@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = process.env.VUE_APP_API_URL || 'http://localhost:8080/api/session';
+const API_URL = (process.env.VUE_APP_API_URL || 'http://localhost:8080/api') + '/session';
 
 class AuthService {
   constructor() {
