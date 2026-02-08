@@ -234,7 +234,8 @@ async getCurrentUserGoogle() {
   if (!token) return null; // no hay token, no hacemos la petición
 
   try {
-    const response = await axios.get(`${API_URL}/profile` ,{ withCredentials: true }, {
+    const response = await axios.get(`${API_URL}/profile`, {
+      withCredentials: true,
       headers: { Authorization: `Bearer ${token}` },
     });
     if (response.data.status === "ok") {
