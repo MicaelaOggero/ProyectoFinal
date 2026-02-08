@@ -259,7 +259,12 @@ async performLogin(email, password) {
 
   async checkSession() {
   try {
-    const response = await axios.get(`${API_URL}/profile`);
+    const token = localStorage.getItem('token');
+    const config = {
+      withCredentials: true,
+      ...(token && { headers: { Authorization: `Bearer ${token}` } })
+    };
+    const response = await axios.get(`${API_URL}/profile`, config);
     // Solo loguear en desarrollo
     if (process.env.NODE_ENV === 'development') {
       console.log('Verificando sesión:', response.data);
