@@ -47,7 +47,7 @@
         <div class="stat-card">
           <i class="bi bi-clock-history"></i>
           <div class="stat-content">
-            <h4>{{ totalHoursWorked }}</h4>
+            <h4>{{ formattedHoursWorked }}</h4>
             <p>Horas Trabajadas</p>
             <small class="text-muted">{{ totalHoursAvailable }}h disponibles</small>
             <div v-if="totalHoursAvailable > 0" class="progress mt-2" style="height: 4px;">
@@ -291,6 +291,15 @@ export default {
     isUserAdmin() {
       return AuthService.isAdmin(this.currentUser);
     },
+    /** Formato "Xh Ym" para el tiempo invertido (horas trabajadas) */
+    formattedHoursWorked() {
+      const h = Number(this.totalHoursWorked);
+      if (!Number.isFinite(h) || h < 0) return '0h 0m';
+      const horas = Math.floor(h);
+      const minutos = Math.round((h - horas) * 60);
+      if (minutos >= 60) return `${horas + 1}h 0m`;
+      return `${horas}h ${minutos}m`;
+    },
     miniCalendarDays() {
       console.log('🔍 Dashboard - miniCalendarDays computed:', {
         userCalendar: this.userCalendar,
@@ -400,7 +409,8 @@ export default {
         const projectsResponse = await ProjectService.getProjects();
         const projects = projectsResponse.data;
         this.projectCount = projects.length;
-        this.activeProjects = projects.filter(p => p.status === 'Activo').length;
+        // Proyectos activos = En Curso o Pausado (no Pendiente ni Finalizado)
+        this.activeProjects = projects.filter(p => ['En Curso', 'Pausado'].includes(p.status)).length;
 
         // Cargar usuarios
         const usersResponse = await UserService.getUsers();

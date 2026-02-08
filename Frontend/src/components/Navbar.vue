@@ -1,20 +1,25 @@
 <template>
   <nav class="navbar navbar-expand-lg custom-navbar sticky-top">
     <div class="container-fluid">
-      <!-- Iconos de navegación -->
+      <!-- Iconos de navegaci?n -->
       <div class="navbar-left-section">
         <router-link to="/dashboard" class="nav-link-icon">
           <i class="bi bi-house-door-fill home-icon me-3" title="Inicio"></i>
         </router-link>
-        <i class="bi bi-bell notification-icon me-3" title="Notificaciones"></i>
+        <i
+          v-if="isAuthenticated"
+          class="bi bi-bell notification-icon me-3"
+          title="Notificaciones"
+          @click="openNotifications"
+        ></i>
       </div>
 
-      <!-- Título centrado -->
+      <!-- T?tulo centrado -->
       <div class="navbar-brand-container">
         <img src="@/assets/Group 1.png" alt="Logo" class="navbar-logo" />
       </div>
 
-      <!-- Información del usuario y acciones -->
+      <!-- Informaci?n del usuario y acciones -->
       <div class="navbar-right-section">
         <div v-if="currentUser" class="user-info">
           <router-link to="/mi-perfil" class="user-profile-link">
@@ -33,14 +38,19 @@
         </div>
       </div>
     </div>
+    <AdminNotifications ref="adminNotifications" />
   </nav>
 </template>
 
 <script>
 import AuthService from '@/services/auth.service.js';
+import AdminNotifications from '@/components/AdminNotifications.vue';
 
 export default {
   name: 'NavbarComponent',
+  components: {
+    AdminNotifications
+  },
   data() {
     return {
       currentUser: null
@@ -49,47 +59,55 @@ export default {
   computed: {
     isAuthenticated() {
       return !!this.currentUser;
+    },
+    isUserAdmin() {
+      return AuthService.isAdmin(this.currentUser);
     }
   },
   async mounted() {
-    // En páginas de autenticación, no hacer nada
+    // En p?ginas de autenticaci?n, no hacer nada
     if (this.isAuthPage()) {
-      console.log('Navbar: Página de autenticación, no verificando sesión');
+      console.log('Navbar: P?gina de autenticaci?n, no verificando sesi?n');
       return;
     }
     
-    // Solo verificar sesión si no estamos en páginas de autenticación
+    // Solo verificar sesi?n si no estamos en p?ginas de autenticaci?n
     await this.checkUserSession();
   },
   watch: {
-    // Observar cambios en la ruta para actualizar la sesión
+    // Observar cambios en la ruta para actualizar la sesi?n
     '$route'() {
       if (this.isAuthPage()) {
-        // En páginas de autenticación, limpiar el usuario
+        // En p?ginas de autenticaci?n, limpiar el usuario
         this.currentUser = null;
       } else {
-        // Solo verificar sesión si no estamos en páginas de autenticación
+        // Solo verificar sesi?n si no estamos en p?ginas de autenticaci?n
         this.checkUserSession();
       }
     }
   },
   methods: {
     isAuthPage() {
-      // Páginas donde no necesitamos verificar la sesión
+      // P?ginas donde no necesitamos verificar la sesi?n
       const authRoutes = ['/login', '/google-callback'];
-      // Verificar que la ruta esté disponible
+      // Verificar que la ruta est? disponible
       return this.$route && this.$route.path && authRoutes.includes(this.$route.path);
     },
     async checkUserSession() {
-      console.log('Navbar: Verificando sesión para ruta:', this.$route.path);
+      console.log('Navbar: Verificando sesi?n para ruta:', this.$route.path);
       
       try {
         const user = await AuthService.getCurrentUser();
         this.currentUser = user;
         console.log('Usuario actual en navbar:', user);
       } catch (error) {
-        console.error('Error verificando sesión:', error);
+        console.error('Error verificando sesi?n:', error);
         this.currentUser = null;
+      }
+    },
+    openNotifications() {
+      if (this.$refs.adminNotifications) {
+        this.$refs.adminNotifications.show();
       }
     },
     async handleLogout() {
@@ -99,7 +117,7 @@ export default {
         this.$router.push('/login');
       } catch (error) {
         console.error('Error al cerrar sesión:', error);
-        // Limpiar sesión local y redirigir de todas formas
+        // Limpiar sesi?n local y redirigir de todas formas
         this.currentUser = null;
         this.$router.push('/login');
       }

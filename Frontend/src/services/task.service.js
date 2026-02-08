@@ -115,14 +115,30 @@ class TaskService {
     }
   }
 
-  // Pausar o completar una tarea
-  // El backend determina si pausar o completar según el estado actual
-  async pausarOCompletarTarea(taskId) {
+  // Pausar una tarea (estado "en curso" -> "pausada")
+  async pausarTarea(taskId, userId) {
     try {
-      const response = await axios.put(`${API_URL}/task/${taskId}/accion`);
+      const response = await axios.put(`${API_URL}/task/${taskId}/accion`, {
+        userId,
+        accion: 'pausar'
+      });
       return response.data;
     } catch (error) {
-      console.error('Error en pausarOCompletarTarea:', error);
+      console.error('Error en pausarTarea:', error);
+      throw error;
+    }
+  }
+
+  // Completar una tarea (estado "en curso" -> "completada")
+  async completarTarea(taskId, userId) {
+    try {
+      const response = await axios.put(`${API_URL}/task/${taskId}/accion`, {
+        userId,
+        accion: 'completar'
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error en completarTarea:', error);
       throw error;
     }
   }
