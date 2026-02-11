@@ -11,3 +11,10 @@ export const findSimulacionByAsignacionId = async (asignacionId) => {
   return simulacion;
 };
 
+export const findSimulacionByProyectoDAO = async (projectId) => {
+  return await SimulacionAsignacion.find({ proyecto: projectId })
+    .select("-asignaciones") // 🚫 excluye el array de asignaciones
+    .sort({ creadoEn: -1 }); // más recientes primero
+};
+
+

@@ -2,6 +2,16 @@ import Task from "../task/task.model.js";      // ajustá ruta real
 import User from "../users/user.model.js";      // ajustá ruta real
 import { obtenerDisponibilidadEnRango } from "../../utils/asignacionBasica/diasDisponible.js"; // ajustá ruta real
 import { asignarTareaManual } from "../assignment/assignment.service.js"; // ajustá ruta real
+import { findSimulacionByProyectoDAO } from "./simulationAssignment.dao.js";
+
+// obtener simulación por ID del proyecto
+export const obtenerSimulacionPorProyectoService = async (projectId) => {
+  if (!projectId) {
+    throw new Error("projectId requerido");
+  }
+
+  return await findSimulacionByProyectoDAO(projectId);
+};
 
 /**
  * Calcula los datos globales de una simulación a partir del resultado de la IA

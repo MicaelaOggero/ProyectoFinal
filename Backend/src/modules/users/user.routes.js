@@ -24,6 +24,9 @@ router.put("/:userId/calendario", auth, userController.editarCalendario);
 //Crear calendario para un usuario específico
 router.post("/crearCalendario/:userId", userController.crearCalendarioUsuario);
 
+// Obtener candidatos disponibles para una tarea específica
+router.post("/candidatos", userController.postCandidatosDisponiblesController);
+
 // Ruta para crear varios usuarios
 router.post("/bulk", async (req, res) => {
   const usuarios = req.body; // esperamos un arreglo de objetos usuario

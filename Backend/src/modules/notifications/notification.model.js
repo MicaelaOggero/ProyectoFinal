@@ -6,7 +6,7 @@ const notificationSchema = new mongoose.Schema({
 
   tipo: {
     type: String,
-    enum: ["CALIFICAR_TAREA", "CALIFICAR_PROYECTO_LOTE"],
+    enum: ["CALIFICAR_TAREA", "CALIFICAR_PROYECTO_LOTE", "CALIFICACION_RECIBIDA"],
     required: true
   },
 
@@ -16,13 +16,13 @@ const notificationSchema = new mongoose.Schema({
   tarea: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Task",
-    required: function () { return this.tipo === "CALIFICAR_TAREA"; },
+    required: function () { return this.tipo === "CALIFICAR_TAREA" || this.tipo === "CALIFICACION_RECIBIDA"; },
     default: null
   },
   taskLog: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "TaskLog",
-    required: function () { return this.tipo === "CALIFICAR_TAREA"; },
+    required: function () { return this.tipo === "CALIFICAR_TAREA" || this.tipo === "CALIFICACION_RECIBIDA"; },
     default: null
   },
 

@@ -1,5 +1,4 @@
 import * as userService from "./user.service.js";
-import User from "../users/user.model.js";
 
 // Obtener todos los usuarios con rol 'user'
 export const getUsers = async (req, res) => {
@@ -95,3 +94,34 @@ export const crearCalendarioUsuario = async (req, res) => {
     res.status(500).json({ error: "Error al asignar calendario al usuario" });
   }
 };
+
+// Obtener candidatos disponibles para una tarea específica
+export async function postCandidatosDisponiblesController(req, res) {
+  try {
+    const payload = req.body;
+
+    const candidatos = await userService.buscarUsuariosDisponiblesParaTareaService(payload);
+
+    return res.status(200).json({
+      ok: true,
+      message: "Candidatos disponibles obtenidos correctamente.",
+      data: {
+        tarea: {
+          tareaId: payload?.tareaId,
+          nombre: payload?.nombre,
+          fechaEstimadaInicio: payload?.fechaEstimadaInicio,
+          fechaEstimadaFin: payload?.fechaEstimadaFin,
+          estimacionHoras: payload?.estimacionHoras,
+        },
+        total: candidatos.length,
+        candidatos,
+      },
+    });
+  } catch (error) {
+    return res.status(400).json({
+      ok: false,
+      message: error?.message || "Error al buscar candidatos disponibles.",
+      error: String(error),
+    });
+  }
+}
