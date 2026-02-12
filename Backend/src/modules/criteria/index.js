@@ -207,32 +207,18 @@ ${JSON.stringify(payloadIA, null, 2)}
   texto = texto.replace(/```json|```/g, "").trim();
 
   try {
-  const resultadoIA = JSON.parse(texto);
 
-  resultadoIA.asignaciones = resultadoIA.asignaciones.map((a) => ({
-    tareaId: a.tareaId,
-    descripcion: a.descripcion,
-    desarrolladorId: a.desarrolladorId,
-    nombre: a.nombre,
-    apellido: a.apellido,
-    dias: a.dias,
-    horasTotales: a.horasTotales,
-    tipoAsignacion: a.tipoAsignacion,
-    razon: a.razon,
-    costoTotal: a.costoTotal,
-    rendimientoHistorico: a.rendimientoHistorico,
-    horasEstimadasSegunRendimiento: a.horasEstimadasSegunRendimiento,
-    calidadTarea: a.calidadTarea,
-    feedbackHistorico: a.feedbackHistorico,
-    candidatosDisponibles: candidatosPorTarea[String(a.tareaId)] ?? []
-  }));
+    const resultadoIA = JSON.parse(texto);
+    resultadoIA.asignaciones = resultadoIA.asignaciones.map((a) => ({
+      ...a,
+      candidatosDisponibles: candidatosPorTarea[String(a.tareaId)] ?? []
+    }));
+    return resultadoIA;
 
-  return resultadoIA;
-} catch (err) {
-  console.error("Error parseando JSON de IA:", err, "Texto devuelto:", texto);
-  throw new Error("La respuesta de la IA no fue JSON válido");
-}
-
+  } catch (err) {
+    console.error("Error parseando JSON de IA:", err, "Texto devuelto:", texto);
+    throw new Error("La respuesta de la IA no fue JSON válido");
+  }
 };
 
 
