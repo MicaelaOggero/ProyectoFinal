@@ -710,7 +710,7 @@
                             Sin candidatos automáticos
                           </span>
                           <span v-else class="badge bg-light text-dark ms-2">
-                            {{ data.desarrolladoresCandidatos.length }} candidato(s)
+                            {{ (data.desarrolladoresCandidatos || []).length }} candidato(s)
                           </span>
                         </div>
                         <div v-if="data.asignacionManual" class="badge bg-info">
@@ -721,41 +721,19 @@
                     </div>
                     
                     <div class="card-body">
-                      <div v-if="data.desarrolladoresCandidatos && data.desarrolladoresCandidatos.length > 0">
-                        <h6 class="mb-2">Candidatos disponibles:</h6>
-                        <div class="table-responsive">
-                          <table class="table table-sm table-hover">
-                            <thead>
-                              <tr>
-                                <th>Desarrollador</th>
-                                <th>Habilidades</th>
-                                <th>Experiencia</th>
-                                <th>Costo/hora</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr v-for="candidato in data.desarrolladoresCandidatos" :key="candidato.id">
-                                <td>
-                                  <strong>{{ candidato.nombre }} {{ candidato.apellido }}</strong>
-                                </td>
-                                <td>
-                                  <span 
-                                    v-for="(habilidad, idx) in candidato.habilidades.slice(0, 3)" 
-                                    :key="idx"
-                                    class="badge bg-secondary me-1"
-                                  >
-                                    {{ typeof habilidad === 'string' ? habilidad : habilidad.nombre }}
-                                  </span>
-                                  <span v-if="candidato.habilidades.length > 3" class="text-muted">
-                                    +{{ candidato.habilidades.length - 3 }} más
-                                  </span>
-                                </td>
-                                <td>{{ candidato.aniosExperiencia || 0 }} años</td>
-                                <td>${{ candidato.costoPorHora || 0 }}/h</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
+                      <!-- Lista de todos los candidatos disponibles (pool del que la IA elige) cuando la tarea tuvo candidatos automáticos -->
+                      <div v-if="!data.sinCandidatos && (data.desarrolladoresCandidatos || []).length > 0">
+                        <h6 class="mb-2">Candidatos disponibles (de los que la IA elige):</h6>
+                        <ul class="list-group list-group-flush">
+                          <li 
+                            v-for="candidato in (data.desarrolladoresCandidatos || [])" 
+                            :key="candidato._id || candidato.id"
+                            class="list-group-item py-2 d-flex justify-content-between align-items-center"
+                          >
+                            <span>{{ candidato.nombre }}{{ candidato.apellido ? ' ' + candidato.apellido : '' }}{{ candidato.email ? ' (' + candidato.email + ')' : '' }}</span>
+                            <span v-if="data.desarrolladorIdElegido && (candidato._id || candidato.id) === data.desarrolladorIdElegido" class="badge bg-success">Elegido por la IA</span>
+                          </li>
+                        </ul>
                       </div>
                       
                       <div v-if="data.sinCandidatos && !data.asignacionManual" class="mt-3">
@@ -776,17 +754,16 @@
                             @change="assignDeveloperManually(tareaId, $event.target.value)"
                           >
                             <option value="">Seleccionar desarrollador...</option>
-                            <!-- Para asignación manual: mostrar solo desarrolladores que aparecen en asignaciones de "basica" -->
+                            <!-- Solo devs con disponibilidad para esta tarea (desde POST /api/user/candidatos) -->
                             <option 
-                              v-for="dev in developersFromBasica" 
+                              v-for="dev in (data.desarrolladoresCandidatos || [])" 
                               :key="dev._id"
                               :value="dev._id"
                             >
-                              {{ dev.nombre }} {{ dev.apellido }}
-                              ({{ dev.aniosExperiencia || 0 }} años exp.)
+                              {{ dev.nombre }}{{ dev.apellido ? ' ' + dev.apellido : '' }} ({{ dev.email || '' }})
                             </option>
-                            <option v-if="developersFromBasica.length === 0" disabled>
-                              No hay desarrolladores disponibles para asignación manual
+                            <option v-if="!(data.desarrolladoresCandidatos || []).length" disabled>
+                              No hay desarrolladores con disponibilidad para esta tarea
                             </option>
                           </select>
                         </div>
@@ -1082,12 +1059,9 @@
                         </span>
                         <span v-else class="text-muted">-</span>
                       </td>
-                      <td>
-                        <span v-if="asignacion.razon" class="small text-muted" :title="asignacion.razon">
-                          {{ asignacion.razon.length > 100 ? asignacion.razon.substring(0, 100) + '...' : asignacion.razon }}
-                        </span>
-                        <span v-else-if="asignacion.motivo" class="small text-warning">
-                          {{ asignacion.motivo }}
+                      <td class="text-break" style="min-width: 200px; white-space: normal;">
+                        <span v-if="getReasonWithDeveloperName(asignacion) !== '-'" class="small text-muted">
+                          {{ getReasonWithDeveloperName(asignacion) }}
                         </span>
                         <span v-else class="text-muted">-</span>
                       </td>
@@ -2268,15 +2242,32 @@ export default {
         const d = asignacion.desarrollador || asignacion.desarrolladorAsignado;
         return `${d.nombre || ''} ${d.apellido || ''}`.trim() || null;
       }
+      if (asignacion.nombre) return `${asignacion.nombre} ${asignacion.apellido || ''}`.trim();
       const razon = (asignacion.razon || '').toLowerCase();
       if (razon.includes('manual')) {
-        if (asignacion.nombre) return `${asignacion.nombre} ${asignacion.apellido || ''}`.trim();
         if (asignacion.desarrolladorId && this.users && this.users.length) {
           const u = this.users.find(us => String(us._id) === String(asignacion.desarrolladorId));
           if (u) return `${u.nombre || ''} ${u.apellido || ''}`.trim();
         }
       }
+      if (asignacion.desarrolladorId && (this.allDevelopers?.length || this.users?.length)) {
+        const list = this.allDevelopers?.length ? this.allDevelopers : this.users;
+        const u = list.find(us => String(us._id) === String(asignacion.desarrolladorId));
+        if (u) return `${u.nombre || ''} ${u.apellido || ''}`.trim();
+      }
       return null;
+    },
+
+    // Razón mostrada en la tabla: incluir nombre del desarrollador al inicio si hay asignación y la razón no lo menciona (Tiempo/Calidad)
+    getReasonWithDeveloperName(asignacion) {
+      const razon = asignacion.razon || asignacion.motivo || '';
+      if (!razon) return '-';
+      const name = this.getDeveloperDisplayName(asignacion);
+      if (!name) return razon;
+      const nameLower = name.toLowerCase();
+      const razonLower = razon.toLowerCase();
+      if (razonLower.includes(nameLower) || razonLower.startsWith(nameLower)) return razon;
+      return `${name}: ${razon}`;
     },
 
     // Formatear calidad (estrellas)
@@ -2350,8 +2341,29 @@ export default {
         for (const asignacion of asignacionesBasica) {
           const tareaId = asignacion.tareaId;
           
-          // Si la tarea tiene sinCandidatos: true, marcar como sin candidatos
+          // Si la tarea tiene sinCandidatos: true, pedir al backend solo devs con disponibilidad
           if (asignacion.sinCandidatos) {
+            const payload = {
+              tareaId,
+              nombre: asignacion.nombre || asignacion.descripcion || 'Sin nombre',
+              descripcion: asignacion.descripcion || '',
+              fechaEstimadaInicio: asignacion.fechaEstimadaInicio,
+              fechaEstimadaFin: asignacion.fechaEstimadaFin,
+              habilidadesRequeridas: asignacion.habilidadesRequeridas || [],
+              prioridad: asignacion.prioridad || 'media',
+              estimacionHoras: asignacion.estimacionHoras || asignacion.horasTotales || 0,
+              sinCandidatos: true,
+              candidatosDisponibles: asignacion.candidatosDisponibles || []
+            };
+            let candidatos = [];
+            try {
+              const res = await UserService.getCandidatosDisponibles(payload);
+              if (res.data?.ok && Array.isArray(res.data?.data?.candidatos)) {
+                candidatos = res.data.data.candidatos;
+              }
+            } catch (err) {
+              console.error('Error obteniendo candidatos disponibles para tarea', tareaId, err);
+            }
             devsDataPorTarea[tareaId] = {
               tarea: {
                 id: tareaId,
@@ -2362,14 +2374,22 @@ export default {
                 prioridad: asignacion.prioridad || 'media',
                 estimacionHoras: asignacion.estimacionHoras || asignacion.horasTotales || 0
               },
-              desarrolladoresCandidatos: [], // Vacío porque sinCandidatos: true
+              desarrolladoresCandidatos: candidatos,
               sinCandidatos: true
             };
           } else if (asignacion.desarrolladorId) {
-            // Si tiene desarrollador asignado, mostrar ese desarrollador como candidato
+            // Mostrar todos los candidatos disponibles del resumen (pool del que la IA eligió) y quién fue elegido
+            const candidatosDelResumen = Array.isArray(asignacion.candidatosDisponibles) && asignacion.candidatosDisponibles.length > 0
+              ? asignacion.candidatosDisponibles.map((c) => ({
+                  ...c,
+                  _id: c.id || c._id,
+                  id: c.id || c._id
+                }))
+              : [];
             const dev = devsMap.get(asignacion.desarrolladorId);
-            const candidatoInfo = dev ? {
+            const candidatoElegidoInfo = dev ? {
               id: dev._id,
+              _id: dev._id,
               nombre: dev.nombre || asignacion.nombre || '',
               apellido: dev.apellido || asignacion.apellido || '',
               aniosExperiencia: dev.aniosExperiencia || 0,
@@ -2377,19 +2397,20 @@ export default {
                 nombre: typeof h === 'string' ? h : h.nombre,
                 nivel: typeof h === 'string' ? null : h.nivel
               })) || [],
-              costoPorHora: dev.costoPorHora || 0,
-              rendimientoHistorico: asignacion.rendimientoHistorico || dev.rendimientoHistorico || null,
-              puntuacionPromedioCalidad: dev.puntuacionPromedioCalidad || null,
-              feedbackHistorico: asignacion.feedbackHistorico || dev.feedbackHistorico || null
+              costoPorHora: dev.costoPorHora || 0
             } : {
               id: asignacion.desarrolladorId,
+              _id: asignacion.desarrolladorId,
               nombre: asignacion.nombre || '',
               apellido: asignacion.apellido || '',
               aniosExperiencia: 0,
               habilidades: [],
               costoPorHora: 0
             };
-            
+            const desarrolladoresCandidatos = candidatosDelResumen.length > 0
+              ? candidatosDelResumen
+              : [candidatoElegidoInfo];
+
             devsDataPorTarea[tareaId] = {
               tarea: {
                 id: tareaId,
@@ -2400,7 +2421,8 @@ export default {
                 prioridad: asignacion.prioridad || 'media',
                 estimacionHoras: asignacion.horasTotales || asignacion.estimacionHoras || 0
               },
-              desarrolladoresCandidatos: [candidatoInfo],
+              desarrolladoresCandidatos,
+              desarrolladorIdElegido: asignacion.desarrolladorId,
               sinCandidatos: false
             };
           } else {
