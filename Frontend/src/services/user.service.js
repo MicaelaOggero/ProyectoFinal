@@ -47,6 +47,15 @@ class UserService {
   createCalendar(userId) {
     return axios.post(`${API_URL}/user/crearCalendario/${userId}`);
   }
+
+  /**
+   * Obtener desarrolladores con disponibilidad para una tarea (para asignación manual).
+   * Payload: { tareaId, nombre, descripcion?, fechaEstimadaInicio, fechaEstimadaFin, habilidadesRequeridas?, prioridad?, estimacionHoras, sinCandidatos?, candidatosDisponibles? }
+   * Devuelve: { ok, message, data: { tarea, total, candidatos: [{ _id, nombre, email }] } }
+   */
+  getCandidatosDisponibles(payload) {
+    return axios.post(`${API_URL}/user/candidatos`, payload);
+  }
 }
 
 export default new UserService();

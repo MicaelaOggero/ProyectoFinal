@@ -6,12 +6,10 @@
         <router-link to="/dashboard" class="nav-link-icon">
           <i class="bi bi-house-door-fill home-icon me-3" title="Inicio"></i>
         </router-link>
-        <i
-          v-if="isAuthenticated"
-          class="bi bi-bell notification-icon me-3"
-          title="Notificaciones"
-          @click="openNotifications"
-        ></i>
+        <span v-if="isAuthenticated" class="notification-wrapper me-3" @click="openNotifications">
+          <i class="bi bi-bell notification-icon" title="Notificaciones"></i>
+          <span class="notification-badge" :class="{ 'notification-badge-zero': notificationCount === 0 }">{{ notificationCount > 99 ? '99+' : notificationCount }}</span>
+        </span>
       </div>
 
       <!-- T?tulo centrado -->
@@ -38,12 +36,13 @@
         </div>
       </div>
     </div>
-    <AdminNotifications ref="adminNotifications" />
+    <AdminNotifications ref="adminNotifications" @closed="loadNotificationCount" />
   </nav>
 </template>
 
 <script>
 import AuthService from '@/services/auth.service.js';
+import NotificationService from '@/services/notification.service.js';
 import AdminNotifications from '@/components/AdminNotifications.vue';
 
 export default {
@@ -53,7 +52,8 @@ export default {
   },
   data() {
     return {
-      currentUser: null
+      currentUser: null,
+      notificationCount: 0
     };
   },
   computed: {
@@ -99,10 +99,31 @@ export default {
       try {
         const user = await AuthService.getCurrentUser();
         this.currentUser = user;
+        if (user) this.loadNotificationCount();
         console.log('Usuario actual en navbar:', user);
       } catch (error) {
         console.error('Error verificando sesi?n:', error);
         this.currentUser = null;
+        this.notificationCount = 0;
+      }
+    },
+    async loadNotificationCount() {
+      if (!this.currentUser) return;
+      try {
+        const list = await NotificationService.getMisNotificaciones();
+        const todas = Array.isArray(list) ? list : [];
+        if (AuthService.isAdmin(this.currentUser)) {
+          this.notificationCount = todas.filter(
+            n => !n.resuelta && (n.tipo === 'CALIFICAR_TAREA' || n.tipo === 'CALIFICAR_PROYECTO_LOTE')
+          ).length;
+        } else {
+          this.notificationCount = todas.filter(
+            n => n.tipo === 'CALIFICACION_RECIBIDA' || n.tipo === 'TAREA_CALIFICADA' || n.tipo === 'PROYECTO_CALIFICADO'
+          ).length;
+        }
+      } catch (error) {
+        console.error('Error cargando cantidad de notificaciones:', error);
+        this.notificationCount = 0;
       }
     },
     openNotifications() {
@@ -173,6 +194,37 @@ export default {
   color: inherit;
 }
 
+.notification-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -2px;
+  right: -6px;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.1rem;
+  color: white;
+  background: #dc3545;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-badge-zero {
+  background: rgba(255, 255, 255, 0.35);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
 .home-icon, .notification-icon {
   color: white;
   font-size: 1.3rem;
@@ -183,6 +235,10 @@ export default {
 }
 
 .home-icon:hover, .notification-icon:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.notification-wrapper:hover .notification-icon {
   background-color: rgba(255, 255, 255, 0.1);
 }
 

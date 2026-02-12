@@ -134,9 +134,16 @@
                 <h3 class="text-warning">{{ user.aniosExperiencia || 'N/A' }}</h3>
                 <p class="text-muted mb-0">Años Exp.</p>
               </div>
-              <div>
+              <div class="mb-3">
                 <h3 class="text-info">${{ user.costoPorHora }}</h3>
                 <p class="text-muted mb-0">Costo/Hora</p>
+              </div>
+              <div>
+                <h3 class="text-success">{{ getCalificacionDisplay(user) }}</h3>
+                <p class="text-muted mb-0">Calificación</p>
+                <small class="text-muted" v-if="getCalificacionTareasLabel(user)">
+                  {{ getCalificacionTareasLabel(user) }}
+                </small>
               </div>
             </div>
           </div>
@@ -451,6 +458,21 @@ export default {
       if (rating >= 4) return 'bg-success';
       if (rating >= 3) return 'bg-warning';
       return 'bg-danger';
+    },
+    /** Calificación para mostrar en Estadísticas: puntuacionPromedioCalidad o preferenciasHabilidad (general) */
+    getCalificacionDisplay(user) {
+      const pq = user?.puntuacionPromedioCalidad?.puntuacionPromedio;
+      const tareas = user?.puntuacionPromedioCalidad?.tareasCalificadas ?? 0;
+      if (tareas > 0 && pq != null) return Number(pq).toFixed(1) + '/5';
+      const general = user?.preferenciasHabilidad?.find(p => p.habilidad === 'general');
+      const prom = general?.puntuacionPromedio;
+      if (prom != null) return Number(prom).toFixed(1) + '/5';
+      return '—';
+    },
+    getCalificacionTareasLabel(user) {
+      const tareas = user?.puntuacionPromedioCalidad?.tareasCalificadas ?? 0;
+      if (tareas === 0) return '';
+      return tareas + ' tarea(s) calificada(s)';
     },
     getNivelText(nivel) {
       const niveles = {

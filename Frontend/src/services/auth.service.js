@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = process.env.VUE_APP_API_URL || 'http://localhost:8080/api/session';
+const API_URL = (process.env.VUE_APP_API_URL || 'http://localhost:8080/api') + '/session';
 
 class AuthService {
   constructor() {
@@ -234,7 +234,8 @@ async getCurrentUserGoogle() {
   if (!token) return null; // no hay token, no hacemos la petición
 
   try {
-    const response = await axios.get(`${API_URL}/profile` ,{ withCredentials: true }, {
+    const response = await axios.get(`${API_URL}/profile`, {
+      withCredentials: true,
       headers: { Authorization: `Bearer ${token}` },
     });
     if (response.data.status === "ok") {
@@ -258,7 +259,12 @@ async performLogin(email, password) {
 
   async checkSession() {
   try {
-    const response = await axios.get(`${API_URL}/profile`);
+    const token = localStorage.getItem('token');
+    const config = {
+      withCredentials: true,
+      ...(token && { headers: { Authorization: `Bearer ${token}` } })
+    };
+    const response = await axios.get(`${API_URL}/profile`, config);
     // Solo loguear en desarrollo
     if (process.env.NODE_ENV === 'development') {
       console.log('Verificando sesión:', response.data);
