@@ -258,7 +258,15 @@ export async function pausarOCompletarTarea(taskId, userId, accion = "pausar") {
       tarea: tarea._id,
       taskLog: log._id,
       titulo: "Tarea completada: requiere calificación",
-      mensaje: `El desarrollador completó una tarea y requiere puntuación de calidad.`,
+      mensaje: `El/la desarrollador/a ${desarrollador.nombre} ${desarrollador.apellido} completó la tarea "${tarea.nombre}" y requiere puntuación de calidad.
+      Información para calificar:
+      - Duración estimada: ${tarea.tiempoEstimadoHoras} horas
+      - Tiempo invertido: ${tarea.tiempoInvertidoHoras.toFixed(2)} horas
+      - Estado final: ${estadoFinal}
+      - Fecha estimada de inicio: ${tarea.fechaEstimadaInicio.toDateString()}
+      - Fecha estimada de fin: ${tarea.fechaEstimadaFin.toDateString()}
+      - Fecha real de inicio: ${tarea.fechaRealInicio.toDateString()}
+      - Fecha real de fin: ${tarea.fechaRealFin.toDateString()}`,
     });
     
     // 4) actualizar rendimiento

@@ -174,7 +174,7 @@ Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
       "rendimientoHistorico": {
         "promedioPorcentaje": numero,
         "tareasCompletadas": numero
-      }, (del dev elegido)
+      }, (del dev elegido) si no hay rendimientoHistorico, poner { promedioPorcentaje: 0, tareasCompletadas: 0 }
       "horasEstimadasSegunRendimiento": "resultado del calculo = horasTotales * (100 / rendimientoHistorico.promedioPorcentaje), redondeado a 2 decimales || horasTotales si no hay rendimientoHistorico",
       "calidadTarea": "puntuacionPromedioCalidad.puntuacionPromedio (del dev elegido)",
       "feedbackHistorico": "feedbackHistorico.puntuacionPromedio (del dev elegido)" 
