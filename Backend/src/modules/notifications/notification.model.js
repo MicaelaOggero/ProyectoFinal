@@ -6,7 +6,7 @@ const notificationSchema = new mongoose.Schema({
 
   tipo: {
     type: String,
-    enum: ["CALIFICAR_TAREA", "CALIFICAR_PROYECTO_LOTE", "CALIFICACION_RECIBIDA"],
+    enum: ["CALIFICAR_TAREA", "CALIFICAR_PROYECTO_LOTE", "CALIFICACION_RECIBIDA", "RETRASO_TAREA", "TAREA_ASIGNADA"],
     required: true
   },
 
@@ -14,7 +14,7 @@ const notificationSchema = new mongoose.Schema({
 
   // Solo para CALIFICAR_TAREA
   tarea: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: mongoose.Schema.Types.ObjectId, 
     ref: "Task",
     required: function () { return this.tipo === "CALIFICAR_TAREA" || this.tipo === "CALIFICACION_RECIBIDA"; },
     default: null

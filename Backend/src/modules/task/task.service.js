@@ -121,7 +121,9 @@ export async function getTaskById(taskId) {
 }
 
 export async function removeTask(taskId) {
+
   return await deleteTask(taskId);
+
 }
 
 export async function getTasksByProject(projectId) {
@@ -144,65 +146,76 @@ export const obtenerTareasOrdenadasPorProyecto = async (projectId) => {
   return tareasOrdenadas;
 };
 
-export async function iniciarTareaService(taskId, userId) {
-  
-  //Buscar la tarea
-  const tarea = await getTaskByIdDAO(taskId);
-  if (!tarea) {
-    throw new Error("Tarea no encontrada");
-  }
+import SesionTrabajo from "../task/sesionTrabajo.js";
 
-  //validar que el proyecto esté en curso
+export async function iniciarTareaService(taskId, userId) {
+  const tarea = await getTaskByIdDAO(taskId);
+  if (!tarea) throw new Error("Tarea no encontrada");
+
   const proyecto = await Project.findById(tarea.proyecto);
   if (!proyecto || proyecto.estado !== "en curso") {
     throw new Error("Proyecto no encontrado o no está en curso");
   }
 
-  //Buscar el desarrollador
   const desarrollador = await User.findById(userId);
-  if (!desarrollador) {
-    throw new Error("Desarrollador no encontrado");
-  }
+  if (!desarrollador) throw new Error("Desarrollador no encontrado");
 
-  //validar que el desarrollador sea el asignado a la tarea
-  if (tarea.desarrolladorAsignado.toString() !== desarrollador._id.toString()) {
+  if (!tarea.desarrolladorAsignado || tarea.desarrolladorAsignado.toString() !== userId.toString()) {
     throw new Error("No estás asignado a esta tarea");
   }
 
-  //Validar estado actual
   if (tarea.estado !== "pendiente" && tarea.estado !== "pausada") {
-    throw new Error("Solo se pueden iniciar tareas en estado 'pendiente'");
+    throw new Error("Solo se pueden iniciar tareas en estado 'pendiente' o 'pausada'");
   }
 
+  if (tarea.cronometroActivo || tarea.sesionActiva) {
+    throw new Error("La tarea ya tiene una sesión activa");
+  }
+
+  const nuevaSesion = await SesionTrabajo.create({
+    tareaId: tarea._id,
+    desarrolladorAsignado: userId,
+    proyectoId: tarea.proyecto,
+    fechaInicio: new Date(),
+    estado: "activa"
+  });
+
+  const estadoAnterior = tarea.estado;
+
   tarea.estado = "en curso";
-
-  //Actualizar fecha de inicio real
-  tarea.fechaRealInicio = new Date();
-
-  //Registrar tiempo de inicio
+  tarea.cronometroActivo = true;
+  tarea.sesionActiva = nuevaSesion._id;
   tarea.enTrabajoDesde = new Date();
 
-  //Actualizar historial
+  if (!tarea.fechaRealInicio) {
+    tarea.fechaRealInicio = new Date();
+  }
+
   tarea.historial.push({
     campo: "estado",
-    valorAnterior: "pendiente",
+    valorAnterior: estadoAnterior,
     valorNuevo: "en curso",
-    cambiadoPor: desarrollador._id,
+    cambiadoPor: userId,
     fechaCambio: new Date()
   });
 
   await saveTask(tarea);
-  return tarea;
+
+  return {
+    message: "Tarea iniciada correctamente",
+    tarea,
+    sesion: nuevaSesion
+  };
 }
 
-export async function pausarOCompletarTarea(taskId, userId, accion = "pausar") {
+export async function pausarOCompletarTarea(taskId, userId, accion = "pausar", datosEdicion = {}) {
   const tarea = await getTaskByIdDAO(taskId);
   if (!tarea) throw new Error("Tarea no encontrada");
 
   const desarrollador = await User.findById(userId);
   if (!desarrollador) throw new Error("Desarrollador no encontrado");
 
-  if (tarea.desarrolladorAsignado.toString() !== desarrollador._id.toString()) {
+  if (!tarea.desarrolladorAsignado || tarea.desarrolladorAsignado.toString() !== userId.toString()) {
     throw new Error("No estás asignado a esta tarea");
   }
 
@@ -210,21 +223,89 @@ export async function pausarOCompletarTarea(taskId, userId, accion = "pausar") {
     throw new Error("Solo se pueden pausar o completar tareas en curso");
   }
 
-  let nuevoPromedio = null; // 👈 declarar antes
+  if (!tarea.sesionActiva) {
+    throw new Error("La tarea no tiene una sesión activa");
+  }
 
-  // 🔹 Calcular tiempo trabajado
-  if (tarea.enTrabajoDesde) {
-    const ahora = new Date();
-    const diffMs = ahora - tarea.enTrabajoDesde;
-    const minutosTrabajados = Math.round(diffMs / 60000);
-    tarea.tiempoInvertidoHoras += minutosTrabajados;
-    tarea.enTrabajoDesde = null;
+  const sesion = await SesionTrabajo.findById(tarea.sesionActiva);
+  if (!sesion || sesion.estado !== "activa") {
+    throw new Error("No se encontró una sesión activa válida");
+  }
+
+  const ahora = new Date();
+  const diffMs = ahora - sesion.fechaInicio;
+  const horasCalculadas = diffMs / (1000 * 60 * 60);
+
+  let horasFinales = horasCalculadas;
+  let editadaManualmente = false;
+  let motivoEdicion = "";
+
+  if (datosEdicion?.tiempoTrabajadoHoras != null) {
+    const horasEditadas = Number(datosEdicion.tiempoTrabajadoHoras);
+
+    if (Number.isNaN(horasEditadas) || horasEditadas < 0) {
+      throw new Error("El tiempo editado es inválido");
+    }
+
+    horasFinales = horasEditadas;
+    editadaManualmente = true;
+    motivoEdicion = datosEdicion.motivoEdicion || "";
+  }
+
+  sesion.fechaFin = ahora;
+  sesion.tiempoTrabajadoHoras = horasFinales;
+  sesion.editadaManualmente = editadaManualmente;
+  sesion.motivoEdicion = motivoEdicion;
+  sesion.estado = "cerrada";
+
+  await sesion.save();
+
+  tarea.tiempoInvertidoHoras += horasFinales;
+  tarea.enTrabajoDesde = null;
+  tarea.cronometroActivo = false;
+  tarea.sesionActiva = null;
+
+  tarea.porcentajeTiempoInvertido =
+    tarea.tiempoEstimadoHoras > 0
+      ? (tarea.tiempoInvertidoHoras / tarea.tiempoEstimadoHoras) * 100
+      : 0;
+
+  const estabaRetrasada = tarea.retrasada;
+
+  const retrasadaPorTiempo = tarea.tiempoInvertidoHoras > tarea.tiempoEstimadoHoras;
+  const retrasadaPorFecha =
+    tarea.fechaEstimadaFin &&
+    new Date() > new Date(tarea.fechaEstimadaFin) &&
+    accion !== "completar";
+
+  tarea.retrasada = retrasadaPorTiempo || retrasadaPorFecha;
+
+  if (accion === "pausar") {
+    tarea.estado = tarea.retrasada ? "retrasada" : "pausada";
   }
 
   if (accion === "completar") {
     tarea.estado = "completada";
-    tarea.fechaRealFin = new Date();
+    tarea.fechaRealFin = ahora;
+  }
 
+  tarea.historial.push({
+    campo: "estado",
+    valorAnterior: "en curso",
+    valorNuevo: tarea.estado,
+    cambiadoPor: userId,
+    fechaCambio: ahora
+  });
+
+  await saveTask(tarea);
+
+  if (!estabaRetrasada && tarea.retrasada) {
+    await notificarRetrasoTarea(tarea, desarrollador);
+  }
+
+  let nuevoPromedio = null;
+
+  if (accion === "completar") {
     const estadoFinal =
       tarea.tiempoInvertidoHoras > tarea.tiempoEstimadoHoras
         ? "retrasada"
@@ -232,7 +313,6 @@ export async function pausarOCompletarTarea(taskId, userId, accion = "pausar") {
           ? "adelantada"
           : "completada";
 
-    // 1) Crear TaskLog
     const log = await TaskLog.create({
       proyecto: tarea.proyecto?._id ?? tarea.proyecto,
       tarea: tarea._id,
@@ -243,13 +323,11 @@ export async function pausarOCompletarTarea(taskId, userId, accion = "pausar") {
       puntuacionCalidad: null,
     });
 
-    // 2) Buscar admin desde el proyecto
     const proyecto = await Project.findById(tarea.proyecto?._id ?? tarea.proyecto).select("administrador");
     if (!proyecto?.administrador) {
       throw new Error("El proyecto no tiene administrador asignado");
     }
 
-    // 3) Crear notificación
     await Notification.create({
       receptor: proyecto.administrador,
       emisor: userId,
@@ -258,47 +336,60 @@ export async function pausarOCompletarTarea(taskId, userId, accion = "pausar") {
       tarea: tarea._id,
       taskLog: log._id,
       titulo: "Tarea completada: requiere calificación",
-      mensaje: `El/la desarrollador/a ${desarrollador.nombre} ${desarrollador.apellido} completó la tarea "${tarea.nombre}" y requiere puntuación de calidad.
-      Información para calificar:
-      - Duración estimada: ${tarea.tiempoEstimadoHoras} horas
-      - Tiempo invertido: ${tarea.tiempoInvertidoHoras.toFixed(2)} horas
-      - Estado final: ${estadoFinal}
-      - Fecha estimada de inicio: ${tarea.fechaEstimadaInicio.toDateString()}
-      - Fecha estimada de fin: ${tarea.fechaEstimadaFin.toDateString()}
-      - Fecha real de inicio: ${tarea.fechaRealInicio.toDateString()}
-      - Fecha real de fin: ${tarea.fechaRealFin.toDateString()}`,
+      mensaje: `El/la desarrollador/a ${desarrollador.nombre} ${desarrollador.apellido} completó la tarea "${tarea.descripcion}".`
     });
-    
-    // 4) actualizar rendimiento
+
     nuevoPromedio = await actualizarRendimientoDesarrollador(userId);
   }
 
-  //si la accion es pausar
-  if (accion === "pausar") {
-    tarea.estado = "pausada";
-
-  }
-  //Actualizar historial
-
-  tarea.historial.push({
-    campo: "estado",
-    valorAnterior: "en curso",
-    valorNuevo: tarea.estado,
-    cambiadoPor: userId,
-    fechaCambio: new Date()
-  });
-
-  await saveTask(tarea);
-
   return {
     message: `Tarea ${accion === "completar" ? "completada" : "pausada"} correctamente`,
-    horasTotales: tarea.tiempoInvertidoHoras.toFixed(2),
-    rendimientoActualizado: nuevoPromedio !== null
-      ? nuevoPromedio.toFixed(2)
-      : null
+    horasSesion: Number(horasFinales.toFixed(2)),
+    horasTotales: Number(tarea.tiempoInvertidoHoras.toFixed(2)),
+    porcentajeTiempoInvertido: Number(tarea.porcentajeTiempoInvertido.toFixed(2)),
+    retrasada: tarea.retrasada,
+    rendimientoActualizado: nuevoPromedio !== null ? Number(nuevoPromedio.toFixed(2)) : null
   };
 }
 
+async function notificarRetrasoTarea(tarea, desarrollador) {
+  const proyecto = await Project.findById(tarea.proyecto).select("administrador");
+  if (!proyecto?.administrador) return;
+
+  //crear notificaciones para el desarrollador y el admin del proyecto
+
+  await Notification.create({
+    receptor: desarrollador._id,
+    emisor: desarrollador._id,
+    tipo: "RETRASO_TAREA",
+    proyecto: proyecto._id,
+    tarea: tarea._id,
+    taskLog: log._id,
+    titulo: "Tu tarea está retrasada",
+    mensaje: `La tarea "${tarea.descripcion}" superó el tiempo estimado o su fecha prevista.`
+  });
+
+  await Notification.create(
+    {
+      receptor: proyecto.administrador,
+      emisor: desarrollador._id,
+      tipo: "RETRASO_TAREA",
+      proyecto: proyecto._id,
+      tarea: tarea._id,
+      titulo: "Tarea retrasada en el proyecto",
+      mensaje: `La tarea "${tarea.descripcion}" asignada a ${desarrollador.nombre} ${desarrollador.apellido} está retrasada.`
+    }
+  );
+}
+
+async function recalcularTiempoDesdeSesiones(taskId) {
+  const sesiones = await SesionTrabajo.find({
+    tareaId: taskId,
+    estado: "cerrada"
+  });
+
+  return sesiones.reduce((acc, s) => acc + (s.tiempoTrabajadoHoras || 0), 0);
+}
 
 /**
  * Busca los desarrolladores más afines a una tarea,

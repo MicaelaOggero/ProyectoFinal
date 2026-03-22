@@ -7,10 +7,11 @@ import dotenv from "dotenv";
 import Asignacion from "../assignment/assignment.model.js";
 import { verificarYActualizarCalendario } from "../users/user.service.js";
 import { tieneHabilidadesSuficientes } from "../../utils/asignacionBasica/filtroHabilidades.js";
-import SimulationAssignment from "../simulationAssignment/simulationAssignment.model.js";
 import { ordenarTareas } from "../../utils/asignacionBasica/ordenarTareas.js";
 import { tieneDisponibilidad } from "../../utils/asignacionBasica/filtroDisponibilidad.js";
 import { calcularDatosGlobalesSimulacion } from "../simulationAssignment/simulationAssignment.service.js";
+import { upsertSimulacionAsignacion } from "../assignment/assignment.service.js";
+import { crearNotificacionTareaAsignada } from "../notifications/notification.service.js";
 
 dotenv.config()
 
@@ -401,7 +402,7 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
       dias,
       horasTotales,
       razon,
-      porcentajeRendimiento,
+      rendimientoHistorico,
       horasEstimadasSegunRendimiento,
       calidadTarea,
       feedbackHistorico,
@@ -486,7 +487,7 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
       razon,
       costoPorHora: dev.costoPorHora,
       costoTotal: costoTotalNumber,
-      porcentajeRendimiento,
+      porcentajeRendimiento: rendimientoHistorico.promedioPorcentaje,
       horasEstimadasReales,
       puntuacionCalidad: calidadTarea,
       feedbackHistorico: feedbackHistoricoNormalizado
@@ -494,9 +495,25 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
 
     idsAsignacionesCreadas.push(nuevaAsignacion._id);
 
+    // ✅ solo append (NO recalcula)
+    await upsertSimulacionAsignacion({
+      projectId,
+      criterio: "basica",
+      modo: "append",
+      nuevaAsignacionId: nuevaAsignacion._id,
+    });
+
     tareaDB.desarrolladorAsignado = dev._id;
     tareaDB.asignada = true;
     await tareaDB.save();
+
+    // crear/enviar la notificación a los desarrolladores asignados para que vean su nueva tarea asignada
+    await crearNotificacionTareaAsignada({
+      tareaId: tareaDB._id,
+      proyectoId: projectId,
+      desarrolladorId: dev._id,
+      emisorId: proyecto.administrador // o el id del admin / usuario que confirma
+    });
 
     resultados.push({
       tarea: tareaDB.descripcion,
@@ -513,15 +530,10 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
     });
   }
 
-  await SimulationAssignment.create({
-    proyecto: projectId,
-    criterio: criterio || "basica",
-    asignaciones: idsAsignacionesCreadas,
-    costoTotalSimulado: costoTotalSimulado ?? 0,
-    tiempoTotalSimulado: tiempoTotalSimulado ?? 0,
-    tiempoTotalEstimado: tiempoTotalEstimado ?? 0,
-    calidadPromedioTareas: calidadPromedioTareas ?? 0,
-    calidadPromedioSimulado: calidadPromedioSimulado ?? 0
+  await upsertSimulacionAsignacion({
+    projectId,
+    criterio: "basica",
+    modo: "recalc",
   });
 
   return {
