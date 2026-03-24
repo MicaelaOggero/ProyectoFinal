@@ -654,7 +654,8 @@ export default {
 <style scoped>
 .dashboard-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  background: var(--background);
+  color: var(--foreground);
   padding: 2rem 0;
 }
 
@@ -668,7 +669,7 @@ export default {
 }
 
 .loading-container p {
-  color: #6c757d;
+  color: var(--muted-foreground);
   font-size: 1.1rem;
   margin-top: 1rem;
 }
@@ -683,27 +684,29 @@ export default {
 .no-user-content {
   text-align: center;
   padding: 2rem;
-  background: white;
+  background: var(--card);
+  color: var(--card-foreground);
   border-radius: 1rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.06);
   max-width: 400px;
 }
 
 .no-user-content i {
   font-size: 4rem;
-  color: #6c757d;
+  color: var(--muted-foreground);
   margin-bottom: 1rem;
   opacity: 0.7;
 }
 
 .no-user-content h2 {
-  color: #495057;
+  color: var(--card-foreground);
   margin-bottom: 1rem;
   font-weight: 600;
 }
 
 .no-user-content p {
-  color: #6c757d;
+  color: var(--muted-foreground);
   margin-bottom: 2rem;
   line-height: 1.5;
 }
@@ -716,15 +719,24 @@ export default {
 }
 
 .welcome-section {
+  margin-bottom: 2rem;
+}
+
+.main-content .welcome-section {
   text-align: center;
-  margin-bottom: 3rem;
+}
+
+.user-dashboard .welcome-section {
+  text-align: left;
 }
 
 .welcome-title {
-  color: #495057;
-  font-size: 2.5rem;
+  color: var(--foreground);
+  font-size: 1.875rem;
   font-weight: 700;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  text-wrap: balance;
 }
 
 /* Content Cards */
@@ -736,20 +748,22 @@ export default {
 }
 
 .content-card {
-  background: white;
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
   border-radius: 1rem;
   padding: 2rem;
   text-align: center;
   cursor: pointer;
-  transition: all 0.3s;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.06);
   position: relative;
   overflow: hidden;
 }
 
 .content-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px oklch(0 0 0 / 0.08);
 }
 
 .content-card::before {
@@ -758,17 +772,17 @@ export default {
   top: 0;
   left: 0;
   right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #007bff, #28a745);
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), oklch(0.55 0.15 145));
 }
 
 .card-label {
-  font-size: 1.2rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: #6c757d;
+  color: var(--muted-foreground);
   margin-bottom: 1.5rem;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
 }
 
 .card-icon {
@@ -777,15 +791,15 @@ export default {
 
 .card-icon i {
   font-size: 4rem;
-  color: #007bff;
+  color: var(--primary);
 }
 
 .projects-card .card-icon i {
-  color: #28a745;
+  color: oklch(0.55 0.15 145);
 }
 
 .developers-card .card-icon i {
-  color: #fd7e14;
+  color: var(--chart-4);
 }
 
 .card-info {
@@ -796,20 +810,21 @@ export default {
   display: block;
   font-size: 3rem;
   font-weight: 700;
-  color: #007bff;
+  color: var(--primary);
   line-height: 1;
+  letter-spacing: -0.02em;
 }
 
 .projects-card .project-count {
-  color: #28a745;
+  color: oklch(0.55 0.15 145);
 }
 
 .developers-card .developer-count {
-  color: #fd7e14;
+  color: var(--chart-4);
 }
 
 .info-text {
-  color: #6c757d;
+  color: var(--muted-foreground);
   font-size: 1rem;
 }
 
@@ -847,41 +862,45 @@ export default {
 }
 
 .stat-card {
-  background: white;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1.25rem;
   display: flex;
   align-items: center;
   gap: 1rem;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-  transition: transform 0.3s;
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.06);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .stat-card:hover {
   transform: translateY(-2px);
+  box-shadow: 0 8px 24px oklch(0 0 0 / 0.08);
 }
 
 .stat-card i {
-  font-size: 2rem;
-  color: #007bff;
-  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-  padding: 1rem;
-  border-radius: 50%;
+  font-size: 1.5rem;
+  color: var(--primary);
+  background: color-mix(in oklch, var(--primary) 10%, transparent);
+  padding: 0.75rem;
+  border-radius: 0.75rem;
 }
 
 .stat-content h4 {
   margin: 0;
-  font-size: 1.8rem;
+  font-size: 1.75rem;
   font-weight: 700;
-  color: #495057;
+  color: var(--card-foreground);
+  letter-spacing: -0.02em;
 }
 
 .stat-content p {
   margin: 0;
-  color: #6c757d;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 /* Action Buttons */
@@ -907,23 +926,27 @@ export default {
 }
 
 .proyecto-btn {
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-  color: white;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-radius: 0.75rem;
 }
 
 .proyecto-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px oklch(0 0 0 / 0.12);
+  filter: brightness(1.05);
 }
 
 .desarrollador-btn {
-  background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
-  color: white;
+  background: color-mix(in oklch, var(--chart-4) 85%, var(--foreground));
+  color: oklch(0.99 0 0);
+  border-radius: 0.75rem;
 }
 
 .desarrollador-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(253, 126, 20, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px oklch(0.55 0.15 50 / 0.35);
+  filter: brightness(1.05);
 }
 
 /* User Dashboard Styles */
@@ -934,9 +957,9 @@ export default {
 }
 
 .welcome-subtitle {
-  color: #6c757d;
-  font-size: 1.1rem;
-  margin-top: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 1rem;
+  margin-top: 0.35rem;
 }
 
 .user-stats {
@@ -947,11 +970,13 @@ export default {
 }
 
 .section {
-  background: white;
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
   border-radius: 1rem;
   padding: 2rem;
   margin-bottom: 2rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.06);
 }
 
 .section-header {
@@ -960,13 +985,13 @@ export default {
   align-items: center;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
-  border-bottom: 2px solid #e9ecef;
+  border-bottom: 1px solid var(--border);
 }
 
 .section-header h2 {
   margin: 0;
-  color: #495057;
-  font-size: 1.5rem;
+  color: var(--card-foreground);
+  font-size: 1.125rem;
   font-weight: 600;
 }
 
@@ -977,18 +1002,18 @@ export default {
 }
 
 .project-card {
-  background: #f8f9fa;
+  background: color-mix(in oklch, var(--muted) 45%, var(--card));
   border-radius: 0.75rem;
   padding: 1.5rem;
   cursor: pointer;
-  transition: all 0.3s;
-  border: 2px solid transparent;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  border: 1px solid var(--border);
 }
 
 .project-card:hover {
   transform: translateY(-2px);
-  border-color: #007bff;
-  box-shadow: 0 4px 15px rgba(0, 123, 255, 0.15);
+  border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+  box-shadow: 0 4px 15px oklch(0 0 0 / 0.08);
 }
 
 .project-header {
@@ -1000,13 +1025,13 @@ export default {
 
 .project-header h3 {
   margin: 0;
-  color: #495057;
+  color: var(--card-foreground);
   font-size: 1.2rem;
   font-weight: 600;
 }
 
 .project-description {
-  color: #6c757d;
+  color: var(--muted-foreground);
   margin-bottom: 1rem;
   line-height: 1.5;
 }
@@ -1016,7 +1041,7 @@ export default {
   flex-direction: column;
   gap: 0.5rem;
   font-size: 0.9rem;
-  color: #6c757d;
+  color: var(--muted-foreground);
 }
 
 .project-meta span {
@@ -1032,30 +1057,31 @@ export default {
 }
 
 .task-item {
-  background: #f8f9fa;
+  background: color-mix(in oklch, var(--muted) 45%, var(--card));
   border-radius: 0.75rem;
   padding: 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  transition: all 0.3s;
+  transition: background 0.2s ease, transform 0.2s ease;
+  border: 1px solid var(--border);
 }
 
 .task-item:hover {
-  background: #e9ecef;
-  transform: translateX(5px);
+  background: var(--muted);
+  transform: translateX(4px);
 }
 
 .task-info h4 {
   margin: 0 0 0.5rem 0;
-  color: #495057;
+  color: var(--card-foreground);
   font-size: 1.1rem;
   font-weight: 600;
 }
 
 .task-project {
   margin: 0;
-  color: #6c757d;
+  color: var(--muted-foreground);
   font-size: 0.9rem;
 }
 
@@ -1066,12 +1092,13 @@ export default {
 }
 
 .difficulty-badge {
-  background: #6c757d;
-  color: white;
+  background: var(--muted);
+  color: var(--muted-foreground);
   padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
+  border-radius: 0.375rem;
   font-size: 0.8rem;
   font-weight: 600;
+  border: 1px solid var(--border);
 }
 
 .assignment-results {
@@ -1114,7 +1141,7 @@ export default {
 .empty-state {
   text-align: center;
   padding: 3rem 1rem;
-  color: #6c757d;
+  color: var(--muted-foreground);
 }
 
 .empty-state i {
@@ -1185,8 +1212,8 @@ export default {
 .mini-calendar-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  background: white;
-  border-bottom: 1px solid #dee2e6;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
 }
 
 .mini-weekday {
@@ -1194,8 +1221,8 @@ export default {
   padding: 0.3rem 0.2rem;
   font-size: 0.65rem;
   font-weight: 600;
-  color: #495057;
-  border-right: 1px solid #dee2e6;
+  color: var(--muted-foreground);
+  border-right: 1px solid var(--border);
 }
 
 .mini-weekday:last-child {
@@ -1207,7 +1234,7 @@ export default {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   flex: 1;
-  background: white;
+  background: var(--card);
 }
 
 .mini-calendar-day {
@@ -1215,12 +1242,12 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: white;
+  background: var(--card);
   font-size: 0.7rem;
   cursor: pointer;
-  transition: all 0.2s;
-  border-right: 1px solid #dee2e6;
-  border-bottom: 1px solid #dee2e6;
+  transition: background 0.2s ease;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   position: relative;
 }
 
@@ -1229,23 +1256,23 @@ export default {
 }
 
 .mini-calendar-day:hover {
-  background: #f8f9fa;
+  background: var(--muted);
 }
 
 .mini-calendar-day.other-month {
-  color: #adb5bd;
-  background: #f8f9fa;
+  color: var(--muted-foreground);
+  background: color-mix(in oklch, var(--muted) 60%, var(--card));
 }
 
 .mini-calendar-day.today {
-  background: #e3f2fd;
-  color: #1976d2;
+  background: color-mix(in oklch, var(--primary) 12%, var(--card));
+  color: var(--primary);
   font-weight: 600;
 }
 
 .mini-calendar-day.has-assigned-tasks {
-  background: #fff3cd;
-  color: #856404;
+  background: color-mix(in oklch, var(--chart-4) 18%, var(--card));
+  color: var(--foreground);
 }
 
 .mini-calendar-day.has-assigned-tasks::before {
@@ -1255,7 +1282,7 @@ export default {
   left: 2px;
   right: 2px;
   height: 2px;
-  background: #ffc107;
+  background: var(--chart-4);
   border-radius: 1px;
 }
 
