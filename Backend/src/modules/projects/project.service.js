@@ -6,6 +6,7 @@ import { crearNotificacionFeedbackProyecto } from "../notifications/notification
 import User from "../users/user.model.js";
 import Notification from "../notifications/notification.model.js";
 import { saveProjectFinalReport } from "../reports/report.service.js";
+import { createFeedback } from "../performanceFeedback/performanceFeedback.dao.js";
 
 // Obtener proyectos por administrador
 export const getProjects = async (adminId) => {
@@ -275,6 +276,14 @@ export async function calificarDesarrolladoresProyectoService(
       desarrolladorId: dev._id,
       puntuacion: Number(c.puntuacion),
       feedbackHistorico: dev.feedbackHistorico
+    });
+
+    await createFeedback({
+      proyecto: projectId,
+      desarrollador: dev._id,
+      administrador: adminId,
+      puntuacion: Number(c.puntuacion),
+      comentario: c.comentario || ""
     });
 
     // 🔔 Crear notificación de calificación recibida para el de
