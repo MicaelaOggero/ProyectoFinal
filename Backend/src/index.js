@@ -17,6 +17,7 @@ import '../src/config/passport.config.js'
 import '../src/utils/resetDisponibilidad.js'
 import { conectarDB } from "./config/db.js"
 import feedbackRouter from '../src/modules/performanceFeedback/performanceFeedback.routes.js'
+import reportRouter from '../src/modules/reports/report.routes.js'
 
 dotenv.config()
 const app=express()
@@ -78,6 +79,7 @@ app.use('/api/assignment', assignmentRouter)
 app.use('/api/feedback', feedbackRouter)
 app.use('/api/simulation-assignment', simulationAssignmentRouter)
 app.use('/api/notification', notificationRouter)
+app.use('/api/report', reportRouter)
 
 // Conectar a la base de datos
 conectarDB()

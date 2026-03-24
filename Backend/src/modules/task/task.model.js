@@ -24,7 +24,7 @@ const taskSchema = new mongoose.Schema({
   },
   estado: {
     type: String,
-    enum: ['pendiente', 'en curso', 'pausada', 'completada', 'retrasada'],
+    enum: ['pendiente', 'en curso', 'pausada', 'completada', 'retrasada', 'cancelada'],
     default: 'pendiente'
   },
   proyecto: {
