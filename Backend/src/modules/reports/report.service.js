@@ -90,6 +90,7 @@ export async function getWeeklyDeveloperMetrics({ projectId, weekStart, weekEnd 
   const metricsByDev = new Map();
   const tasksEnProgresoByDev = new Map();
   const tareasRetrasadasByDev = new Map();
+  const tareasPendientesByDev = new Map();
 
   function ensureDev(devId) {
     if (!metricsByDev.has(devId)) {
@@ -103,6 +104,7 @@ export async function getWeeklyDeveloperMetrics({ projectId, weekStart, weekEnd 
         tareasCompletadas: 0,
         tareasEnProgreso: 0,
         tareasRetrasadas: 0,
+        tareasPendientes: 0,
         promedioCalidad: 0,
         promedioRendimiento: 0,
         _sumCalidad: 0,
@@ -176,6 +178,12 @@ export async function getWeeklyDeveloperMetrics({ projectId, weekStart, weekEnd 
         tareasRetrasadasByDev.set(devId, set);
       }
     }
+
+    if (task.estado === "pendiente") {
+      const set = tareasPendientesByDev.get(devId) || new Set();
+      set.add(String(task._id));
+      tareasPendientesByDev.set(devId, set);
+    }
   }
 
   for (const [devId, metric] of metricsByDev.entries()) {
@@ -189,6 +197,9 @@ export async function getWeeklyDeveloperMetrics({ projectId, weekStart, weekEnd 
 
     const retrasadasSet = tareasRetrasadasByDev.get(devId) || new Set();
     metric.tareasRetrasadas = retrasadasSet.size;
+
+    const pendientesSet = tareasPendientesByDev.get(devId) || new Set();
+    metric.tareasPendientes = pendientesSet.size;
 
     metric.promedioCalidad = avg(metric._sumCalidad, metric._countCalidad);
     metric.promedioRendimiento = avg(metric._sumRend, metric._countRend);
@@ -256,12 +267,17 @@ export async function getWeeklyProjectMetrics({ projectId, weekStart, weekEnd } 
 
   const tareasEnProgreso = new Set();
   const tareasRetrasadas = new Set();
+  const tareasPendientes = new Set();
 
   for (const task of tasks) {
     const taskId = String(task._id);
 
     if (task.estado === "en curso" && taskIdsWithSessions.has(taskId)) {
       tareasEnProgreso.add(taskId);
+    }
+
+    if (task.estado === "pendiente") {
+      tareasPendientes.add(taskId);
     }
 
     if (task.estado === "retrasada") {
@@ -309,6 +325,7 @@ export async function getWeeklyProjectMetrics({ projectId, weekStart, weekEnd } 
     costoTotal: Number(costoTotal.toFixed(2)),
     tareasCompletadas,
     tareasEnProgreso: tareasEnProgreso.size,
+    tareasPendientes: tareasPendientes.size,
     tareasRetrasadas: tareasRetrasadas.size,
     promedioCalidad: avg(sumCalidad, countCalidad),
     promedioRendimiento: avg(sumRend, countRend),
