@@ -12,7 +12,7 @@ router.post("/", authAdmin, projectController.createProject);
 router.get("/", auth, projectController.getProjects);
 
 // Obtener un proyecto específico por ID
-router.get("/:id", authAdmin, projectController.getProjectById);
+router.get("/:id", auth, projectController.getProjectById);
 
 // Actualizar un proyecto por ID (solo admins)
 router.put("/:id", authAdmin, projectController.updateProject);

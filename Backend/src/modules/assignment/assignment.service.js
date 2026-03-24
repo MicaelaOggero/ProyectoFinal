@@ -7,7 +7,7 @@ import SimulacionAsignacion from "../simulationAssignment/simulationAssignment.m
 import User from "../users/user.model.js";
 import { obtenerDisponibilidadEnRango } from "../../utils/asignacionBasica/diasDisponible.js";
 
-export async function recalcularDatosGlobales(simulacionActualizada, costoTotalSimulado) {
+export async function recalcularDatosGlobales(simulacionActualizada) {
   if (!simulacionActualizada) throw new Error("Simulación inválida");
   if (!Array.isArray(simulacionActualizada.asignaciones)) {
     throw new Error("La simulación no tiene asignaciones pobladas");
@@ -33,6 +33,8 @@ export async function recalcularDatosGlobales(simulacionActualizada, costoTotalS
   let sumaCalidadSimulada = 0;
   let contadorCalidadSimulada = 0;
 
+  let costoTotalSimulado = 0;
+
   // Si querés calcular costo desde asignaciones en lugar de pasar costoTotalSimulado por parámetro,
   // podés usar esto:
   // let costoTotalSimuladoCalc = 0;
@@ -50,8 +52,8 @@ export async function recalcularDatosGlobales(simulacionActualizada, costoTotalS
     // --- Tiempo simulado (real estimado por rendimiento) ---
     // Tu lógica previa: usar horasEstimadasSegunRendimiento si viene, sino horasTotales
     const horasSimuladas =
-      a?.horasEstimadasSegunRendimiento != null
-        ? parseNum(a.horasEstimadasSegunRendimiento)
+      a?.horasEstimadasReales != null
+        ? parseNum(a.horasEstimadasReales)
         : horasEstimadasPlan;
 
     tiempoTotalSimulado += horasSimuladas;
@@ -60,8 +62,8 @@ export async function recalcularDatosGlobales(simulacionActualizada, costoTotalS
     // En tu payload suele venir como calidadTarea (o puntuacionCalidad según tu asignación)
     const calidadTarea =
       a?.calidadTarea != null ? parseNum(a.calidadTarea) :
-      a?.puntuacionCalidad != null ? parseNum(a.puntuacionCalidad) :
-      0;
+        a?.puntuacionCalidad != null ? parseNum(a.puntuacionCalidad) :
+          0;
 
     if (calidadTarea > 0) {
       sumaCalidadTareas += calidadTarea;
@@ -72,9 +74,9 @@ export async function recalcularDatosGlobales(simulacionActualizada, costoTotalS
     // Tu asignación tiene feedbackHistorico, o dev.feedbackHistorico.puntuacionPromedio
     const feedback =
       a?.feedbackHistorico != null ? parseNum(a.feedbackHistorico) :
-      a?.desarrollador?.feedbackHistorico?.puntuacionPromedio != null
-        ? parseNum(a.desarrollador.feedbackHistorico.puntuacionPromedio)
-        : 0;
+        a?.desarrollador?.feedbackHistorico?.puntuacionPromedio != null
+          ? parseNum(a.desarrollador.feedbackHistorico.puntuacionPromedio)
+          : 0;
 
     if (feedback > 0) {
       sumaCalidadSimulada += feedback;
@@ -82,10 +84,9 @@ export async function recalcularDatosGlobales(simulacionActualizada, costoTotalS
     }
 
     // --- Costo (opcional calcular desde asignación) ---
-    // Si en Asignacion guardás costoTarea:
-    // costoTotalSimuladoCalc += parseNum(a?.costoTarea);
-    // o si guardás costoPorHora:
-    // costoTotalSimuladoCalc += parseNum(a?.costoPorHora) * horasEstimadasPlan;
+
+    costoTotalSimulado += parseNum(a?.costoTotal);
+
   }
 
   const calidadPromedioTareas =
@@ -176,7 +177,7 @@ export const editarAsignacionService = async (asignacionId, nuevoDevId, userId) 
   // 4. Guardar valor anterior del desarrollador
   const desarrolladorAnterior = tarea.desarrolladorAsignado;
 
-  
+
 
   // 5. Asignar nuevo desarrollador
   tarea.desarrolladorAsignado = devNuevo._id;
@@ -213,7 +214,7 @@ export const editarAsignacionService = async (asignacionId, nuevoDevId, userId) 
     nuevosDias.push({ fecha: new Date(dia.fecha), horasAsignadas });
   }
 
-   // 7. Recalcular costo de la tarea
+  // 7. Recalcular costo de la tarea
   const costoAnterior = tarea.costoTarea;
   const nuevoCosto = calcularCostoDev(devNuevo, tarea.tiempoEstimadoHoras);
   tarea.costoTarea = nuevoCosto;
@@ -231,7 +232,7 @@ export const editarAsignacionService = async (asignacionId, nuevoDevId, userId) 
   asignacion.horasEstimadasReales = asignacion.horasTotales * (devNuevo.rendimientoHistorico.promedioPorcentaje / 100)
   asignacion.puntuacionCalidad = devNuevo.puntuacionPromedioCalidad.puntuacionPromedio || 0;
   asignacion.feedbackHistorico = devNuevo.feedbackHistorico.puntuacionPromedio || 0;
- 
+
 
   //mostrar cambios
   console.log("Asignación editada:", {
@@ -246,11 +247,11 @@ export const editarAsignacionService = async (asignacionId, nuevoDevId, userId) 
   // Guardar cambios en el desarrollador nuevo
   await saveUser(devNuevo);
 
-  
+
   // Guardar cambios en el desarrollador original
   await saveUser(devOriginal);
 
-   // Guardar cambios en la asignación
+  // Guardar cambios en la asignación
   await saveAsignacion(asignacion);
 
   // ---------------------------------------------------------
@@ -261,7 +262,7 @@ export const editarAsignacionService = async (asignacionId, nuevoDevId, userId) 
       path: "asignaciones",
       populate: [{ path: "tarea" }, { path: "desarrollador" }]
     });
-  
+
   // 8. Recalcular el costo total del proyecto
   const proyecto = tarea.proyecto;
   const tareasProyecto = await Task.find({ proyecto: proyecto._id }).populate("desarrolladorAsignado");
@@ -278,8 +279,9 @@ export const editarAsignacionService = async (asignacionId, nuevoDevId, userId) 
   // Guardar cambios en el proyecto
   await proyecto.save();
 
+  await recalcularDatosGlobales(simulacionActualizada);
 
-  await recalcularDatosGlobales(simulacionActualizada, costoTotal);  
+
 
   // Guardar cambios en la asignación completa
   await simulacionActualizada.save();
@@ -287,8 +289,6 @@ export const editarAsignacionService = async (asignacionId, nuevoDevId, userId) 
 
   return asignacion;
 };
-
-
 
 /**
  * Asigna un desarrollador a una tarea manualmente SIN modificar la BD.
@@ -402,8 +402,8 @@ export const asignarTareaManual = async (asignacion) => {
     nombre: devNuevo.nombre,
     apellido: devNuevo.apellido ?? "",
 
-    dias: diasAsignados,                 
-    horasTotales: horasTotalesAsignadas, 
+    dias: diasAsignados,
+    horasTotales: horasTotalesAsignadas,
 
     tipoAsignacion: asignacion.tipoAsignacion ?? "basica",
     razon: "Asignación realizada manualmente por el administrador.",
@@ -412,9 +412,9 @@ export const asignarTareaManual = async (asignacion) => {
 
     rendimientoHistorico: rendimientoHistorico
       ? {
-          promedioPorcentaje: Number(rendimientoHistorico.promedioPorcentaje ?? 0),
-          tareasCompletadas: Number(rendimientoHistorico.tareasCompletadas ?? 0)
-        }
+        promedioPorcentaje: Number(rendimientoHistorico.promedioPorcentaje ?? 0),
+        tareasCompletadas: Number(rendimientoHistorico.tareasCompletadas ?? 0)
+      }
       : { promedioPorcentaje: 0, tareasCompletadas: 0 },
 
     horasEstimadasSegunRendimiento: String(horasEstimadasSegunRendimiento),
@@ -503,6 +503,105 @@ export const getAsignacionesPorProyectoService = async (proyectoId) => {
   }));
 };
 
+import SimulationAssignment from "../simulationAssignment/simulationAssignment.model.js";
+import Asignacion from "../assignment/assignment.model.js";
 
+/**
+ * Upsert de simulación por (projectId) con dos modos:
+ * - modo="append": agrega/reemplaza nuevaAsignacionId (por tarea) SIN recalcular globales.
+ * - modo="recalc": recalcula globales desde las asignaciones guardadas (populate) y guarda.
+ */
 
+export async function upsertSimulacionAsignacion({
+  projectId,
+  criterio,
+  modo = "append", // "append" | "recalc"
+  nuevaAsignacionId = null,
+}) {
 
+    console.log(">>> UPSERT LLAMADO", { projectId, modo, nuevaAsignacionId });
+
+  if (!projectId) throw new Error("Falta projectId.");
+
+  // 1) Buscar simulación existente
+  let simulacion = await SimulationAssignment.findOne({
+    proyecto: projectId,
+  });
+
+  // 2) Si no existe, crearla (en ambos modos)
+  if (!simulacion) {
+    simulacion = await SimulationAssignment.create({
+      proyecto: projectId,
+      criterio,
+      asignaciones: [],
+      costoTotalSimulado: 0,
+      tiempoTotalSimulado: 0,
+      tiempoTotalEstimado: 0,
+      calidadPromedioTareas: 0,
+      calidadPromedioSimulado: 0,
+    });
+  }
+
+  // ---- MODO APPEND: agregar/reemplazar una asignación por tarea ----
+  if (modo === "append") {
+    if (!nuevaAsignacionId) throw new Error("Falta nuevaAsignacionId para modo append.");
+
+    // Traer la asignación nueva para conocer su tarea
+    const nueva = await Asignacion.findById(nuevaAsignacionId).select("tarea");
+    if (!nueva) throw new Error("No existe la nueva asignación en BD.");
+    const tareaId = nueva.tarea?.toString();
+    if (!tareaId) throw new Error("La nueva asignación no tiene tarea asociada.");
+
+    // Traer asignaciones actuales (solo tarea) para detectar si ya hay una para esa tarea
+    const actuales = await Asignacion.find({
+      _id: { $in: simulacion.asignaciones },
+    }).select("_id tarea");
+
+    const idsMismaTarea = new Set(
+      actuales
+        .filter((a) => a.tarea?.toString() === tareaId)
+        .map((a) => a._id.toString())
+    );
+
+    // Quitar las viejas de esa tarea
+    simulacion.asignaciones = simulacion.asignaciones.filter(
+      (id) => !idsMismaTarea.has(id.toString())
+    );
+
+    // Agregar la nueva
+    simulacion.asignaciones.push(nuevaAsignacionId);
+
+    await simulacion.save();
+    return { ok: true, modo, simulacionId: simulacion._id };
+  }
+
+  // ---- MODO RECALC: recalcular globales una sola vez ----
+  if (modo === "recalc") {
+    // Poblar asignaciones + tarea + desarrollador porque tu recalculador lo usa
+    simulacion = await SimulationAssignment
+      .findOne({ proyecto: projectId })
+      .populate("asignaciones");
+
+    console.log("Simulación para recalc:", simulacion ? simulacion._id : "No se encontró para recalc");
+
+    // Reutilizás TU función
+    await recalcularDatosGlobales(simulacion);
+    await simulacion.save();
+
+    return {
+      ok: true,
+      modo,
+      simulacionId: simulacion._id,
+      globales: {
+        costoTotalSimulado: simulacion.costoTotalSimulado,
+        tiempoTotalEstimado: simulacion.tiempoTotalEstimado,
+        tiempoTotalSimulado: simulacion.tiempoTotalSimulado,
+        calidadPromedioTareas: simulacion.calidadPromedioTareas,
+        calidadPromedioSimulado: simulacion.calidadPromedioSimulado,
+      },
+      asignacionesCount: Array.isArray(simulacion.asignaciones) ? simulacion.asignaciones.length : 0,
+    };
+  }
+
+  throw new Error(`Modo inválido: ${modo}. Usá "append" o "recalc".`);
+}

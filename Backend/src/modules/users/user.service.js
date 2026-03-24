@@ -236,32 +236,44 @@ export async function verificarYActualizarCalendario(desarrollador) {
 
 
 export async function actualizarRendimientoDesarrollador(userId) {
-  // Obtener todos los logs del desarrollador
   const logs = await TaskLog.find({ desarrollador: userId });
 
-  if (logs.length === 0) return; // No hay tareas registradas aún
+  if (!logs.length) return;
 
-  // Calcular el promedio real de rendimiento
-  let sumaPorcentajes = 0;
+  let suma = 0;
+  let count = 0;
 
   for (const log of logs) {
-    const rendimiento = (log.duracionEstimadaHoras / log.tiempoInvertidoHoras) * 100;
+    const est = Number(log.duracionEstimadaHoras);
+    const inv = Number(log.tiempoInvertidoHoras);
 
-    sumaPorcentajes += rendimiento;
+    // Evitar divisiones inválidas
+    if (!Number.isFinite(est) || !Number.isFinite(inv) || inv <= 0) {
+      continue; // o manejalo como quieras (ej: inv=1, o marcar log inválido)
+    }
+
+    const rendimiento = (est / inv) * 100;
+
+    if (!Number.isFinite(rendimiento)) continue;
+
+    suma += rendimiento;
+    count++;
   }
 
-  const promedio = sumaPorcentajes / logs.length;
+  if (count === 0) return; // todos eran inválidos
 
-  // Guardar en el usuario
+  const promedio = suma / count;
+
   await User.findByIdAndUpdate(userId, {
     $set: {
       "rendimientoHistorico.promedioPorcentaje": promedio,
-      "rendimientoHistorico.tareasCompletadas": logs.length,
+      "rendimientoHistorico.tareasCompletadas": count,
     },
   });
 
   return promedio;
 }
+
 
 
 export async function actualizarCalendariosDeTodosLosDesarrolladores() {

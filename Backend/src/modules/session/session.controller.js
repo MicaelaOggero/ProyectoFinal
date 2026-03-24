@@ -52,6 +52,25 @@ export const resetPassword = async (req, res) => {
   }
 };
 
+export const requestPasswordReset = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const result = await sessionService.requestPasswordReset(email);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message });
+  }
+};
+
+export const confirmPasswordReset = async (req, res) => {
+  try {
+    const result = await sessionService.confirmPasswordReset(req.body);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message });
+  }
+};
+
 // Obtener perfil de usuario
 export const getProfile = async (req, res) => {
   try {

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 
+
 const taskSchema = new mongoose.Schema({
   descripcion: {
     type: String,
@@ -23,7 +24,7 @@ const taskSchema = new mongoose.Schema({
   },
   estado: {
     type: String,
-    enum: ['pendiente', 'en curso', 'pausada', 'completada'],
+    enum: ['pendiente', 'en curso', 'pausada', 'completada', 'retrasada', 'cancelada'],
     default: 'pendiente'
   },
   proyecto: {
@@ -57,6 +58,10 @@ const taskSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  porcentajeTiempoInvertido: {
+    type: Number,
+    default: 0
+  },
   fechaEstimadaFin: Date,
   fechaEstimadaInicio: Date,
   fechaRealFin: Date,
@@ -65,9 +70,28 @@ const taskSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  enTrabajoDesde: Date
+  enTrabajoDesde: Date,
+  cronometroActivo: {
+    type: Boolean,
+    default: false
+  },
+  sesionActiva: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SesionTrabajo',
+    default: null
+  },
+  retrasada: {
+    type: Boolean,
+    default: false
+  },
+  notificacionRetrasadaEnviada: {
+    type: Boolean,
+    default: false
+  }
 
 });
+
+
 
 const Task = mongoose.model('Task', taskSchema);
 export default Task;

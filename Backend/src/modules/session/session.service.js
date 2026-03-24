@@ -3,6 +3,7 @@ import { findUsersByRole } from "../users/user.dao.js";
 import { createHash, generateToken, isValidPassword } from "../../utils/utils.js";
 import { findByAdmin } from "../projects/project.dao.js";
 import passport from "passport";
+import jwt from "jsonwebtoken";
 
 // Registrar un nuevo usuario
 export const registerUser = async (data) => {
@@ -47,6 +48,91 @@ export const resetPassword = async ({ email, password }) => {
   if (!user) throw { status: 404, message: "Usuario no encontrado" };
 
   return await sessionDao.updatePassword(user._id, createHash(password));
+};
+
+const buildPasswordResetToken = (user, expiresIn = "1h") => {
+  return jwt.sign(
+    { _id: user._id, email: user.email, purpose: "password_reset" },
+    process.env.JWT_SECRET,
+    { expiresIn }
+  );
+};
+
+const sendPasswordResetEmail = async ({ email, token }) => {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const resetUrlBase = process.env.FRONTEND_RESET_URL;
+
+  if (!apiKey || !fromEmail || !resetUrlBase) {
+    throw { status: 500, message: "Servicio de email no configurado" };
+  }
+
+  const resetLink = `${resetUrlBase}?token=${encodeURIComponent(token)}`;
+
+  const payload = {
+    personalizations: [{ to: [{ email }] }],
+    from: { email: fromEmail },
+    subject: "Restablecer contraseña",
+    content: [
+      {
+        type: "text/plain",
+        value: `Usá este enlace para restablecer tu contraseña: ${resetLink}`,
+      },
+    ],
+  };
+
+  const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw { status: 500, message: `Error enviando email: ${text}` };
+  }
+};
+
+export const requestPasswordReset = async (email) => {
+  if (!email) throw { status: 400, message: "Email requerido" };
+
+  const user = await sessionDao.findByEmail(email);
+  if (!user) return { message: "Si el email existe, se enviará un enlace" };
+
+  if (!user.password) {
+    throw { status: 400, message: "Este usuario no tiene contraseña" };
+  }
+
+  const token = buildPasswordResetToken(user);
+  await sendPasswordResetEmail({ email: user.email, token });
+
+  return { message: "Email de restablecimiento enviado" };
+};
+
+export const confirmPasswordReset = async ({ token, password }) => {
+  if (!token || !password) {
+    throw { status: 400, message: "Token y password son requeridos" };
+  }
+
+  let payload;
+  try {
+    payload = jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    throw { status: 403, message: "Token inválido o expirado" };
+  }
+
+  if (payload.purpose !== "password_reset") {
+    throw { status: 403, message: "Token inválido" };
+  }
+
+  const user = await sessionDao.findByEmail(payload.email);
+  if (!user) throw { status: 404, message: "Usuario no encontrado" };
+
+  await sessionDao.updatePassword(user._id, createHash(password));
+  return { message: "Contraseña actualizada" };
 };
 
 // Obtener perfil de usuario

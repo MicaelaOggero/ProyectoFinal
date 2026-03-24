@@ -7,10 +7,10 @@ import dotenv from "dotenv";
 import Asignacion from "../assignment/assignment.model.js";
 import { verificarYActualizarCalendario } from "../users/user.service.js";
 import { tieneHabilidadesSuficientes } from "../../utils/asignacionBasica/filtroHabilidades.js";
-import SimulationAssignment from "../simulationAssignment/simulationAssignment.model.js";
 import { ordenarTareas } from "../../utils/asignacionBasica/ordenarTareas.js";
 import { tieneDisponibilidad } from "../../utils/asignacionBasica/filtroDisponibilidad.js";
 import { calcularDatosGlobalesSimulacion } from "../simulationAssignment/simulationAssignment.service.js";
+import { upsertSimulacionAsignacion } from "../assignment/assignment.service.js";
 
 dotenv.config()
 
@@ -174,7 +174,7 @@ Devuelve un JSON **válido** con esta estructura (Nada más que el JSON):
       "rendimientoHistorico": {
         "promedioPorcentaje": numero,
         "tareasCompletadas": numero
-      }, (del dev elegido)
+      }, (del dev elegido) si no hay rendimientoHistorico, poner { promedioPorcentaje: 0, tareasCompletadas: 0 }
       "horasEstimadasSegunRendimiento": "resultado del calculo = horasTotales * (100 / rendimientoHistorico.promedioPorcentaje), redondeado a 2 decimales || horasTotales si no hay rendimientoHistorico",
       "calidadTarea": "puntuacionPromedioCalidad.puntuacionPromedio (del dev elegido)",
       "feedbackHistorico": "feedbackHistorico.puntuacionPromedio (del dev elegido)" 
@@ -225,72 +225,6 @@ import { asignarTareaManual } from "../assignment/assignment.service.js";
  * que recibe una asignación "sinCandidatos"
  * y devuelve un objeto con los datos del dev y la planificación manual.
  */
-export async function completarAsignacionesManuales(resultadoIA) {
-  const nuevasAsignaciones = [];
-
-  for (const asignacion of resultadoIA.asignaciones) {
-    // Si ya tiene desarrollador asignado por la IA, la dejamos como está
-    if (!asignacion.sinCandidatos) {
-      nuevasAsignaciones.push(asignacion);
-      continue;
-    }
-
-    //agregar a asignacion un desarrolladorId antes de llamar a la función
-    asignacion.desarrolladorId = "692887c28e8c635a505b80d6";
-
-    // Si la tarea no tenía candidatos (caso sinCandidatos: true)
-    // llamamos a la función que permite asignarla manualmente
-    const asignacionManual = await asignarTareaManual(asignacion);
-
-    // Si el usuario no asignó nadie (null/undefined), la dejamos tal cual
-    if (!asignacionManual) {
-      nuevasAsignaciones.push(asignacion);
-      continue;
-    }
-
-    // Armamos la nueva asignación, copiando los datos de la tarea
-    // y completando con la info del dev elegido manualmente
-    const asignacionCompletada = {
-      tareaId: asignacionManual.tareaId,
-      descripcion: asignacionManual.descripcion,
-      nombre: asignacionManual.nombre,
-      apellido: asignacionManual.apellido,              // tareaId, descripcion, etc.
-      tipoAsignacion: asignacionManual.tipoAsignacion,     // marcamos que fue manual
-
-      desarrolladorId: asignacionManual.desarrolladorId,
-      nombre: asignacionManual.nombre,
-      apellido: asignacionManual.apellido,
-
-      rendimientoHistorico: asignacionManual.rendimientoHistorico,
-      dias: asignacionManual.dias,                  // [{ fecha, horasAsignadas }]
-      horasTotales: asignacionManual.horasTotales,
-      costoTotal: asignacionManual.costoTotal,
-      porcentajeRendimiento: asignacionManual.porcentajeRendimiento,
-      horasEstimadasSegunRendimiento: asignacionManual.horasEstimadasSegunRendimiento,
-      calidadTarea: asignacionManual.calidadTarea,
-      feedbackHistorico: asignacionManual.feedbackHistorico,
-
-      razon: `${asignacionManual.razon} `
-    };
-
-    nuevasAsignaciones.push(asignacionCompletada);
-  }
-
-
-   // 🔹 AQUÍ devolvemos un JSON COMPLETO y FINAL
-  const resultadoFinal = {
-    projectId: resultadoIA.projectId,
-    asignaciones: nuevasAsignaciones
-  };
-
-  const resultadoFinalConDatosGlobales = {
-    ...resultadoFinal,
-    ...calcularDatosGlobalesSimulacion(resultadoFinal)
-  };
-
-  return resultadoFinalConDatosGlobales;
-
-}
 
 export async function confirmarAsignacionPorCalidad(projectId, sugerencias) {
   const resultados = [];
@@ -400,7 +334,7 @@ export async function confirmarAsignacionPorCalidad(projectId, sugerencias) {
       dias,
       horasTotales,
       razon,
-      porcentajeRendimiento,
+      rendimientoHistorico,
       horasEstimadasSegunRendimiento, // 👈 nombre real en tu JSON
       calidadTarea,
       feedbackHistorico,
@@ -493,7 +427,7 @@ export async function confirmarAsignacionPorCalidad(projectId, sugerencias) {
       costoTotal: costoTotalNumber,
 
       // tiempo
-      porcentajeRendimiento,
+      porcentajeRendimiento: rendimientoHistorico.promedioPorcentaje,
       horasEstimadasReales,
 
       // calidad
@@ -502,6 +436,14 @@ export async function confirmarAsignacionPorCalidad(projectId, sugerencias) {
     });
 
     idsAsignacionesCreadas.push(nuevaAsignacion._id);
+
+    // ✅ solo append (NO recalcula)
+    await upsertSimulacionAsignacion({
+      projectId,
+      criterio: "calidad",
+      modo: "append",
+      nuevaAsignacionId: nuevaAsignacion._id,
+    });
 
     // ✅ Actualizar tarea
     tareaDB.desarrolladorAsignado = dev._id;
@@ -524,16 +466,13 @@ export async function confirmarAsignacionPorCalidad(projectId, sugerencias) {
     });
   }
 
-  // ✅ Guardar simulación completa en SimulationAssignment
-  await SimulationAssignment.create({
-    proyecto: projectId,
-    criterio: criterio,
-    asignaciones: idsAsignacionesCreadas,
-    costoTotalSimulado: costoTotalSimulado ?? 0,
-    tiempoTotalSimulado: tiempoTotalSimulado ?? 0,
-    tiempoTotalEstimado: tiempoTotalEstimado ?? 0,
-    calidadPromedioTareas: calidadPromedioTareas ?? 0,
-    calidadPromedioSimulado: calidadPromedioSimulado ?? 0
+  console.log(">>> LLEGUE AL FINAL, voy a RECALC", { projectId, criterio: "calidad" });
+
+  // ✅ Guardar simulación completa en SimulationAssignment - recalcular una sola vez (con todo lo agregado)
+  await upsertSimulacionAsignacion({
+    projectId,
+    criterio: "calidad",
+    modo: "recalc",
   });
 
   return {

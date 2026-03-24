@@ -163,3 +163,22 @@ export const obtenerNotificacionesService = async (userId) => {
   // acá podrías filtrar por tipo, estado, etc en el futuro
   return await findNotificationsByUserDAO(userId);
 };
+
+export const crearNotificacionTareaAsignada = async ({ tareaId, proyectoId, desarrolladorId, emisorId }) => {
+  if (!tareaId || !proyectoId || !desarrolladorId || !emisorId) {
+    throw new Error("Faltan datos para crear la notificación");
+  }
+
+  const notificacion = await Notification.create({
+    receptor: desarrolladorId,
+    emisor: emisorId,
+    tipo: "TAREA_ASIGNADA",
+    proyecto: proyectoId,
+    tarea: tareaId,
+    titulo: "Nueva tarea asignada",
+    mensaje: "Se te ha asignado una nueva tarea. Revisala para más detalles.",
+    leida: false,
+    resuelta: false,
+  });
+  return notificacion;
+};

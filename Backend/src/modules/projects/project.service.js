@@ -5,6 +5,7 @@ import * as userDao from "../users/user.dao.js";
 import { crearNotificacionFeedbackProyecto } from "../notifications/notification.service.js";
 import User from "../users/user.model.js";
 import Notification from "../notifications/notification.model.js";
+import { saveProjectFinalReport } from "../reports/report.service.js";
 
 // Obtener proyectos por administrador
 export const getProjects = async (adminId) => {
@@ -205,6 +206,8 @@ export async function finalizarProyectoService(projectId, userId) {
 
   // ✅ Crear notificación para calificar devs
   await crearNotificacionFeedbackProyecto(projectId);
+
+  saveProjectFinalReport(proyecto._id);
 
   return proyecto;
 }
