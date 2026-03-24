@@ -43,6 +43,26 @@ class AuthService {
   }
 }
 
+  async requestPasswordReset(email) {
+    try {
+      const response = await axios.post(`${API_URL}/password-reset/request`, { email });
+      return response.data;
+    } catch (error) {
+      console.error('Error solicitando reseteo de contraseña:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  async confirmPasswordReset(token, password) {
+    try {
+      const response = await axios.post(`${API_URL}/password-reset/confirm`, { token, password });
+      return response.data;
+    } catch (error) {
+      console.error('Error confirmando reseteo de contraseña:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
 
   // Método para iniciar autenticación con Google
   async loginWithGoogle() {

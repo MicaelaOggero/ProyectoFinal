@@ -11,26 +11,39 @@
           <button type="button" class="btn-close" @click="closeModal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
+          <div class="notif-tabs mb-3">
+            <button
+              v-for="tab in availableTabs"
+              :key="tab.key"
+              type="button"
+              class="notif-tab-btn"
+              :class="{ active: activeTab === tab.key }"
+              @click="activeTab = tab.key"
+            >
+              {{ tab.label }}
+            </button>
+          </div>
           <!-- Vista para desarrolladores -->
           <div v-if="!isAdmin">
             <div v-if="loadingDeveloperNotifications" class="text-center py-4">
               <div class="spinner-border text-primary" role="status"></div>
               <p class="mt-2">Cargando notificaciones...</p>
             </div>
-            <div v-else-if="developerNotifications.length === 0" class="text-center py-4">
+            <div v-else-if="filteredDeveloperNotifications.length === 0" class="text-center py-4">
               <div class="empty-state">
                 <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
                 <h5 class="mt-3">No tenés notificaciones</h5>
-                <p class="text-muted">Cuando te califiquen una tarea o un proyecto, aparecerá aquí.</p>
+                <p class="text-muted">Cuando te asignen tareas, haya retrasos o recibas calificaciones, aparecerán aquí.</p>
               </div>
             </div>
             <div v-else class="developer-notifications-list">
-              <div v-for="notif in developerNotifications" :key="notif._id" class="task-notif-card card mb-3">
+              <div v-for="notif in filteredDeveloperNotifications" :key="notif._id" class="task-notif-card card mb-3">
                 <div class="card-body">
                   <div class="d-flex align-items-start">
-                    <i class="bi bi-star-fill text-info me-3 mt-1" style="font-size: 1.5rem;"></i>
+                    <i :class="notificationIconClass(notif)" class="me-3 mt-1" style="font-size: 1.5rem;"></i>
                     <div>
                       <h6 class="card-title mb-1">{{ notif.titulo }}</h6>
+                      <span class="badge bg-light text-dark border mb-2">{{ notificationTypeLabel(notif.tipo) }}</span>
                       <p class="card-text text-muted small mb-1">{{ notif.mensaje }}</p>
                       <small v-if="notif.creadaEn" class="text-muted">
                         <i class="bi bi-clock me-1"></i>{{ formatDate(notif.creadaEn) }}
@@ -49,16 +62,16 @@
               <div class="spinner-border text-primary" role="status"></div>
               <p class="mt-2">Cargando notificaciones...</p>
             </div>
-            <div v-else-if="taskNotifications.length === 0" class="text-center py-4">
+            <div v-else-if="filteredAdminRatingNotifications.length === 0 && filteredAdminDelayNotifications.length === 0" class="text-center py-4">
               <div class="empty-state">
                 <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
-                <h5 class="mt-3">No hay tareas ni proyectos pendientes de calificar</h5>
-                <p class="text-muted">Cuando un desarrollador complete una tarea o finalices un proyecto, aparecerá aquí para que asignes una puntuación de calidad (1 a 5).</p>
+                <h5 class="mt-3">No hay notificaciones pendientes</h5>
+                <p class="text-muted">Vas a ver aquí tareas/proyectos para calificar y alertas por retrasos.</p>
               </div>
             </div>
             <div v-else class="task-notifications-list">
               <!-- Notificación: tarea completada (una sola calificación) -->
-              <div v-for="notif in taskNotifications" :key="notif._id" class="task-notif-card card mb-3" v-show="notif.tipo === 'CALIFICAR_TAREA'">
+              <div v-for="notif in filteredAdminRatingNotifications" :key="notif._id" class="task-notif-card card mb-3" v-show="notif.tipo === 'CALIFICAR_TAREA'">
                 <div class="card-body">
                   <div class="d-flex justify-content-between align-items-start">
                     <div>
@@ -102,7 +115,7 @@
                 </div>
               </div>
               <!-- Notificación: proyecto finalizado (calificar a cada desarrollador) -->
-              <div v-for="notif in taskNotifications" :key="'proj-' + notif._id" class="task-notif-card card mb-3" v-show="notif.tipo === 'CALIFICAR_PROYECTO_LOTE'">
+              <div v-for="notif in filteredAdminRatingNotifications" :key="'proj-' + notif._id" class="task-notif-card card mb-3" v-show="notif.tipo === 'CALIFICAR_PROYECTO_LOTE'">
                 <div class="card-body">
                   <div class="d-flex justify-content-between align-items-start">
                     <div>
@@ -169,6 +182,22 @@
                   </div>
                 </div>
               </div>
+              <!-- Notificación: alerta de retraso -->
+              <div v-for="notif in filteredAdminDelayNotifications" :key="'delay-' + notif._id" class="task-notif-card card mb-3">
+                <div class="card-body">
+                  <div class="d-flex align-items-start">
+                    <i class="bi bi-exclamation-triangle-fill text-warning me-3 mt-1" style="font-size: 1.4rem;"></i>
+                    <div>
+                      <h6 class="card-title mb-1">{{ notif.titulo }}</h6>
+                      <span class="badge bg-warning text-dark mb-2">Tarea retrasada</span>
+                      <p class="card-text text-muted small mb-1">{{ notif.mensaje }}</p>
+                      <small v-if="notif.creadaEn" class="text-muted">
+                        <i class="bi bi-clock me-1"></i>{{ formatDate(notif.creadaEn) }}
+                      </small>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           </template>
@@ -198,6 +227,7 @@ export default {
       loadingTaskNotifications: false,
       developerNotifications: [],
       loadingDeveloperNotifications: false,
+      activeTab: 'todas',
       calificandoId: null,
       puntuacionSeleccionada: null,
       calificandoProyectoId: null,
@@ -207,6 +237,62 @@ export default {
   computed: {
     isAdmin() {
       return AuthService.isAdmin(this.currentUser);
+    },
+    availableTabs() {
+      if (this.isAdmin) {
+        return [
+          { key: 'todas', label: 'Todas' },
+          { key: 'calificaciones', label: 'Calificaciones' },
+          { key: 'retrasos', label: 'Retrasos' }
+        ];
+      }
+      return [
+        { key: 'todas', label: 'Todas' },
+        { key: 'calificaciones', label: 'Calificaciones' },
+        { key: 'retrasos', label: 'Retrasos' },
+        { key: 'asignaciones', label: 'Asignaciones' }
+      ];
+    },
+    adminRatingNotifications() {
+      return this.taskNotifications.filter(
+        n => n.tipo === 'CALIFICAR_TAREA' || n.tipo === 'CALIFICAR_PROYECTO_LOTE'
+      );
+    },
+    adminDelayNotifications() {
+      return this.taskNotifications.filter(n => n.tipo === 'RETRASO_TAREA');
+    },
+    filteredAdminRatingNotifications() {
+      if (this.activeTab === 'retrasos') return [];
+      if (this.activeTab === 'calificaciones' || this.activeTab === 'todas') {
+        return this.adminRatingNotifications;
+      }
+      return [];
+    },
+    filteredAdminDelayNotifications() {
+      if (this.activeTab === 'calificaciones') return [];
+      if (this.activeTab === 'retrasos' || this.activeTab === 'todas') {
+        return this.adminDelayNotifications;
+      }
+      return [];
+    },
+    filteredDeveloperNotifications() {
+      if (this.activeTab === 'todas') return this.developerNotifications;
+
+      if (this.activeTab === 'calificaciones') {
+        return this.developerNotifications.filter(
+          n => n.tipo === 'CALIFICACION_RECIBIDA' || n.tipo === 'TAREA_CALIFICADA' || n.tipo === 'PROYECTO_CALIFICADO'
+        );
+      }
+
+      if (this.activeTab === 'retrasos') {
+        return this.developerNotifications.filter(n => n.tipo === 'RETRASO_TAREA');
+      }
+
+      if (this.activeTab === 'asignaciones') {
+        return this.developerNotifications.filter(n => n.tipo === 'TAREA_ASIGNADA');
+      }
+
+      return this.developerNotifications;
     }
   },
   mounted() {
@@ -215,6 +301,7 @@ export default {
   methods: {
     async show() {
       this.currentUser = await AuthService.checkSession();
+      this.activeTab = 'todas';
       this.modalInstance.show();
       if (AuthService.isAdmin(this.currentUser)) {
         this.taskNotifications = [];
@@ -242,9 +329,14 @@ export default {
       try {
         const list = await NotificationService.getMisNotificaciones();
         const todas = Array.isArray(list) ? list : [];
-        // Notificaciones para desarrolladores: cuando les califican una tarea o un proyecto (backend envía CALIFICACION_RECIBIDA)
+        // Notificaciones para desarrolladores.
         this.developerNotifications = todas.filter(
-          n => n.tipo === 'CALIFICACION_RECIBIDA' || n.tipo === 'TAREA_CALIFICADA' || n.tipo === 'PROYECTO_CALIFICADO'
+          n =>
+            n.tipo === 'CALIFICACION_RECIBIDA' ||
+            n.tipo === 'TAREA_CALIFICADA' ||
+            n.tipo === 'PROYECTO_CALIFICADO' ||
+            n.tipo === 'RETRASO_TAREA' ||
+            n.tipo === 'TAREA_ASIGNADA'
         );
       } catch (error) {
         console.error('Error cargando notificaciones del desarrollador:', error);
@@ -257,10 +349,12 @@ export default {
       this.loadingTaskNotifications = true;
       try {
         const list = await NotificationService.getMisNotificaciones();
-        // Mostrar solo las pendientes de calificar (resuelta: false)
+        // Notificaciones admin: pendientes de calificar + alertas de retraso.
         const todas = Array.isArray(list) ? list : [];
         this.taskNotifications = todas.filter(
-          n => !n.resuelta && (n.tipo === 'CALIFICAR_TAREA' || n.tipo === 'CALIFICAR_PROYECTO_LOTE')
+          n =>
+            (n.tipo === 'CALIFICAR_TAREA' || n.tipo === 'CALIFICAR_PROYECTO_LOTE') && !n.resuelta ||
+            n.tipo === 'RETRASO_TAREA'
         );
       } catch (error) {
         console.error('Error cargando notificaciones de tareas:', error);
@@ -344,6 +438,21 @@ export default {
         const msg = error.response?.data?.error || error.message || 'Error al calificar';
         alert('Error: ' + msg);
       }
+    },
+    notificationTypeLabel(tipo) {
+      const map = {
+        CALIFICACION_RECIBIDA: 'Calificación recibida',
+        TAREA_ASIGNADA: 'Nueva tarea',
+        RETRASO_TAREA: 'Tarea retrasada',
+        TAREA_CALIFICADA: 'Tarea calificada',
+        PROYECTO_CALIFICADO: 'Proyecto calificado'
+      };
+      return map[tipo] || tipo;
+    },
+    notificationIconClass(notif) {
+      if (notif.tipo === 'RETRASO_TAREA') return 'bi bi-exclamation-triangle-fill text-warning';
+      if (notif.tipo === 'TAREA_ASIGNADA') return 'bi bi-list-check text-primary';
+      return 'bi bi-star-fill text-info';
     }
   }
 };
@@ -377,6 +486,40 @@ export default {
 .task-notif-card .calificar-form {
   background: #f8f9fa;
   border-radius: 0.25rem;
+}
+
+.notif-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid #dbe4f0;
+  border-radius: 0.7rem;
+  padding: 0.25rem;
+  background: #f8fbff;
+}
+
+.notif-tab-btn {
+  border: none;
+  background: transparent;
+  color: #495057;
+  font-weight: 600;
+  font-size: 0.92rem;
+  line-height: 1;
+  padding: 0.55rem 0.9rem;
+  border-radius: 0.5rem;
+  transition: all 0.18s ease;
+}
+
+.notif-tab-btn:hover {
+  background: #eef4fb;
+  color: #0d6efd;
+}
+
+.notif-tab-btn.active {
+  background: #ffffff;
+  color: #0d6efd;
+  border: 1px solid #0d6efd;
+  box-shadow: 0 1px 2px rgba(13, 110, 253, 0.15);
 }
 
 .user-card {

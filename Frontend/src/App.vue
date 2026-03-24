@@ -37,7 +37,8 @@ watch: {
 
   methods: {
  async checkAuthStatus() {
-  if (this.$route.path === '/login') {
+  const publicRoutes = ['/login', '/reset-password', '/google-callback'];
+  if (publicRoutes.includes(this.$route.path)) {
     this.isAuthenticated = false;
     return;
   }

@@ -116,6 +116,15 @@
               class="form-control"
             />
           </div>
+          <div class="forgot-password-row">
+            <button
+              type="button"
+              class="forgot-password-btn"
+              @click="$router.push('/reset-password')"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
           <button type="submit" class="btn btn-primary" :disabled="loading">
             {{ loading ? 'Iniciando sesión...' : 'Iniciar Sesión' }}
           </button>
@@ -726,6 +735,27 @@ export default {
 
 .auth-form {
   margin-top: 0;
+}
+
+.forgot-password-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.forgot-password-btn {
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.forgot-password-btn:hover {
+  opacity: 0.9;
 }
 
 .form-group {

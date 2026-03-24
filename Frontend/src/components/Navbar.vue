@@ -7,6 +7,15 @@
         <router-link to="/dashboard" class="nav-link-icon">
           <i class="bi bi-house-door-fill home-icon me-3" title="Inicio"></i>
         </router-link>
+        <router-link
+          v-if="isAuthenticated && isUserAdmin"
+          to="/reportes"
+          class="reports-link me-3"
+          title="Reportes"
+        >
+          <i class="bi bi-bar-chart-line-fill me-1"></i>
+          Reportes
+        </router-link>
         <span v-if="isAuthenticated" class="notification-wrapper me-3" @click="openNotifications">
           <i class="bi bi-bell notification-icon" title="Notificaciones"></i>
           <span class="notification-badge" :class="{ 'notification-badge-zero': notificationCount === 0 }">{{ notificationCount > 99 ? '99+' : notificationCount }}</span>
@@ -117,11 +126,20 @@ export default {
         const todas = Array.isArray(list) ? list : [];
         if (AuthService.isAdmin(this.currentUser)) {
           this.notificationCount = todas.filter(
-            n => !n.resuelta && (n.tipo === 'CALIFICAR_TAREA' || n.tipo === 'CALIFICAR_PROYECTO_LOTE')
+            n => !n.resuelta && (
+              n.tipo === 'CALIFICAR_TAREA' ||
+              n.tipo === 'CALIFICAR_PROYECTO_LOTE' ||
+              n.tipo === 'RETRASO_TAREA'
+            )
           ).length;
         } else {
           this.notificationCount = todas.filter(
-            n => n.tipo === 'CALIFICACION_RECIBIDA' || n.tipo === 'TAREA_CALIFICADA' || n.tipo === 'PROYECTO_CALIFICADO'
+            n =>
+              n.tipo === 'CALIFICACION_RECIBIDA' ||
+              n.tipo === 'TAREA_CALIFICADA' ||
+              n.tipo === 'PROYECTO_CALIFICADO' ||
+              n.tipo === 'RETRASO_TAREA' ||
+              n.tipo === 'TAREA_ASIGNADA'
           ).length;
         }
       } catch (error) {
@@ -213,6 +231,27 @@ export default {
 .nav-link-icon:hover {
   text-decoration: none;
   color: inherit;
+}
+
+.reports-link {
+  color: white;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.8rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.reports-link:hover {
+  color: white;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
 }
 
 .notification-wrapper {
