@@ -34,5 +34,9 @@ export default router;
 // Resetear mi password (debe estar logueado)
 router.patch("/reset-password", sessionController.resetPassword);
 
+// Solicitar y confirmar reseteo por email
+router.post("/password-reset/request", sessionController.requestPasswordReset);
+router.post("/password-reset/confirm", sessionController.confirmPasswordReset);
+
 // Dashboard (info del usuario logueado)
 router.get("/dashboard", auth, sessionController.dashboardController);
