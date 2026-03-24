@@ -1,6 +1,9 @@
 import {
   getWeeklyProjectMetrics,
   getWeeklyDeveloperMetrics,
+  getFinalProjectReport,
+  getFinalProjectReportPdf,
+  saveProjectFinalReport,
 } from "./report.service.js";
 
 export async function getWeeklyProjectMetricsController(req, res) {
@@ -34,6 +37,43 @@ export async function getWeeklyDeveloperMetricsController(req, res) {
 
     const result = await getWeeklyDeveloperMetrics({ projectId, weekStart, weekEnd });
     return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+}
+
+export async function getFinalProjectReportController(req, res) {
+  try {
+    const { projectId } = req.params;
+    const result = await getFinalProjectReport(projectId);
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(404).json({ error: error.message });
+  }
+}
+
+export async function getFinalProjectReportPdfController(req, res) {
+  try {
+    const { projectId } = req.params;
+    const pdfBuffer = await getFinalProjectReportPdf(projectId);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="final-report-${projectId}.pdf"`
+    );
+
+    return res.status(200).send(pdfBuffer);
+  } catch (error) {
+    return res.status(404).json({ error: error.message });
+  }
+}
+
+export async function createFinalProjectReportController(req, res) {
+  try {
+    const { projectId } = req.params;
+    const result = await saveProjectFinalReport(projectId);
+    return res.status(201).json(result);
   } catch (error) {
     return res.status(400).json({ error: error.message });
   }
