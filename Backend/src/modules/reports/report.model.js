@@ -25,6 +25,10 @@ const developerSummarySchema = new mongoose.Schema({
 const taskSummarySchema = new mongoose.Schema({
   tareaId: { type: mongoose.Schema.Types.ObjectId, ref: "Task", required: true },
   descripcion: { type: String, default: "" },
+  categoria: { type: String, default: "" },
+  nivelDificultad: { type: Number, default: 0 },
+  prioridad: { type: String, default: "" },
+  desarrolladorAsignadoNombre: { type: String, default: "" },
   expected: {
     horasTotales: { type: Number, default: 0 },
     costoTotal: { type: Number, default: 0 },
@@ -41,6 +45,14 @@ const taskSummarySchema = new mongoose.Schema({
 
 const finalProjectReportSchema = new mongoose.Schema({
   proyecto: { type: mongoose.Schema.Types.ObjectId, ref: "Project", required: true },
+  nombreProyecto: { type: String, default: "" },
+  descripcionProyecto: { type: String, default: "" },
+  fechaInicioEstimada: { type: Date },
+  fechaFinEstimada: { type: Date },
+  fechaCreacion: { type: Date },
+  nivelDificultad: { type: Number, default: 0 },
+  prioridad: { type: String, default: "" },
+  nombreAdministrador: { type: String, default: "" },
   fechaInicio: { type: Date, required: true },
   fechaFin: { type: Date, required: true },
   expected: {

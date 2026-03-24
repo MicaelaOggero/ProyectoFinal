@@ -318,8 +318,17 @@ export async function getWeeklyProjectMetrics({ projectId, weekStart, weekEnd } 
 export async function saveProjectFinalReport(projectId) {
   if (!projectId) throw new Error("projectId es requerido");
 
+  const existingReport = await findFinalReportByProject(projectId);
+  if (existingReport) {
+    throw new Error("Ya existe un resumen global para este proyecto");
+  }
+
   const project = await Project.findById(projectId).lean();
   if (!project) throw new Error("Proyecto no encontrado");
+
+  if (project.estado !== "finalizado") {
+    throw new Error("El proyecto debe estar finalizado para generar el resumen global");
+  }
 
   const startDate = project.fechaInicioReal;
   const endDate = project.fechaFinReal;
@@ -328,12 +337,13 @@ export async function saveProjectFinalReport(projectId) {
     throw new Error("El proyecto no tiene fechas de inicio o fin válidas");
   }
 
-  const [tasks, taskLogs, sessions, simulation, performanceFeedbacks] = await Promise.all([
+  const [tasks, taskLogs, sessions, simulation, performanceFeedbacks, adminUser] = await Promise.all([
     Task.find({ proyecto: projectId }).lean(),
     TaskLog.find({ proyecto: projectId }).lean(),
     SesionTrabajo.find({ proyectoId: projectId, estado: "cerrada" }).lean(),
     findLatestSimulationByProject(projectId),
     PerformanceFeedback.find({ proyecto: projectId }).lean(),
+    project.administrador ? User.findById(project.administrador).select("nombre apellido").lean() : null,
   ]);
 
   if (!simulation) {
@@ -536,9 +546,17 @@ export async function saveProjectFinalReport(projectId) {
       userMap.get(devId)?.puntuacionPromedioCalidad?.puntuacionPromedio
     );
 
+    const devName = userMap.get(devId)
+      ? `${userMap.get(devId).nombre || ""} ${userMap.get(devId).apellido || ""}`.trim()
+      : "";
+
     return {
       tareaId: task._id,
       descripcion: task.descripcion || "",
+      categoria: task.categoria || "",
+      nivelDificultad: safeNumber(task.nivelDificultad),
+      prioridad: task.prioridad || "",
+      desarrolladorAsignadoNombre: devName,
       expected: {
         horasTotales: safeNumber(expected?.horasTotales),
         costoTotal: safeNumber(expected?.costoTotal),
@@ -556,8 +574,20 @@ export async function saveProjectFinalReport(projectId) {
 
   const calidadPromedioReal = avg(sumQuality, countQuality);
 
+  const nombreAdministrador = adminUser
+    ? `${adminUser.nombre || ""} ${adminUser.apellido || ""}`.trim()
+    : "";
+
   const payload = {
     proyecto: projectId,
+    nombreProyecto: project.nombre || "",
+    descripcionProyecto: project.descripcion || "",
+    fechaInicioEstimada: project.fechaInicioEstimada || null,
+    fechaFinEstimada: project.fechaFinEstimada || null,
+    fechaCreacion: project.fechaCreacion || null,
+    nivelDificultad: safeNumber(project.nivelDificultad),
+    prioridad: project.prioridad || "",
+    nombreAdministrador,
     fechaInicio: startDate,
     fechaFin: endDate,
     expected: {
@@ -647,8 +677,9 @@ function buildFinalReportPdf(report) {
         return String(value);
       };
 
-      const projectLabel =
-        typeof report.proyecto === "object"
+      const projectLabel = report.nombreProyecto
+        ? report.nombreProyecto
+        : typeof report.proyecto === "object"
           ? report.proyecto?.nombre || report.proyecto?._id?.toString?.() || "-"
           : report.proyecto?.toString?.() || "-";
 
@@ -778,16 +809,32 @@ function buildFinalReportPdf(report) {
 
       doc.fillColor(colors.subtitle).font("Helvetica").fontSize(10);
       doc.text(`Proyecto: ${projectLabel}`, 40, 68);
-      doc.text(`Fecha inicio: ${formatDate(report.fechaInicio)}`, 40, 84);
-      doc.text(`Fecha fin: ${formatDate(report.fechaFin)}`, 40, 100);
+      doc.text(`Administrador: ${safeText(report.nombreAdministrador)}`, 40, 84);
 
       doc
-        .moveTo(doc.page.margins.left, 120)
-        .lineTo(doc.page.width - doc.page.margins.right, 120)
+        .moveTo(doc.page.margins.left, 104)
+        .lineTo(doc.page.width - doc.page.margins.right, 104)
         .strokeColor(colors.line)
         .stroke();
 
-      doc.y = 135;
+      doc.y = 118;
+
+      // DATOS DEL PROYECTO
+      sectionTitle("Datos del proyecto");
+      drawTable({
+        headers: ["Campo", "Valor"],
+        columnWidths: [35, 65],
+        rows: [
+          ["Descripcion", safeText(report.descripcionProyecto)],
+          ["Fecha creacion", formatDate(report.fechaCreacion)],
+          ["Fecha inicio estimada", formatDate(report.fechaInicioEstimada)],
+          ["Fecha fin estimada", formatDate(report.fechaFinEstimada)],
+          ["Fecha inicio real", formatDate(report.fechaInicio)],
+          ["Fecha fin real", formatDate(report.fechaFin)],
+          ["Nivel dificultad", formatInteger(report.nivelDificultad)],
+          ["Prioridad", safeText(report.prioridad)],
+        ],
+      });
 
       // RESUMEN
       sectionTitle("Resumen esperado vs real");
@@ -896,6 +943,10 @@ function buildFinalReportPdf(report) {
         drawTable({
           headers: [
             "Tarea",
+            "Desarrollador",
+            "Categoria",
+            "Prioridad",
+            "Dificultad",
             "Horas esperadas",
             "Horas est. reales",
             "Tiempo real",
@@ -905,9 +956,13 @@ function buildFinalReportPdf(report) {
             "Calidad esperada",
             "Calidad tarea real",
           ],
-          columnWidths: [26, 8, 10, 10, 9, 9, 10, 10, 8],
+          columnWidths: [16, 12, 8, 7, 7, 7, 8, 8, 8, 7, 7, 7, 8],
           rows: tareasDetalle.map((tarea) => [
             tarea.descripcion || "(sin descripción)",
+            tarea.desarrolladorAsignadoNombre || "-",
+            tarea.categoria || "-",
+            tarea.prioridad || "-",
+            formatInteger(tarea.nivelDificultad),
             formatNumber(tarea.expected?.horasTotales),
             formatNumber(tarea.expected?.horasEstimadasReales),
             tarea.real?.tiempoInvertido
