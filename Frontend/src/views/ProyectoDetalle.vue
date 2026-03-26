@@ -307,8 +307,8 @@
             </div>
           </div>
 
-          <!-- Resumen de simulación por criterio (cálculos del backend) -->
-          <div class="resumen-simulacion-tab mb-4">
+          <!-- Resumen de simulación por criterio: solo se muestra después de haber confirmado una asignación -->
+          <div class="resumen-simulacion-tab mb-4" v-if="assignments && assignments.length > 0">
             <div class="card">
               <div class="card-header bg-light">
                 <h5 class="mb-0">
@@ -337,7 +337,7 @@
                     </thead>
                     <tbody>
                       <template v-for="(data, key) in resumenTabComparisonData" :key="key">
-                        <tr v-if="data && !data.error" :class="{ 'criterio-elegido-row': key === criterioElegidoParaTab }">
+                        <tr v-if="data && !data.error && (!criterioElegidoParaTab || key === criterioElegidoParaTab)" :class="{ 'criterio-elegido-row': key === criterioElegidoParaTab }">
                           <td><strong>{{ getCriterioName(key) }}</strong><span v-if="key === criterioElegidoParaTab" class="ms-2 badge bg-primary">Elegido</span></td>
                           <td>
                             <span v-if="data.costoTotalSimulado != null" class="fw-bold text-success">
@@ -370,8 +370,16 @@
                   <p class="mb-0">No hay datos de simulación para este proyecto.</p>
                 </div>
                 <div v-else class="text-center py-3 text-muted">
-                  <p class="mb-0">Se cargará el resumen al ver este tab.</p>
+                  <p class="mb-0">Cargando resumen...</p>
                 </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="mb-4">
+            <div class="card border-0 bg-light">
+              <div class="card-body text-center py-4 text-muted">
+                <i class="bi bi-calculator display-6"></i>
+                <p class="mb-0 mt-2">El resumen por criterio se mostrará cuando confirmes una asignación para este proyecto.</p>
               </div>
             </div>
           </div>
@@ -4345,15 +4353,18 @@ ${developers.length === 0 ? `
 
     async switchToAssignmentsTab() {
       this.activeTab = 'asignaciones';
-      await Promise.all([
-        this.loadExistingAssignments(),
-        this.loadResumenSimulacionForTab()
-      ]);
+      // Cargar asignaciones primero para que estén disponibles si necesitamos construir el resumen desde ellas
+      await this.loadExistingAssignments();
+      await this.loadResumenSimulacionForTab();
     },
 
     async loadResumenSimulacionForTab() {
       const projectId = this.$route.params.id;
       if (!projectId) return;
+      if (!this.assignments || this.assignments.length === 0) {
+        this.resumenTabComparisonData = null;
+        return;
+      }
       this.loadingResumenTab = true;
       this.resumenTabComparisonData = null;
       try {
@@ -4361,10 +4372,121 @@ ${developers.length === 0 ? `
         this.resumenTabComparisonData = this.buildComparisonDataFromResumen(resumen) || {};
       } catch (error) {
         console.error('Error cargando resumen de simulación para tab:', error);
-        this.resumenTabComparisonData = {};
+        // Fallback: backend solo guarda el criterio elegido → usar GET simulation-assignment/:projectId
+        if (error.response?.status === 500) {
+          try {
+            const simulaciones = await AssignmentService.getSimulacionesPorProyecto(projectId);
+            if (simulaciones && simulaciones.length > 0) {
+              const resumenDesdeBackend = this.buildResumenDesdeSimulacionesGuardadas(simulaciones, projectId);
+              this.resumenTabComparisonData = this.buildComparisonDataFromResumen(resumenDesdeBackend) || {};
+            } else {
+              this.resumenTabComparisonData = this.buildResumenDesdeAsignaciones()
+                ? this.buildComparisonDataFromResumen(this.buildResumenDesdeAsignaciones()) || {}
+                : {};
+            }
+          } catch (fallbackError) {
+            console.error('Error en fallback (simulaciones guardadas):', fallbackError);
+            if (this.assignments && this.assignments.length > 0) {
+              const resumenDesdeAsignaciones = this.buildResumenDesdeAsignaciones();
+              this.resumenTabComparisonData = resumenDesdeAsignaciones
+                ? this.buildComparisonDataFromResumen(resumenDesdeAsignaciones) || {}
+                : {};
+            } else {
+              this.resumenTabComparisonData = {};
+            }
+          }
+        } else {
+          this.resumenTabComparisonData = {};
+        }
       } finally {
         this.loadingResumenTab = false;
       }
+    },
+
+    /** Construir resumen en formato esperado desde la ruta GET simulation-assignment/:projectId (simulaciones guardadas) */
+    buildResumenDesdeSimulacionesGuardadas(simulaciones, projectId) {
+      const resumen = {};
+      const keyMap = { basica: 'basica', costo: 'costo', tiempo: 'tiempo', calidad: 'calidad' };
+      for (const sim of simulaciones) {
+        const key = keyMap[sim.criterio] || sim.criterio;
+        if (!key) continue;
+        resumen[key] = {
+          asignaciones: [],
+          costoTotalSimulado: sim.costoTotalSimulado ?? null,
+          tiempoTotalEstimado: sim.tiempoTotalEstimado ?? null,
+          tiempoTotalSimulado: sim.tiempoTotalSimulado ?? null,
+          calidadPromedioTareas: sim.calidadPromedioTareas ?? null,
+          calidadPromedioSimulado: sim.calidadPromedioSimulado ?? null,
+          projectId: String(sim.proyecto || projectId)
+        };
+      }
+      return resumen;
+    },
+
+    /** Construir resumen parcial desde asignaciones existentes cuando el backend solo tiene el criterio elegido */
+    buildResumenDesdeAsignaciones() {
+      if (!this.assignments || this.assignments.length === 0) return null;
+      
+      const tipoAsignacion = this.assignments[0].tipoAsignacion || 'basica';
+      const resumenKeyMap = { basica: 'basica', costo: 'costo', tiempo: 'tiempo', calidad: 'calidad' };
+      const resumenKey = resumenKeyMap[tipoAsignacion] || 'basica';
+      
+      // Calcular datos globales desde las asignaciones
+      let costoTotalSimulado = 0;
+      let tiempoTotalEstimado = 0;
+      let tiempoTotalSimulado = 0;
+      const calidadesTareas = [];
+      const feedbacksHistoricos = [];
+      
+      const asignaciones = this.assignments.map(a => {
+        const horasTotales = a.horasAsignadasTotales || 0;
+        const costoPorHora = a.desarrollador?.costoPorHora || 0;
+        const costoTotal = horasTotales * costoPorHora;
+        costoTotalSimulado += costoTotal;
+        tiempoTotalEstimado += horasTotales;
+        
+        // Para tiempo simulado usar horasEstimadasReales si existe, sino horasTotales
+        const horasSimuladas = a.horasEstimadasReales || horasTotales;
+        tiempoTotalSimulado += horasSimuladas;
+        
+        // Calidad (si existe en la asignación)
+        if (a.calidadTarea != null) calidadesTareas.push(Number(a.calidadTarea));
+        if (a.feedbackHistorico != null && a.feedbackHistorico > 0) feedbacksHistoricos.push(Number(a.feedbackHistorico));
+        
+        return {
+          tareaId: a.tarea?.id || a.tareaId,
+          desarrolladorId: a.desarrollador?.id || a.desarrolladorId,
+          dias: a.dias || [],
+          horasTotales,
+          costoTotal,
+          horasEstimadasSegunRendimiento: horasSimuladas,
+          calidadTarea: a.calidadTarea || null,
+          feedbackHistorico: a.feedbackHistorico || null,
+          tipoAsignacion
+        };
+      });
+      
+      const calidadPromedioTareas = calidadesTareas.length > 0 
+        ? calidadesTareas.reduce((sum, c) => sum + c, 0) / calidadesTareas.length 
+        : null;
+      const calidadPromedioSimulado = feedbacksHistoricos.length > 0
+        ? feedbacksHistoricos.reduce((sum, f) => sum + f, 0) / feedbacksHistoricos.length
+        : null;
+      
+      // Construir objeto resumen en formato esperado (solo con el criterio que existe)
+      const resumen = {
+        [resumenKey]: {
+          asignaciones,
+          costoTotalSimulado: costoTotalSimulado > 0 ? costoTotalSimulado : null,
+          tiempoTotalEstimado: tiempoTotalEstimado > 0 ? tiempoTotalEstimado : null,
+          tiempoTotalSimulado: tiempoTotalSimulado > 0 ? tiempoTotalSimulado : null,
+          calidadPromedioTareas: calidadPromedioTareas ? Number(calidadPromedioTareas.toFixed(2)) : null,
+          calidadPromedioSimulado: calidadPromedioSimulado ? Number(calidadPromedioSimulado.toFixed(2)) : null,
+          projectId: this.$route.params.id
+        }
+      };
+      
+      return resumen;
     },
 
     async loadExistingAssignments() {

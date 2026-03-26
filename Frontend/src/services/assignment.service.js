@@ -218,13 +218,29 @@ class AssignmentService {
 
   // NUEVOS M��TODOS PARA SIMULACI��N DE ASIGNACIONES
 
-  // Obtener resumen de simulaci?n con los 4 criterios (basica, costo, tiempoIA, calidad)
+  // Obtener resumen de simulación con los 4 criterios (recalcula en backend; puede fallar si solo está guardado uno)
   async getResumenSimulacion(projectId) {
     try {
       const response = await axios.get(`${API_URL}/simulation-assignment/resumen-simulacion/${projectId}`);
       return response.data;
     } catch (error) {
-      console.error('Error obteniendo resumen de simulaci?n:', error);
+      console.error('Error obteniendo resumen de simulación:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtener simulaciones guardadas por proyecto (solo lo que se persistió, ej. el criterio elegido).
+   * GET /api/simulation-assignment/:projectId (authAdmin).
+   * Respuesta: { ok: true, data: [ { criterio, costoTotalSimulado, tiempoTotalEstimado, tiempoTotalSimulado, calidadPromedioTareas, calidadPromedioSimulado, proyecto, creadoEn }, ... ] }
+   */
+  async getSimulacionesPorProyecto(projectId) {
+    try {
+      const response = await axios.get(`${API_URL}/simulation-assignment/${projectId}`);
+      const data = response.data?.data;
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.error('Error obteniendo simulaciones por proyecto:', error);
       throw error;
     }
   }

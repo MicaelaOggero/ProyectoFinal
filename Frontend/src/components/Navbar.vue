@@ -1,10 +1,20 @@
 <template>
-  <nav class="navbar navbar-expand-lg custom-navbar sticky-top">
-    <div class="container-fluid">
+  <nav class="navbar navbar-expand-lg navbar-dark custom-navbar sticky-top">
+    <div class="custom-navbar-gradient" aria-hidden="true"></div>
+    <div class="container-fluid custom-navbar-inner">
       <!-- Iconos de navegaci?n -->
       <div class="navbar-left-section">
         <router-link to="/dashboard" class="nav-link-icon">
           <i class="bi bi-house-door-fill home-icon me-3" title="Inicio"></i>
+        </router-link>
+        <router-link
+          v-if="isAuthenticated && isUserAdmin"
+          to="/reportes"
+          class="reports-link me-3"
+          title="Reportes"
+        >
+          <i class="bi bi-bar-chart-line-fill me-1"></i>
+          Reportes
         </router-link>
         <span v-if="isAuthenticated" class="notification-wrapper me-3" @click="openNotifications">
           <i class="bi bi-bell notification-icon" title="Notificaciones"></i>
@@ -14,7 +24,7 @@
 
       <!-- T?tulo centrado -->
       <div class="navbar-brand-container">
-        <img src="@/assets/Group 1.png" alt="Logo" class="navbar-logo" />
+        <img :src="logoBrandUrl" alt="Smart Assistant" class="navbar-logo" />
       </div>
 
       <!-- Informaci?n del usuario y acciones -->
@@ -44,6 +54,7 @@
 import AuthService from '@/services/auth.service.js';
 import NotificationService from '@/services/notification.service.js';
 import AdminNotifications from '@/components/AdminNotifications.vue';
+import logoBrandUrl from '@/assets/Group 1.png';
 
 export default {
   name: 'NavbarComponent',
@@ -52,6 +63,7 @@ export default {
   },
   data() {
     return {
+      logoBrandUrl,
       currentUser: null,
       notificationCount: 0
     };
@@ -114,11 +126,20 @@ export default {
         const todas = Array.isArray(list) ? list : [];
         if (AuthService.isAdmin(this.currentUser)) {
           this.notificationCount = todas.filter(
-            n => !n.resuelta && (n.tipo === 'CALIFICAR_TAREA' || n.tipo === 'CALIFICAR_PROYECTO_LOTE')
+            n => !n.resuelta && (
+              n.tipo === 'CALIFICAR_TAREA' ||
+              n.tipo === 'CALIFICAR_PROYECTO_LOTE' ||
+              n.tipo === 'RETRASO_TAREA'
+            )
           ).length;
         } else {
           this.notificationCount = todas.filter(
-            n => n.tipo === 'CALIFICACION_RECIBIDA' || n.tipo === 'TAREA_CALIFICADA' || n.tipo === 'PROYECTO_CALIFICADO'
+            n =>
+              n.tipo === 'CALIFICACION_RECIBIDA' ||
+              n.tipo === 'TAREA_CALIFICADA' ||
+              n.tipo === 'PROYECTO_CALIFICADO' ||
+              n.tipo === 'RETRASO_TAREA' ||
+              n.tipo === 'TAREA_ASIGNADA'
           ).length;
         }
       } catch (error) {
@@ -148,10 +169,28 @@ export default {
 </script>
 
 <style scoped>
+/* Misma base que el panel izquierdo del login (var(--primary) + velos de color) */
 .custom-navbar {
-  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  position: relative;
+  overflow: hidden;
+  background: var(--primary);
   padding: 1rem 2rem;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.12);
+  border-bottom: 1px solid color-mix(in oklch, var(--foreground) 12%, transparent);
+}
+
+.custom-navbar-gradient {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 30% 50%, oklch(0.55 0.18 255 / 0.35), transparent 70%),
+    radial-gradient(circle at 70% 80%, oklch(0.62 0.2 160 / 0.28), transparent 60%);
+  pointer-events: none;
+}
+
+.custom-navbar-inner {
+  position: relative;
+  z-index: 1;
 }
 
 .navbar-left-section {
@@ -192,6 +231,27 @@ export default {
 .nav-link-icon:hover {
   text-decoration: none;
   color: inherit;
+}
+
+.reports-link {
+  color: white;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.8rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.reports-link:hover {
+  color: white;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
 }
 
 .notification-wrapper {
@@ -379,5 +439,9 @@ export default {
 }
 .navbar-logo {
   height: 80px;
+  width: auto;
+  max-width: min(90vw, 320px);
+  object-fit: contain;
+  display: block;
 }
 </style>

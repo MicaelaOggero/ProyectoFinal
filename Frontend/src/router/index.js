@@ -9,6 +9,8 @@ import PerfilUsuarioView from '@/views/PerfilUsuario.vue';
 import MiPerfilView from '@/views/MiPerfil.vue';
 import GoogleCallbackView from '@/views/GoogleCallback.vue';
 import AssignmentSummaryView from '@/views/AssignmentSummaryView.vue';
+import ResetPasswordView from '@/views/ResetPassword.vue';
+import ReportesView from '@/views/Reportes.vue';
 import AuthService from '@/services/auth.service.js';
 
 const routes = [
@@ -21,6 +23,11 @@ const routes = [
     name: 'Login',
     component: LoginView,
     meta: { requiresGuest: true }  // Solo usuarios NO autenticados
+  },
+  {
+    path: '/reset-password',
+    name: 'ResetPassword',
+    component: ResetPasswordView
   },
   {
     path: '/dashboard',
@@ -74,6 +81,12 @@ const routes = [
     name: 'AssignmentSummary',
     component: AssignmentSummaryView,
     meta: { requiresAuth: true }  // Requiere autenticación
+  },
+  {
+    path: '/reportes',
+    name: 'Reportes',
+    component: ReportesView,
+    meta: { requiresAuth: true, requiresAdmin: true }
   }
 ];
 
@@ -89,10 +102,15 @@ router.beforeEach(async (to, from, next) => {
     return next();
   }
 
+  const requiresAdmin = !!to.meta?.requiresAdmin;
+
   // 1) Intento con login normal (token en localStorage)
   try {
     const user = await AuthService.getCurrentUser();
     if (user) {
+      if (requiresAdmin && !AuthService.isAdmin(user)) {
+        return next('/dashboard');
+      }
       return next();
     }
   } catch (error) {
@@ -102,7 +120,11 @@ router.beforeEach(async (to, from, next) => {
   // 2) Intento con sesión Google (cookie httpOnly)
   try {
     const g = await AuthService.getCurrentUserGoogle();
-    if (g && (g.user || g)) {
+    const googleUser = g?.user || g;
+    if (googleUser) {
+      if (requiresAdmin && !AuthService.isAdmin(googleUser)) {
+        return next('/dashboard');
+      }
       return next();
     }
   } catch (error) {

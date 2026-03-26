@@ -1,6 +1,55 @@
 <template>
-  <div class="login-container">
-    <div class="auth-container">
+  <div class="login-page">
+    <aside class="login-brand" aria-hidden="true">
+      <div class="login-brand-gradient"></div>
+      <div class="login-brand-inner">
+        <div class="login-brand-header">
+          <img
+            :src="logoBrandUrl"
+            alt="Smart Assistant"
+            class="login-brand-logo-img"
+            width="220"
+            height="80"
+          />
+        </div>
+        <div class="login-brand-body">
+          <h1 class="login-brand-headline">Gestioná tus proyectos de forma inteligente</h1>
+          <p class="login-brand-text">
+            Controlá equipos, tareas y tiempos en una sola plataforma. Haz más con menos esfuerzo.
+          </p>
+          <div class="login-brand-stats">
+            <div>
+              <p class="login-stat-value">+500</p>
+              <p class="login-stat-label">Proyectos activos</p>
+            </div>
+            <div class="login-stat-rule"></div>
+            <div>
+              <p class="login-stat-value">98%</p>
+              <p class="login-stat-label">Satisfacción</p>
+            </div>
+            <div class="login-stat-rule"></div>
+            <div>
+              <p class="login-stat-value">24/7</p>
+              <p class="login-stat-label">Soporte</p>
+            </div>
+          </div>
+        </div>
+        <p class="login-brand-footer">Todos los derechos reservados</p>
+      </div>
+    </aside>
+
+    <div class="login-main">
+      <div class="login-mobile-brand">
+        <img
+          :src="logoBrandUrl"
+          alt="Smart Assistant"
+          class="login-mobile-logo-img"
+          width="200"
+          height="72"
+        />
+      </div>
+
+      <div class="auth-container">
       <!-- Tabs para alternar entre Login y Registro -->
       <div class="auth-tabs">
         <button 
@@ -19,7 +68,11 @@
 
       <!-- Contenido del Login -->
       <div v-if="activeTab === 'login'" class="auth-content">
-        
+        <div class="auth-intro">
+          <h2 class="auth-title">Bienvenido de nuevo</h2>
+          <p class="auth-subtitle">Ingresa tus credenciales para acceder a tu cuenta</p>
+        </div>
+
         <!-- Opciones de inicio de sesión -->
         <div class="auth-options">
           <button 
@@ -37,7 +90,7 @@
           </button>
           
           <div class="divider">
-            <span>o</span>
+            <span>o continúa con email</span>
           </div>
         </div>
 
@@ -63,6 +116,15 @@
               class="form-control"
             />
           </div>
+          <div class="forgot-password-row">
+            <button
+              type="button"
+              class="forgot-password-btn"
+              @click="$router.push('/reset-password')"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
           <button type="submit" class="btn btn-primary" :disabled="loading">
             {{ loading ? 'Iniciando sesión...' : 'Iniciar Sesión' }}
           </button>
@@ -71,7 +133,11 @@
 
       <!-- Contenido del Registro -->
       <div v-if="activeTab === 'register'" class="auth-content">
-        
+        <div class="auth-intro">
+          <h2 class="auth-title">Crea tu cuenta</h2>
+          <p class="auth-subtitle">Completa tus datos para registrarte en la plataforma</p>
+        </div>
+
         <!-- Formulario de registro tradicional -->
         <form @submit.prevent="handleRegister" class="auth-form">
           <div class="row">
@@ -235,17 +301,20 @@
         {{ successMessage }}
       </div>
     </div>
+    </div>
   </div>
 </template>
 
 <script>
 import AuthService from '@/services/auth.service.js';
 import SkillsService from '@/services/skills.service.js';
+import logoBrandUrl from '@/assets/Group 1.png';
 
 export default {
   name: 'LoginView',
   data() {
     return {
+      logoBrandUrl,
       activeTab: 'login',
       loading: false,
       error: null,
@@ -392,86 +461,248 @@ export default {
 </script>
 
 <style scoped>
-.login-container {
+.login-page {
   display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background: var(--card);
+}
+
+/* Panel izquierdo (referencia v0) */
+.login-brand {
+  display: none;
+  position: relative;
+  width: 50%;
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  align-self: stretch;
+}
+
+.login-brand-gradient {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 30% 50%, oklch(0.55 0.18 255 / 0.4), transparent 70%),
+    radial-gradient(circle at 70% 80%, oklch(0.62 0.2 160 / 0.3), transparent 60%);
+  pointer-events: none;
+}
+
+.login-brand-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
-  /*background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);*/
-  padding: 2rem;
+  width: 100%;
+  padding: 3rem;
+  text-align: center;
+  box-sizing: border-box;
+  /* Más aire entre logo / contenido / pie (como antes), bloque sigue centrado */
+  gap: 3.5rem;
+}
+
+.login-brand-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.login-brand-logo-img {
+  display: block;
+  height: auto;
+  max-height: 5rem;
+  width: auto;
+  max-width: min(100%, 18rem);
+  object-fit: contain;
+}
+
+.login-brand-body {
+  max-width: 28rem;
+  width: 100%;
+  margin: 0 auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.login-brand-headline {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  text-align: center;
+}
+
+.login-brand-text {
+  margin-top: 0;
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: color-mix(in oklch, var(--primary-foreground) 80%, transparent);
+  text-align: center;
+}
+
+.login-brand-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  margin-top: 0;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.login-brand-stats > div {
+  text-align: center;
+  min-width: 0;
+}
+
+.login-stat-value {
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.login-stat-label {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: color-mix(in oklch, var(--primary-foreground) 70%, transparent);
+}
+
+.login-stat-rule {
+  width: 1px;
+  height: 3rem;
+  background: color-mix(in oklch, var(--primary-foreground) 20%, transparent);
+}
+
+.login-brand-footer {
+  margin: 0;
+  font-size: 0.875rem;
+  color: color-mix(in oklch, var(--primary-foreground) 50%, transparent);
+  text-align: center;
+  width: 100%;
+}
+
+/* Columna derecha */
+.login-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: var(--card);
+}
+
+.login-mobile-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.login-mobile-logo-img {
+  display: block;
+  height: auto;
+  max-height: 4.5rem;
+  width: auto;
+  max-width: min(100%, 16rem);
+  object-fit: contain;
 }
 
 .auth-container {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   width: 100%;
-  max-width: 600px;
-  overflow: hidden;
+  max-width: 28rem;
+  overflow: visible;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .auth-tabs {
   display: flex;
-  background: #f8f9fa;
-  border-bottom: 1px solid #dee2e6;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  height: 3rem;
+  border-radius: 0.75rem;
+  background: var(--muted);
+  border: none;
 }
 
 .tab-button {
   flex: 1;
-  padding: 1rem;
+  padding: 0.5rem 1rem;
   border: none;
+  border-radius: 0.5rem;
   background: transparent;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #6c757d;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .tab-button.active {
-  background: white;
-  color: #007bff;
-  border-bottom: 3px solid #007bff;
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.06);
 }
 
 .tab-button:hover:not(.active) {
-  background: #e9ecef;
-  color: #495057;
+  color: var(--card-foreground);
 }
 
 .auth-content {
-  padding: 2rem;
+  padding: 2rem 0 0;
 }
 
-.auth-content h2 {
-  text-align: center;
-  margin-bottom: 1.5rem;
-  color: #333;
+.auth-intro {
+  margin-bottom: 2rem;
+}
+
+.auth-title {
+  font-size: 1.5rem;
   font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--card-foreground);
+}
+
+.auth-subtitle {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
 }
 
 .auth-options {
-  margin-bottom: 2rem;
+  margin-bottom: 0;
 }
 
 .btn-google {
   width: 100%;
-  background: white;
-  color: #333;
-  border: 2px solid #dee2e6;
-  padding: 0.75rem;
-  border-radius: 8px;
-  font-weight: 600;
+  min-height: 3rem;
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  font-weight: 500;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  transition: all 0.3s ease;
+  gap: 0.75rem;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.btn-google:hover {
-  border-color: #4285F4;
-  box-shadow: 0 2px 8px rgba(66, 133, 244, 0.2);
+.btn-google:hover:not(:disabled) {
+  background: var(--muted);
+  border-color: var(--border);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.06);
 }
 
 .google-icon {
@@ -491,18 +722,40 @@ export default {
   left: 0;
   right: 0;
   height: 1px;
-  background: #dee2e6;
+  background: var(--border);
 }
 
 .divider span {
-  background: white;
-  padding: 0 1rem;
-  color: #6c757d;
-  font-size: 0.9rem;
+  position: relative;
+  background: var(--card);
+  padding: 0 0.75rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
 }
 
 .auth-form {
-  margin-top: 1rem;
+  margin-top: 0;
+}
+
+.forgot-password-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.forgot-password-btn {
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.forgot-password-btn:hover {
+  opacity: 0.9;
 }
 
 .form-group {
@@ -512,44 +765,53 @@ export default {
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
-  color: #555;
-  font-weight: 600;
+  color: var(--card-foreground);
+  font-weight: 500;
+  font-size: 0.875rem;
 }
 
 .form-control {
   width: 100%;
-  padding: 0.75rem;
-  border: 2px solid #e9ecef;
-  border-radius: 8px;
+  min-height: 3rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
   font-size: 1rem;
-  transition: all 0.3s ease;
+  background: var(--login-input-bg);
+  color: var(--card-foreground);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
 }
 
 .form-control:focus {
   outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 35%, transparent);
 }
 
 .btn {
   width: 100%;
-  padding: 0.75rem;
+  min-height: 3rem;
+  padding: 0.75rem 1rem;
   border: none;
-  border-radius: 8px;
-  font-size: 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background 0.2s ease, opacity 0.2s ease, transform 0.15s ease;
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-  color: white;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  margin-top: 0.5rem;
 }
 
 .btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+  background: color-mix(in oklch, var(--primary) 92%, var(--foreground));
 }
 
 .btn:disabled {
@@ -559,20 +821,23 @@ export default {
 }
 
 .alert {
-  padding: 0.75rem;
-  border-radius: 8px;
-  border: none;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
   font-weight: 500;
+  font-size: 0.875rem;
 }
 
 .alert-danger {
-  background-color: #f8d7da;
-  color: #721c24;
+  background: color-mix(in oklch, var(--destructive) 12%, var(--card));
+  color: var(--destructive);
+  border-color: color-mix(in oklch, var(--destructive) 35%, transparent);
 }
 
 .alert-success {
-  background-color: #d4edda;
-  color: #155724;
+  background: color-mix(in oklch, oklch(0.65 0.15 145) 15%, var(--card));
+  color: oklch(0.35 0.1 145);
+  border-color: color-mix(in oklch, oklch(0.65 0.15 145) 40%, transparent);
 }
 
 .mt-3 {
@@ -582,48 +847,91 @@ export default {
 .row {
   display: flex;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
-.col-md-6 {
+.col-md-6,
+.col-md-4,
+.col-md-2 {
   flex: 1;
+  min-width: 0;
 }
 
 .skill-row {
-  background: #f8f9fa;
+  background: color-mix(in oklch, var(--muted) 50%, transparent);
   padding: 0.75rem;
-  border-radius: 8px;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+}
+
+.auth-container .btn-sm {
+  min-height: auto;
+  width: auto;
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.5rem;
 }
 
 .btn-success {
-  background: linear-gradient(135deg, #28a745 0%, #218838 100%);
-  color: white;
+  background: oklch(0.55 0.15 145);
+  color: oklch(0.99 0 0);
 }
 
 .btn-success:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+  filter: brightness(1.05);
+  box-shadow: 0 2px 8px oklch(0.55 0.15 145 / 0.35);
+}
+
+.auth-container .btn-danger {
+  background: color-mix(in oklch, var(--destructive) 12%, var(--card));
+  color: var(--destructive);
+  border: 1px solid color-mix(in oklch, var(--destructive) 35%, transparent);
+}
+
+.auth-container .btn-danger:hover {
+  background: color-mix(in oklch, var(--destructive) 18%, var(--card));
+}
+
+@media (min-width: 1024px) {
+  .login-brand {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .login-brand-inner {
+    flex: 1 1 auto;
+    min-height: min(100vh, 100%);
+    justify-content: center;
+  }
+
+  .login-mobile-brand {
+    display: none;
+  }
 }
 
 @media (max-width: 768px) {
-  .login-container {
-    padding: 1rem;
-  }
-  
-  .auth-container {
-    max-width: 100%;
-  }
-  
   .auth-content {
-    padding: 1.5rem;
+    padding-top: 1.5rem;
   }
-  
+
   .row {
     flex-direction: column;
     gap: 0;
   }
-  
-  .col-md-6 {
+
+  .col-md-6,
+  .col-md-4,
+  .col-md-2 {
     flex: none;
+    width: 100%;
+  }
+
+  .login-brand-stats {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .login-stat-rule {
+    display: none;
   }
 }
 </style>
