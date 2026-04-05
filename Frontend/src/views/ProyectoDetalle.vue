@@ -860,29 +860,32 @@
                         <li 
                           v-for="candidato in (data.desarrolladoresCandidatos || [])" 
                           :key="candidato._id || candidato.id"
-                          class="list-group-item py-2 d-flex justify-content-between align-items-center"
+                          class="list-group-item py-2"
                         >
-                          <span>{{ candidato.nombre }}{{ candidato.apellido ? ' ' + candidato.apellido : '' }}{{ candidato.email ? ' (' + candidato.email + ')' : '' }}</span>
-                          <span v-if="data.desarrolladorIdElegido && (candidato._id || candidato.id) === data.desarrolladorIdElegido" class="badge bg-success">Elegido por la IA</span>
+                          {{ candidato.nombre }}{{ candidato.apellido ? ' ' + candidato.apellido : '' }}{{ candidato.email ? ' (' + candidato.email + ')' : '' }}
                         </li>
                       </ul>
                     </div>
                     
-                    <div v-if="data.sinCandidatos && !data.asignacionManual" class="mt-3">
-                      <div class="alert alert-warning mb-3">
+                    <div v-if="data.sinCandidatos" class="mt-3">
+                      <div v-if="!data.asignacionManual" class="alert alert-warning mb-3">
                         <i class="bi bi-exclamation-triangle me-2"></i>
                         <strong>Esta tarea no tiene candidatos automáticos.</strong>
                         <p class="mb-0 mt-2 small">
                           Puedes asignar manualmente un desarrollador que tenga las habilidades requeridas.
                         </p>
                       </div>
+                      <div v-else class="alert alert-info mb-3 py-2 small">
+                        <i class="bi bi-pencil-square me-2"></i>
+                        Puedes cambiar el desarrollador asignado eligiendo otra opción en el desplegable.
+                      </div>
                       
                       <div class="mb-3">
-                        <label class="form-label">Seleccionar Desarrollador:</label>
+                        <label class="form-label">{{ data.asignacionManual ? 'Desarrollador asignado (editable):' : 'Seleccionar Desarrollador:' }}</label>
                         <select 
                           class="form-select" 
                           :data-tarea-id="tareaId"
-                          :value="manualAssignments[tareaId]?.desarrolladorId || ''"
+                          :value="manualAssignments[tareaId]?.desarrolladorId || data.asignacionManual?.desarrolladorId || ''"
                           @change="assignDeveloperManually(tareaId, $event.target.value)"
                         >
                           <option value="">Seleccionar desarrollador...</option>
@@ -901,9 +904,9 @@
                       </div>
                     </div>
                     
-                    <div v-if="data.asignacionManual" class="alert alert-success mt-3">
+                    <div v-if="data.asignacionManual" class="alert alert-success mt-3 mb-0">
                       <i class="bi bi-check-circle me-2"></i>
-                      <strong>Asignación manual completada:</strong>
+                      <strong>Asignación manual:</strong>
                       {{ data.asignacionManual.desarrollador.nombre }} {{ data.asignacionManual.desarrollador.apellido }}
                     </div>
                   </div>
@@ -4213,19 +4216,42 @@ export default {
     },
 
     getAssignmentTypeClass(tipo) {
-      if (tipo === 'costo') return 'bg-success';
-      return 'bg-primary';
+      const map = {
+        costo: 'bg-success',
+        basica: 'bg-primary',
+        availability: 'bg-primary',
+        tiempo: 'bg-primary',
+        time: 'bg-primary',
+        calidad: 'bg-info text-dark',
+        quality: 'bg-info text-dark'
+      };
+      return map[tipo] || 'bg-primary';
     },
     
     getAssignmentTypeIcon(tipo) {
-      if (tipo === 'costo') return 'bi-currency-dollar me-1';
-      return 'bi-clock-history me-1';
+      const map = {
+        costo: 'bi-currency-dollar me-1',
+        basica: 'bi-clock-history me-1',
+        availability: 'bi-clock-history me-1',
+        tiempo: 'bi-hourglass-split me-1',
+        time: 'bi-hourglass-split me-1',
+        calidad: 'bi-star-fill me-1',
+        quality: 'bi-star-fill me-1'
+      };
+      return map[tipo] || 'bi-clock-history me-1';
     },
     
     getAssignmentTypeText(tipo) {
-      if (tipo === 'costo') return 'Por Costo';
-      if (tipo === 'basica') return 'Por Disponibilidad';
-      return 'Tipo Desconocido';
+      const map = {
+        costo: 'Por Costo',
+        basica: 'Por Disponibilidad',
+        availability: 'Por Disponibilidad',
+        tiempo: 'Por Tiempo',
+        time: 'Por Tiempo',
+        calidad: 'Por Calidad',
+        quality: 'Por Calidad'
+      };
+      return map[tipo] || 'Tipo Desconocido';
     },
 
     async diagnosticarProblemaAsignacion() {

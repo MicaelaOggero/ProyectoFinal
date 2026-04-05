@@ -112,6 +112,34 @@
         </div>
       </div>
 
+      <div class="card mb-3" v-if="weeklyTasks.length">
+        <div class="card-header"><strong>Detalle semanal de tareas</strong></div>
+        <div class="card-body table-responsive">
+          <table class="table table-sm table-hover align-middle">
+            <thead>
+              <tr>
+                <th>Tarea</th>
+                <th>Desarrollador</th>
+                <th>Estado</th>
+                <th>Horas estimadas</th>
+                <th>Horas invertidas</th>
+                <th>Calidad</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="task in weeklyTasks" :key="task.tareaId">
+                <td>{{ task.descripcion }}</td>
+                <td>{{ task.desarrollador }}</td>
+                <td>{{ task.estado }}</td>
+                <td>{{ task.horasEstimadas }}</td>
+                <td>{{ task.horasInvertidas }}</td>
+                <td>{{ task.calidad }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="card mb-3" v-if="finalReport">
         <div class="card-header"><strong>Reporte final global</strong></div>
         <div class="card-body">
@@ -176,6 +204,7 @@ export default {
       finalErrorMessage: '',
       weeklyProject: null,
       weeklyDevelopers: [],
+      weeklyTasks: [],
       finalReport: null,
     };
   },
@@ -187,7 +216,7 @@ export default {
       return !!this.selectedProjectId;
     },
     hasPrintableContent() {
-      return !!this.weeklyProject || !!this.finalReport;
+      return !!this.weeklyProject || this.weeklyTasks.length > 0 || !!this.finalReport;
     },
     weeklyProjectKpis() {
       if (!this.weeklyProject) return [];
@@ -264,13 +293,29 @@ export default {
         const weekStart = this.toIsoStart(this.weekStart);
         const weekEnd = this.toIsoEnd(this.weekEnd);
 
-        const [weeklyProject, weeklyDevelopers] = await Promise.all([
+        const [weeklyProjectResult, weeklyDevelopersResult, weeklyTasksResult] = await Promise.allSettled([
           ReportService.getWeeklyProjectReport(this.selectedProjectId, weekStart, weekEnd),
           ReportService.getWeeklyDevelopersReport(this.selectedProjectId, weekStart, weekEnd),
+          ReportService.getWeeklyTasksReport(this.selectedProjectId, weekStart, weekEnd),
         ]);
 
-        this.weeklyProject = weeklyProject;
-        this.weeklyDevelopers = weeklyDevelopers?.metrics || [];
+        if (weeklyProjectResult.status === 'fulfilled') {
+          this.weeklyProject = weeklyProjectResult.value;
+        } else {
+          throw weeklyProjectResult.reason;
+        }
+
+        if (weeklyDevelopersResult.status === 'fulfilled') {
+          this.weeklyDevelopers = weeklyDevelopersResult.value?.metrics || [];
+        } else {
+          this.weeklyDevelopers = [];
+        }
+
+        if (weeklyTasksResult.status === 'fulfilled') {
+          this.weeklyTasks = this.normalizeWeeklyTasks(weeklyTasksResult.value);
+        } else {
+          this.weeklyTasks = [];
+        }
       } catch (error) {
         this.weeklyErrorMessage = error?.response?.data?.error || 'No se pudo cargar el reporte semanal.';
       } finally {
@@ -299,6 +344,59 @@ export default {
       const n = Number(value || 0);
       if (!Number.isFinite(n)) return 0;
       return Math.max(0, Math.min(100, Math.round(n)));
+    },
+    normalizeWeeklyTasks(rawResponse) {
+      const source =
+        (Array.isArray(rawResponse) && rawResponse) ||
+        rawResponse?.tasks ||
+        rawResponse?.tareas ||
+        rawResponse?.data ||
+        [];
+
+      if (!Array.isArray(source)) return [];
+
+      return source.map((task, index) => {
+        const tareaId = task?._id || task?.tareaId || task?.id || `weekly-task-${index}`;
+        const descripcion =
+          task?.descripcion ||
+          task?.nombre ||
+          task?.titulo ||
+          task?.taskName ||
+          `Tarea ${index + 1}`;
+        const desarrollador =
+          task?.desarrolladorAsignadoNombre ||
+          task?.desarrolladorNombre ||
+          task?.desarrollador ||
+          task?.developerName ||
+          'Sin asignar';
+        const estado = task?.estado || task?.status || '-';
+
+        const horasEstimadasRaw =
+          task?.duracionEstimadaHoras ??
+          task?.horasEstimadas ??
+          task?.expected?.horasTotales ??
+          task?.estimatedHours;
+        const horasInvertidasRaw =
+          task?.tiempoInvertidoHoras ??
+          task?.horasInvertidas ??
+          task?.real?.tiempoInvertido?.valor ??
+          task?.realHours;
+        const calidadRaw =
+          task?.puntuacionCalidad ??
+          task?.calidad ??
+          task?.real?.calidadTareaReal ??
+          task?.qualityScore;
+
+        return {
+          tareaId,
+          descripcion,
+          desarrollador,
+          estado,
+          horasEstimadas: this.toNumber(horasEstimadasRaw),
+          horasInvertidas: this.toNumber(horasInvertidasRaw),
+          calidad: this.toNumber(calidadRaw),
+        };
+      });
     },
     downloadPdf() {
       const content = document.getElementById('report-print-area');
