@@ -132,9 +132,9 @@
                         <i v-if="assignment.asignado" class="bi bi-check-circle-fill text-success fs-4"></i>
                         <i v-else class="bi bi-x-circle-fill text-warning fs-4"></i>
                       </div>
-                      <!-- Botón de editar asignación (solo para tareas asignadas) -->
+                      <!-- Editar asignación: solo administradores (el backend también exige admin) -->
                       <button 
-                        v-if="assignment.asignado && assignment.asignacionId"
+                        v-if="isAdmin && assignment.asignado && assignment.asignacionId"
                         class="btn btn-sm btn-outline-primary"
                         @click="editAssignment(assignment)"
                         title="Editar Asignación"
@@ -280,8 +280,8 @@
       </div>
     </div>
 
-    <!-- Modal para Editar Asignación -->
-    <div class="modal fade" id="editAssignmentModal" tabindex="-1" aria-labelledby="editAssignmentModalLabel" aria-hidden="true">
+    <!-- Modal para Editar Asignación (solo admin) -->
+    <div v-if="isAdmin" class="modal fade" id="editAssignmentModal" tabindex="-1" aria-labelledby="editAssignmentModalLabel" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
@@ -369,6 +369,7 @@
 import AssignmentService from '@/services/assignment.service.js';
 import ProjectService from '@/services/project.service.js';
 import UserService from '@/services/user.service.js';
+import AuthService from '@/services/auth.service.js';
 import { Modal } from 'bootstrap';
 
 export default {
@@ -388,10 +389,14 @@ export default {
       },
       isUpdatingAssignment: false,
       users: [],
-      editAssignmentModalInstance: null
+      editAssignmentModalInstance: null,
+      currentUser: null
     };
   },
   computed: {
+    isAdmin() {
+      return AuthService.isAdmin(this.currentUser);
+    },
     filteredAssignments() {
       if (!this.summaryData?.resumen) return [];
       
@@ -509,11 +514,15 @@ export default {
     }
   },
   async mounted() {
+    this.currentUser = await AuthService.checkSession();
     await this.loadSummaryData();
-    await this.loadUsers();
-    // Inicializar modales después de que el DOM esté completamente renderizado
+    if (this.isAdmin) {
+      await this.loadUsers();
+    }
     this.$nextTick(() => {
-      this.initializeModals();
+      if (this.isAdmin) {
+        this.initializeModals();
+      }
     });
   },
   methods: {
@@ -756,6 +765,7 @@ export default {
     },
     
     editAssignment(assignment) {
+      if (!this.isAdmin) return;
       this.selectedAssignmentForEdit = assignment;
       this.assignmentForm.newDeveloperId = '';
       
@@ -782,6 +792,7 @@ export default {
     },
     
     async updateAssignment() {
+      if (!this.isAdmin) return;
       if (!this.selectedAssignmentForEdit || !this.assignmentForm.newDeveloperId) {
         alert('Por favor selecciona un nuevo desarrollador');
         return;

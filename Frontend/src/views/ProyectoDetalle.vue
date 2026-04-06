@@ -82,6 +82,7 @@
           Equipo
         </button>
         <button 
+          v-if="isAdmin"
           class="tab-btn" 
           :class="{ active: activeTab === 'asignaciones' }"
           @click="switchToAssignmentsTab"
@@ -268,8 +269,8 @@
         </div>
       </div>
 
-      <!-- Tab Asignaciones -->
-      <div v-if="activeTab === 'asignaciones'" class="tab-pane active">
+      <!-- Tab Asignaciones (solo administrador) -->
+      <div v-if="isAdmin && activeTab === 'asignaciones'" class="tab-pane active">
         <div class="assignments-content">
           <div class="assignments-header">
             <h3>Resumen de Asignaciones</h3>
@@ -307,82 +308,82 @@
             </div>
           </div>
 
-          <!-- Resumen de simulación por criterio: solo se muestra después de haber confirmado una asignación -->
+          <!-- Resumen de simulación por criterio -->
           <div class="resumen-simulacion-tab mb-4" v-if="assignments && assignments.length > 0">
-            <div class="card">
-              <div class="card-header bg-light">
-                <h5 class="mb-0">
-                  <i class="bi bi-calculator me-2"></i>
-                  Resumen de simulación por criterio
-                </h5>
-              </div>
-              <div class="card-body">
-                <div v-if="loadingResumenTab" class="text-center py-4">
-                  <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Cargando...</span>
+              <div class="card">
+                <div class="card-header bg-light">
+                  <h5 class="mb-0">
+                    <i class="bi bi-calculator me-2"></i>
+                    Resumen de simulación por criterio
+                  </h5>
+                </div>
+                <div class="card-body">
+                  <div v-if="loadingResumenTab" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                      <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2 mb-0 text-muted">Cargando resumen de simulación...</p>
                   </div>
-                  <p class="mt-2 mb-0 text-muted">Cargando resumen de simulación...</p>
-                </div>
-                <div v-else-if="resumenTabComparisonData && Object.keys(resumenTabComparisonData).length > 0" class="table-responsive">
-                  <table class="table table-hover table-bordered table-sm">
-                    <thead class="table-dark">
-                      <tr>
-                        <th>Criterio</th>
-                        <th>Costo total</th>
-                        <th>Tiempo total (simulado)</th>
-                        <th>Tiempo total (estimado)</th>
-                        <th>Calidad (simulado)</th>
-                        <th>Calidad (tareas)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <template v-for="(data, key) in resumenTabComparisonData" :key="key">
-                        <tr v-if="data && !data.error && (!criterioElegidoParaTab || key === criterioElegidoParaTab)" :class="{ 'criterio-elegido-row': key === criterioElegidoParaTab }">
-                          <td><strong>{{ getCriterioName(key) }}</strong><span v-if="key === criterioElegidoParaTab" class="ms-2 badge bg-primary">Elegido</span></td>
-                          <td>
-                            <span v-if="data.costoTotalSimulado != null" class="fw-bold text-success">
-                              ${{ typeof data.costoTotalSimulado === 'number' ? data.costoTotalSimulado.toFixed(2) : data.costoTotalSimulado }}
-                            </span>
-                            <span v-else class="text-muted">N/A</span>
-                          </td>
-                          <td>
-                            <span v-if="data.tiempoTotalSimulado != null">{{ formatTiempo(data.tiempoTotalSimulado) }}</span>
-                            <span v-else class="text-muted">N/A</span>
-                          </td>
-                          <td>
-                            <span v-if="data.tiempoTotalEstimado != null">{{ formatTiempo(data.tiempoTotalEstimado) }}</span>
-                            <span v-else class="text-muted">N/A</span>
-                          </td>
-                          <td>
-                            <span v-if="data.calidadPromedioSimulado != null">{{ formatCalidad(data.calidadPromedioSimulado) }}</span>
-                            <span v-else class="text-muted">N/A</span>
-                          </td>
-                          <td>
-                            <span v-if="data.calidadPromedioTareas != null">{{ formatCalidad(data.calidadPromedioTareas) }}</span>
-                            <span v-else class="text-muted">N/A</span>
-                          </td>
+                  <div v-else-if="resumenTabComparisonData && Object.keys(resumenTabComparisonData).length > 0" class="table-responsive">
+                    <table class="table table-hover table-bordered table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Criterio</th>
+                          <th>Costo total</th>
+                          <th>Tiempo total (simulado)</th>
+                          <th>Tiempo total (estimado)</th>
+                          <th>Calidad (simulado)</th>
+                          <th>Calidad (tareas)</th>
                         </tr>
-                      </template>
-                    </tbody>
-                  </table>
-                </div>
-                <div v-else-if="resumenTabComparisonData && Object.keys(resumenTabComparisonData).length === 0" class="text-center py-3 text-muted">
-                  <p class="mb-0">No hay datos de simulación para este proyecto.</p>
-                </div>
-                <div v-else class="text-center py-3 text-muted">
-                  <p class="mb-0">Cargando resumen...</p>
+                      </thead>
+                      <tbody>
+                        <template v-for="(data, key) in resumenTabComparisonData" :key="key">
+                          <tr v-if="data && !data.error && (!criterioElegidoParaTab || key === criterioElegidoParaTab)" :class="{ 'criterio-elegido-row': key === criterioElegidoParaTab }">
+                            <td><strong>{{ getCriterioName(key) }}</strong><span v-if="key === criterioElegidoParaTab" class="ms-2 badge bg-primary">Elegido</span></td>
+                            <td>
+                              <span v-if="data.costoTotalSimulado != null" class="fw-bold text-success">
+                                ${{ typeof data.costoTotalSimulado === 'number' ? data.costoTotalSimulado.toFixed(2) : data.costoTotalSimulado }}
+                              </span>
+                              <span v-else class="text-muted">N/A</span>
+                            </td>
+                            <td>
+                              <span v-if="data.tiempoTotalSimulado != null">{{ formatTiempo(data.tiempoTotalSimulado) }}</span>
+                              <span v-else class="text-muted">N/A</span>
+                            </td>
+                            <td>
+                              <span v-if="data.tiempoTotalEstimado != null">{{ formatTiempo(data.tiempoTotalEstimado) }}</span>
+                              <span v-else class="text-muted">N/A</span>
+                            </td>
+                            <td>
+                              <span v-if="data.calidadPromedioSimulado != null">{{ formatCalidad(data.calidadPromedioSimulado) }}</span>
+                              <span v-else class="text-muted">N/A</span>
+                            </td>
+                            <td>
+                              <span v-if="data.calidadPromedioTareas != null">{{ formatCalidad(data.calidadPromedioTareas) }}</span>
+                              <span v-else class="text-muted">N/A</span>
+                            </td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div v-else-if="resumenTabComparisonData && Object.keys(resumenTabComparisonData).length === 0" class="text-center py-3 text-muted">
+                    <p class="mb-0">No hay datos de simulación para este proyecto.</p>
+                  </div>
+                  <div v-else class="text-center py-3 text-muted">
+                    <p class="mb-0">Cargando resumen...</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          <div v-else class="mb-4">
-            <div class="card border-0 bg-light">
-              <div class="card-body text-center py-4 text-muted">
-                <i class="bi bi-calculator display-6"></i>
-                <p class="mb-0 mt-2">El resumen por criterio se mostrará cuando confirmes una asignación para este proyecto.</p>
+            <div v-else class="mb-4">
+              <div class="card border-0 bg-light">
+                <div class="card-body text-center py-4 text-muted">
+                  <i class="bi bi-calculator display-6"></i>
+                  <p class="mb-0 mt-2">El resumen por criterio se mostrará cuando confirmes una asignación para este proyecto.</p>
+                </div>
               </div>
             </div>
-          </div>
 
           <!-- Resumen de asignaciones -->
           <div class="assignments-summary">
@@ -442,9 +443,9 @@
                             <i v-if="assignment.asignado" class="bi bi-check-circle-fill text-success fs-4"></i>
                             <i v-else class="bi bi-x-circle-fill text-warning fs-4"></i>
                           </div>
-                          <!-- Botón de editar asignación (solo para tareas asignadas) -->
+                          <!-- Editar asignación: solo administradores -->
                           <button 
-                            v-if="assignment.asignado && assignment.asignacionId"
+                            v-if="isAdmin && assignment.asignado && assignment.asignacionId"
                             class="btn btn-sm btn-outline-primary"
                             @click="editAssignment(assignment)"
                             title="Editar Asignación"
@@ -1403,8 +1404,8 @@
       </div>
     </div>
 
-    <!-- Modal para Editar Asignación -->
-    <div class="modal fade" id="editAssignmentModal" tabindex="-1" aria-labelledby="editAssignmentModalLabel" aria-hidden="true">
+    <!-- Modal para Editar Asignación (solo admin) -->
+    <div v-if="isAdmin" class="modal fade" id="editAssignmentModal" tabindex="-1" aria-labelledby="editAssignmentModalLabel" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
@@ -1705,6 +1706,7 @@ import SkillsService from '@/services/skills.service.js';
 import AssignmentService from '@/services/assignment.service.js';
 import UserService from '@/services/user.service.js';
 import ValidationService from '@/services/validation.service.js';
+import AuthService from '@/services/auth.service.js';
 import { Modal } from 'bootstrap';
 
 export default {
@@ -1779,10 +1781,14 @@ export default {
 
       // Resumen de simulación en el tab Asignaciones (GET resumen-simulacion/:projectId)
       resumenTabComparisonData: null,
-      loadingResumenTab: false
+      loadingResumenTab: false,
+      currentUser: null
     };
   },
   computed: {
+    isAdmin() {
+      return AuthService.isAdmin(this.currentUser);
+    },
     // Equipo de trabajo extraído de las tareas asignadas
     projectTeam() {
       const teamMap = new Map();
@@ -1885,7 +1891,18 @@ export default {
       return this.allDevelopers.filter(dev => devIds.has(dev._id));
     }
   },
+  watch: {
+    isAdmin(isAdmin) {
+      if (!isAdmin && this.activeTab === 'asignaciones') {
+        this.activeTab = 'descripcion';
+      }
+    }
+  },
   async mounted() {
+    this.currentUser = await AuthService.checkSession();
+    if (!this.isAdmin && this.activeTab === 'asignaciones') {
+      this.activeTab = 'descripcion';
+    }
     await this.loadProject();
     await this.loadProjectTasks();
     await this.loadSkills();
@@ -4378,6 +4395,7 @@ ${developers.length === 0 ? `
     },
 
     async switchToAssignmentsTab() {
+      if (!this.isAdmin) return;
       this.activeTab = 'asignaciones';
       // Cargar asignaciones primero para que estén disponibles si necesitamos construir el resumen desde ellas
       await this.loadExistingAssignments();
@@ -4387,6 +4405,11 @@ ${developers.length === 0 ? `
     async loadResumenSimulacionForTab() {
       const projectId = this.$route.params.id;
       if (!projectId) return;
+      if (!this.isAdmin) {
+        this.resumenTabComparisonData = null;
+        this.loadingResumenTab = false;
+        return;
+      }
       if (!this.assignments || this.assignments.length === 0) {
         this.resumenTabComparisonData = null;
         return;
@@ -4718,6 +4741,7 @@ ${developers.length === 0 ? `
     },
     
     editAssignment(assignment) {
+      if (!this.isAdmin) return;
       this.selectedAssignmentForEdit = assignment;
       this.assignmentForm.newDeveloperId = '';
       
@@ -4744,6 +4768,7 @@ ${developers.length === 0 ? `
     },
     
     async updateAssignment() {
+      if (!this.isAdmin) return;
       if (!this.selectedAssignmentForEdit || !this.assignmentForm.newDeveloperId) {
         alert('Por favor selecciona un nuevo desarrollador');
         return;
