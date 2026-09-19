@@ -4,6 +4,7 @@ import {
   getFinalProjectReport,
   getFinalProjectReportPdf,
   saveProjectFinalReport,
+  getWeeklyTasksReport,
 } from "./report.service.js";
 
 export async function getWeeklyProjectMetricsController(req, res) {
@@ -74,6 +75,24 @@ export async function createFinalProjectReportController(req, res) {
     const { projectId } = req.params;
     const result = await saveProjectFinalReport(projectId);
     return res.status(201).json(result);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+}
+
+export async function getWeeklyTasksReportController(req, res) {
+  try {
+    const { projectId } = req.params;
+    const { weekStart, weekEnd } = req.query;
+
+    if (!weekStart || !weekEnd) {
+      return res.status(400).json({
+        error: "weekStart y weekEnd son requeridos en query"
+      });
+    }
+
+    const result = await getWeeklyTasksReport({ projectId, weekStart, weekEnd });
+    return res.status(200).json(result);
   } catch (error) {
     return res.status(400).json({ error: error.message });
   }

@@ -90,6 +90,7 @@ export async function getWeeklyDeveloperMetrics({ projectId, weekStart, weekEnd 
   const metricsByDev = new Map();
   const tasksEnProgresoByDev = new Map();
   const tareasRetrasadasByDev = new Map();
+  const tareasPendientesByDev = new Map();
 
   function ensureDev(devId) {
     if (!metricsByDev.has(devId)) {
@@ -103,6 +104,7 @@ export async function getWeeklyDeveloperMetrics({ projectId, weekStart, weekEnd 
         tareasCompletadas: 0,
         tareasEnProgreso: 0,
         tareasRetrasadas: 0,
+        tareasPendientes: 0,
         promedioCalidad: 0,
         promedioRendimiento: 0,
         _sumCalidad: 0,
@@ -176,6 +178,12 @@ export async function getWeeklyDeveloperMetrics({ projectId, weekStart, weekEnd 
         tareasRetrasadasByDev.set(devId, set);
       }
     }
+
+    if (task.estado === "pendiente") {
+      const set = tareasPendientesByDev.get(devId) || new Set();
+      set.add(String(task._id));
+      tareasPendientesByDev.set(devId, set);
+    }
   }
 
   for (const [devId, metric] of metricsByDev.entries()) {
@@ -189,6 +197,9 @@ export async function getWeeklyDeveloperMetrics({ projectId, weekStart, weekEnd 
 
     const retrasadasSet = tareasRetrasadasByDev.get(devId) || new Set();
     metric.tareasRetrasadas = retrasadasSet.size;
+
+    const pendientesSet = tareasPendientesByDev.get(devId) || new Set();
+    metric.tareasPendientes = pendientesSet.size;
 
     metric.promedioCalidad = avg(metric._sumCalidad, metric._countCalidad);
     metric.promedioRendimiento = avg(metric._sumRend, metric._countRend);
@@ -256,12 +267,17 @@ export async function getWeeklyProjectMetrics({ projectId, weekStart, weekEnd } 
 
   const tareasEnProgreso = new Set();
   const tareasRetrasadas = new Set();
+  const tareasPendientes = new Set();
 
   for (const task of tasks) {
     const taskId = String(task._id);
 
     if (task.estado === "en curso" && taskIdsWithSessions.has(taskId)) {
       tareasEnProgreso.add(taskId);
+    }
+
+    if (task.estado === "pendiente") {
+      tareasPendientes.add(taskId);
     }
 
     if (task.estado === "retrasada") {
@@ -309,9 +325,150 @@ export async function getWeeklyProjectMetrics({ projectId, weekStart, weekEnd } 
     costoTotal: Number(costoTotal.toFixed(2)),
     tareasCompletadas,
     tareasEnProgreso: tareasEnProgreso.size,
+    tareasPendientes: tareasPendientes.size,
     tareasRetrasadas: tareasRetrasadas.size,
     promedioCalidad: avg(sumCalidad, countCalidad),
     promedioRendimiento: avg(sumRend, countRend),
+  };
+}
+
+export async function getWeeklyTasksReport({ projectId, weekStart, weekEnd } = {}) {
+  if (!projectId) throw new Error("projectId es requerido");
+
+  const { start, end } = parseDateRange(weekStart, weekEnd);
+
+  const [tasks, sessions, taskLogs, simulation, users] = await Promise.all([
+    Task.find({ proyecto: projectId }).lean(),
+    SesionTrabajo.find({
+      proyectoId: projectId,
+      estado: "cerrada",
+      fechaFin: { $gte: start, $lt: end },
+    }).lean(),
+    TaskLog.find({
+      proyecto: projectId,
+      creadoEn: { $gte: start, $lt: end },
+    }).lean(),
+    findLatestSimulationByProject(projectId),
+    User.find({ rol: "user" })
+      .select("nombre apellido costoPorHora puntuacionPromedioCalidad")
+      .lean(),
+  ]);
+
+  const userMap = new Map(users.map((u) => [String(u._id), u]));
+
+  const expectedByTask = (simulation?.asignaciones || []).reduce((acc, a) => {
+    const tareaId = String(a.tarea?._id || a.tarea);
+    acc[tareaId] = a;
+    return acc;
+  }, {});
+
+  const sessionsByTask = sessions.reduce((acc, s) => {
+    const taskId = String(s.tareaId);
+    if (!acc[taskId]) acc[taskId] = [];
+    acc[taskId].push(s);
+    return acc;
+  }, {});
+
+  const logsByTask = taskLogs.reduce((acc, l) => {
+    acc[String(l.tarea)] = l;
+    return acc;
+  }, {});
+
+  const completedTaskIds = new Set(taskLogs.map((l) => String(l.tarea)));
+  const inProgressTaskIds = new Set(
+    tasks
+      .filter((t) => t.estado === "en curso")
+      .filter((t) => (sessionsByTask[String(t._id)] || []).length > 0)
+      .map((t) => String(t._id))
+  );
+
+  const tareasCompletadas = tasks
+    .filter((t) => completedTaskIds.has(String(t._id)))
+    .map((task) => {
+      const taskId = String(task._id);
+      const expected = expectedByTask[taskId];
+      const sesiones = sessionsByTask[taskId] || [];
+      const log = logsByTask[taskId];
+
+      const horasReales = sesiones.reduce(
+        (sum, s) => sum + safeNumber(s.tiempoTrabajadoHoras),
+        0
+      );
+      const devId = String(task.desarrolladorAsignado || expected?.desarrollador || "");
+      const user = userMap.get(devId);
+      const costoHora = safeNumber(user?.costoPorHora);
+      const costoActual = horasReales * costoHora;
+      const devName = user
+        ? `${user.nombre || ""} ${user.apellido || ""}`.trim()
+        : "";
+      const calidadTareaReal = safeNumber(
+        user?.puntuacionPromedioCalidad?.puntuacionPromedio
+      );
+
+      return {
+        tareaId: task._id,
+        descripcion: task.descripcion || "",
+        categoria: task.categoria || "",
+        nivelDificultad: safeNumber(task.nivelDificultad),
+        prioridad: task.prioridad || "",
+        desarrolladorAsignadoNombre: devName,
+        expected: {
+          horasTotales: safeNumber(expected?.horasTotales),
+          horasEstimadasReales: safeNumber(expected?.horasEstimadasReales),
+          costoTotal: safeNumber(expected?.costoTotal),
+          puntuacionCalidad: safeNumber(expected?.puntuacionCalidad),
+        },
+        real: {
+          tiempoInvertido: toBestTimeUnit(horasReales),
+          costoTotalReal: Number(costoActual.toFixed(2)),
+          estado: task.estado || "",
+          calidadTareaReal: Number(calidadTareaReal.toFixed(2)),
+        },
+      };
+    });
+
+  const tareasEnProgreso = tasks
+    .filter((t) => inProgressTaskIds.has(String(t._id)))
+    .map((task) => {
+      const taskId = String(task._id);
+      const expected = expectedByTask[taskId];
+      const sesiones = sessionsByTask[taskId] || [];
+      const horasReales = sesiones.reduce(
+        (sum, s) => sum + safeNumber(s.tiempoTrabajadoHoras),
+        0
+      );
+
+      const devId = String(task.desarrolladorAsignado || expected?.desarrollador || "");
+      const user = userMap.get(devId);
+      const costoHora = safeNumber(user?.costoPorHora);
+      const costoActual = horasReales * costoHora;
+      const devName = user
+        ? `${user.nombre || ""} ${user.apellido || ""}`.trim()
+        : "";
+
+      return {
+        tareaId: task._id,
+        descripcion: task.descripcion || "",
+        categoria: task.categoria || "",
+        nivelDificultad: safeNumber(task.nivelDificultad),
+        prioridad: task.prioridad || "",
+        desarrolladorAsignadoNombre: devName,
+        horasEsperadas: safeNumber(expected?.horasTotales),
+        horasEstimadasReales: safeNumber(expected?.horasEstimadasReales),
+        porcentajeTiempoInvertido: safeNumber(task.porcentajeTiempoInvertido),
+        costoEsperado: safeNumber(expected?.costoTotal),
+        costoActual: Number(costoActual.toFixed(2)),
+        estado: task.estado || "",
+        calidadEsperada: safeNumber(expected?.puntuacionCalidad),
+      };
+    });
+
+  return {
+    projectId,
+    weekStart: start,
+    weekEnd: end,
+    tareasCompletadas,
+    tareasEnProgreso,
   };
 }
 
