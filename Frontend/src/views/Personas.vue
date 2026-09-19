@@ -1,59 +1,173 @@
 <template>
-  <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mt-3 mb-4">
-      <h1>Gestión de Personas</h1>
-      <div class="d-flex align-items-center gap-3">
-        <button class="btn btn-primary" @click="openCreateModal">
+  <div class="personas-page">
+    <div class="container-fluid px-3 px-lg-4 py-4">
+      <header class="personas-header d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
+        <div>
+          <h1 class="personas-title mb-1">Gestión de Personas</h1>
+          <p class="personas-subtitle text-muted mb-0">
+            {{ isUserAdmin ? 'Consulta y administra el equipo y sus habilidades' : 'Directorio del equipo' }}
+          </p>
+        </div>
+        <button
+          v-if="isUserAdmin"
+          type="button"
+          class="btn btn-add-person"
+          @click="openCreateModal"
+        >
+          <i class="bi bi-person-plus me-1"></i>
           Añadir Nueva Persona
         </button>
-      </div>
-    </div>
+      </header>
 
-    <!-- Tabla de Personas -->
-    <div class="card">
-      <div class="card-body">
-        <table class="table table-hover">
-          <thead>
-            <tr>
-              <th scope="col">Nombre</th>
-              <th scope="col">DNI</th>
-              <th scope="col">Habilidades</th>
-              <th scope="col">Años Exp.</th>
-              <th scope="col">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="person in people" :key="person._id">
-              <td>
-                <a href="#" @click.prevent="viewProfile(person)" class="text-decoration-none fw-bold text-primary">
-                  {{ person.nombre }} {{ person.apellido }}
-                </a>
-              </td>
-              <td>{{ person.dni }}</td>
-              <td>{{ displaySkills(person.habilidades) }}</td>
-              <td>{{ person.aniosExperiencia || 'N/A' }}</td>
-              <td>
-                <div class="btn-group" role="group">
-                  <button 
-                    class="btn btn-sm btn-outline-secondary" 
-                    @click="openEditModal(person)"
-                    title="Editar usuario"
-                  >
-                    <i class="bi bi-pencil"></i>
-                  </button>
-                  <button 
-                    class="btn btn-sm btn-outline-danger" 
-                    @click="deletePerson(person._id)"
-                    title="Eliminar usuario"
-                  >
-                    <i class="bi bi-trash"></i>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- Carga -->
+      <div v-if="loading" class="text-center py-5 personas-panel">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Cargando...</span>
+        </div>
+        <p class="mt-3 text-muted mb-0">Cargando personas...</p>
       </div>
+
+      <!-- Sin datos -->
+      <div v-else-if="people.length === 0" class="personas-panel empty-state text-center py-5">
+        <i class="bi bi-people display-4 text-muted d-block mb-3"></i>
+        <h5 class="fw-semibold">No hay personas registradas</h5>
+        <p class="text-muted mb-0">Añade la primera persona desde el botón superior.</p>
+      </div>
+
+      <template v-else>
+        <!-- Métricas -->
+        <div class="row g-3 g-lg-4 mb-4">
+          <div v-for="card in statsCards" :key="card.key" class="col-6 col-lg-3">
+            <div class="stat-card h-100">
+              <div class="stat-icon-wrap" :class="card.iconWrapClass">
+                <i :class="card.icon"></i>
+              </div>
+              <div class="stat-value">{{ card.value }}</div>
+              <div class="stat-label">{{ card.label }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Búsqueda -->
+        <div class="filters-bar personas-panel mb-4">
+          <label class="visually-hidden" for="buscarPersonas">Buscar</label>
+          <div class="input-group input-group-search">
+            <span class="input-group-text border-end-0 bg-white"><i class="bi bi-search text-muted"></i></span>
+            <input
+              id="buscarPersonas"
+              v-model="searchQuery"
+              type="search"
+              class="form-control border-start-0"
+              placeholder="Buscar por nombre o apellido..."
+              autocomplete="off"
+            >
+          </div>
+        </div>
+
+        <div v-if="filteredPeople.length === 0" class="personas-panel empty-state text-center py-5">
+          <i class="bi bi-funnel display-6 text-muted d-block mb-2"></i>
+          <p class="text-muted mb-0">No hay coincidencias con la búsqueda.</p>
+        </div>
+
+        <!-- Tarjetas -->
+        <div v-else class="person-cards">
+          <article
+            v-for="person in filteredPeople"
+            :key="person._id"
+            class="person-card personas-panel"
+          >
+            <div class="person-card-avatar" :aria-label="fullName(person)">
+              {{ getInitials(person) }}
+            </div>
+            <div class="person-card-body">
+              <div class="person-card-top">
+                <div class="person-card-identity">
+                  <button
+                    type="button"
+                    class="link-name btn btn-link p-0 text-start"
+                    @click="viewProfile(person)"
+                  >
+                    {{ fullName(person) }}
+                  </button>
+                  <div class="person-meta text-muted small mt-1">
+                    <span v-if="person.dni" class="me-3">
+                      <i class="bi bi-card-text me-1"></i>DNI {{ person.dni }}
+                    </span>
+                    <span v-else class="me-3 text-muted">
+                      <i class="bi bi-dash-circle me-1"></i>Sin DNI
+                    </span>
+                    <span v-if="person.rol" class="badge rounded-pill bg-primary-subtle text-primary-emphasis border border-primary-subtle">
+                      {{ person.rol }}
+                    </span>
+                  </div>
+                </div>
+                <div class="person-exp text-end">
+                  <div class="exp-label text-muted small">Experiencia</div>
+                  <div class="exp-value">
+                    {{ person.aniosExperiencia != null && person.aniosExperiencia !== '' ? person.aniosExperiencia + ' años' : '—' }}
+                  </div>
+                </div>
+              </div>
+              <div class="person-skills mt-3">
+                <div class="skills-label text-muted small mb-2">Habilidades</div>
+                <div v-if="!person.habilidades || person.habilidades.length === 0" class="text-muted small fst-italic">
+                  Sin habilidades registradas
+                </div>
+                <div v-else class="d-flex flex-wrap gap-2">
+                  <span
+                    v-for="(s, idx) in (person.habilidades || []).slice(0, 8)"
+                    :key="idx"
+                    class="badge skill-chip rounded-pill"
+                  >
+                    {{ skillLabel(s) }}
+                  </span>
+                  <span
+                    v-if="person.habilidades.length > 8"
+                    class="badge bg-light text-secondary border rounded-pill"
+                  >
+                    +{{ person.habilidades.length - 8 }} más
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="person-card-actions d-flex flex-shrink-0 align-items-start gap-2">
+              <button 
+                type="button" 
+                class="btn btn-outline-primary btn-sm btn-view"
+                @click="viewProfile(person)"
+              >
+                <i class="bi bi-person-lines-fill me-1"></i>
+                Ver perfil
+              </button>
+              <div v-if="isUserAdmin" class="dropdown">
+                <button
+                  class="btn btn-light border btn-icon"
+                  type="button"
+                  :id="'pmenu-' + person._id"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                  title="Más acciones"
+                >
+                  <i class="bi bi-three-dots-vertical"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow" :aria-labelledby="'pmenu-' + person._id">
+                  <li>
+                    <button type="button" class="dropdown-item" @click="openEditModal(person)">
+                      <i class="bi bi-pencil me-2 text-secondary"></i>Editar
+                    </button>
+                  </li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li>
+                    <button type="button" class="dropdown-item text-danger" @click="deletePerson(person._id)">
+                      <i class="bi bi-trash me-2"></i>Eliminar
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </article>
+        </div>
+      </template>
     </div>
 
     <!-- Modal para Crear/Editar Persona -->
@@ -257,6 +371,7 @@
 import { Modal } from 'bootstrap';
 import UserService from '@/services/user.service.js';
 import SkillsService from '@/services/skills.service.js';
+import AuthService from '@/services/auth.service.js';
 
 export default {
   name: 'PersonasView',
@@ -265,17 +380,79 @@ export default {
       modalInstance: null,
       isEditMode: false,
       people: [],
+      currentUser: null,
+      loading: false,
+      searchQuery: '',
       editablePerson: { skills: [] },
-      // Datos predefinidos
       skillOptions: [],
-      // Validaciones
       validationErrors: {},
       isSubmitting: false
     };
   },
-  mounted() {
+  computed: {
+    isUserAdmin() {
+      return AuthService.isAdmin(this.currentUser);
+    },
+    filteredPeople() {
+      const q = (this.searchQuery || '').trim().toLowerCase();
+      const list = [...(this.people || [])];
+      if (!q) return list;
+      return list.filter(p => {
+        const full = `${p.nombre || ''} ${p.apellido || ''}`.toLowerCase();
+        return full.includes(q);
+      });
+    },
+    statsCards() {
+      const p = this.people || [];
+      const total = p.length;
+      let sumExp = 0;
+      let countExp = 0;
+      let withSkills = 0;
+      p.forEach(x => {
+        if (x.aniosExperiencia != null && x.aniosExperiencia !== '') {
+          sumExp += Number(x.aniosExperiencia) || 0;
+          countExp++;
+        }
+        if (x.habilidades && x.habilidades.length > 0) withSkills++;
+      });
+      const avgExp = countExp > 0 ? Math.round((sumExp / countExp) * 10) / 10 : null;
+      const withDni = p.filter(x => x.dni && String(x.dni).trim() !== '').length;
+      return [
+        {
+          key: 'total',
+          value: total,
+          label: 'Total personas',
+          icon: 'bi bi-people',
+          iconWrapClass: 'stat-icon-total'
+        },
+        {
+          key: 'exp',
+          value: avgExp != null ? avgExp : '—',
+          label: 'Exp. promedio (años)',
+          icon: 'bi bi-graph-up-arrow',
+          iconWrapClass: 'stat-icon-exp'
+        },
+        {
+          key: 'skills',
+          value: withSkills,
+          label: 'Con habilidades',
+          icon: 'bi bi-stars',
+          iconWrapClass: 'stat-icon-skill'
+        },
+        {
+          key: 'dni',
+          value: withDni,
+          label: 'Con DNI',
+          icon: 'bi bi-card-text',
+          iconWrapClass: 'stat-icon-dni'
+        }
+      ];
+    }
+  },
+  async mounted() {
+    this.currentUser = await AuthService.checkSession();
     this.modalInstance = new Modal(document.getElementById('personModal'));
-    this.loadUsers();
+    await this.loadUsers();
     this.loadSkills();
   },
   methods: {
@@ -461,19 +638,35 @@ export default {
       return !!this.validationErrors[fieldName];
     },
 
-    displaySkills(skills) {
-      if (!skills || skills.length === 0) return 'N/A';
-      return skills.map(s => `${s.nombre} (Nivel ${s.nivel}/5)`).join(', ');
+    fullName(person) {
+      const n = `${person.nombre || ''} ${person.apellido || ''}`.trim();
+      return n || 'Sin nombre';
     },
-    loadUsers() {
-      UserService.getUsers().then(response => {
-        console.log('Usuarios cargados:', response.data);
+    getInitials(person) {
+      const n = (person.nombre || '').trim();
+      const a = (person.apellido || '').trim();
+      const i1 = n.charAt(0).toUpperCase();
+      const i2 = a.charAt(0).toUpperCase();
+      return (i1 + i2) || '?';
+    },
+    skillLabel(s) {
+      if (!s) return '';
+      const name = s.nombre || s.name || '';
+      const lvl = s.nivel != null ? s.nivel : s.level;
+      return lvl != null && lvl !== '' ? `${name} · ${lvl}/5` : name;
+    },
+    async loadUsers() {
+      this.loading = true;
+      try {
+        const response = await UserService.getUsers();
         this.people = response.data;
-      }).catch(error => {
+      } catch (error) {
         console.error('Error loading users:', error);
         const errorMessage = error.response?.data?.error || 'Error al cargar usuarios';
         this.$toast?.error(errorMessage) || alert(errorMessage);
-      });
+      } finally {
+        this.loading = false;
+      }
     },
     loadSkills() {
       SkillsService.getSkills().then(response => {
@@ -487,6 +680,7 @@ export default {
     },
     // --- Métodos para el Modal ---
     openCreateModal() {
+      if (!this.isUserAdmin) return;
       this.isEditMode = false;
       this.editablePerson = {
         name: '', dni: '', email: '', password: '', role: 'Desarrollador', availability: 40, costPerHour: 20,
@@ -496,6 +690,7 @@ export default {
       this.modalInstance.show();
     },
     openEditModal(person) {
+      if (!this.isUserAdmin) return;
       this.isEditMode = true;
       console.log('Editando persona:', person);
       
@@ -661,6 +856,7 @@ export default {
       }
     },
     deletePerson(personId) {
+      if (!this.isUserAdmin) return;
       if (window.confirm('¿Estás seguro de que quieres eliminar a esta persona?')) {
         UserService.deleteUser(personId).then(() => {
           this.loadUsers();
@@ -684,48 +880,213 @@ export default {
 </script>
 
 <style scoped>
-/* Estilos para la tabla */
-.table th {
-  background-color: #f8f9fa;
-  border-top: none;
+.personas-page {
+  min-height: 100%;
+  background: linear-gradient(180deg, #f4f7fb 0%, #eef2f7 100%);
 }
 
-.table td {
-  vertical-align: middle;
+.personas-title {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #1a2332;
 }
 
-/* Estilos para los botones */
-.btn-sm {
-  font-size: 0.875rem;
-  padding: 0.25rem 0.5rem;
+.personas-subtitle {
+  font-size: 0.95rem;
 }
 
-/* Estilos para el grupo de botones de acciones */
-.btn-group {
-  gap: 0.25rem;
+.btn-add-person {
+  font-weight: 600;
+  padding: 0.55rem 1.15rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(13, 110, 253, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.btn-group .btn {
-  border-radius: 0.375rem;
-  margin-right: 0.25rem;
-  padding: 0.375rem 0.5rem;
-  transition: all 0.2s ease;
-}
-
-.btn-group .btn:last-child {
-  margin-right: 0;
-}
-
-.btn-group .btn:hover {
+.btn-add-person:hover {
+  color: #fff;
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 6px 18px rgba(13, 110, 253, 0.45);
 }
 
-.btn-group .btn i {
-  font-size: 0.9rem;
+.personas-panel {
+  background: #fff;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
-/* Estilos para el modal */
+.empty-state {
+  border: 1px dashed rgba(15, 23, 42, 0.12);
+}
+
+.stat-card {
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.stat-card:hover {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-2px);
+}
+
+.stat-icon-wrap {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  margin-bottom: 0.65rem;
+}
+
+.stat-icon-total {
+  background: rgba(13, 110, 253, 0.12);
+  color: #0d6efd;
+}
+
+.stat-icon-exp {
+  background: rgba(25, 135, 84, 0.12);
+  color: #198754;
+}
+
+.stat-icon-skill {
+  background: rgba(111, 66, 193, 0.12);
+  color: #6f42c1;
+}
+
+.stat-icon-dni {
+  background: rgba(13, 202, 240, 0.15);
+  color: #0aa2c0;
+}
+
+.stat-value {
+  font-size: 1.65rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #1a2332;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 500;
+  margin-top: 0.15rem;
+}
+
+.filters-bar {
+  padding: 1rem 1.15rem;
+}
+
+.input-group-search:focus-within {
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+  border-radius: 0.5rem;
+}
+
+.input-group-search:focus-within .form-control,
+.input-group-search:focus-within .input-group-text {
+  border-color: #86b7fe;
+}
+
+.person-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.person-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem 1.35rem;
+}
+
+@media (min-width: 768px) {
+  .person-card {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+}
+
+.person-card-avatar {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(145deg, #e0e7ff 0%, #c7d2fe 100%);
+  color: #3730a3;
+  font-weight: 700;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.person-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.person-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.link-name {
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: #0d6efd;
+  text-decoration: none;
+}
+
+.link-name:hover {
+  color: #0a58ca;
+  text-decoration: underline;
+}
+
+.exp-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.skill-chip {
+  font-weight: 500;
+  padding: 0.4em 0.75em;
+  background: rgba(13, 110, 253, 0.08);
+  color: #084298;
+  border: 1px solid rgba(13, 110, 253, 0.15);
+}
+
+.person-card-actions {
+  padding-top: 0.25rem;
+}
+
+.btn-view {
+  font-weight: 600;
+  border-radius: 0.5rem;
+}
+
+.btn-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+}
+
 .modal-header {
   background-color: #f8f9fa;
   border-bottom: 1px solid #dee2e6;

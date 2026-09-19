@@ -19,6 +19,13 @@ class ReportService {
     return response.data;
   }
 
+  async getWeeklyTasksReport(projectId, weekStart, weekEnd) {
+    const response = await axios.get(`${API_URL}/report/weekly/tasks/${projectId}`, {
+      params: { weekStart, weekEnd },
+    });
+    return response.data;
+  }
+
   async getFinalProjectReport(projectId) {
     const response = await axios.get(`${API_URL}/report/final/${projectId}`);
     return response.data;
