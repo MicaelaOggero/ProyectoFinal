@@ -4,6 +4,7 @@ import { createHash, generateToken, isValidPassword } from "../../utils/utils.js
 import { findByAdmin } from "../projects/project.dao.js";
 import passport from "passport";
 import jwt from "jsonwebtoken";
+import { Resend } from "resend";
 
 // Registrar un nuevo usuario
 export const registerUser = async (data) => {
@@ -59,8 +60,8 @@ const buildPasswordResetToken = (user, expiresIn = "1h") => {
 };
 
 const sendPasswordResetEmail = async ({ email, token }) => {
-  const apiKey = process.env.SENDGRID_API_KEY;
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const apiKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.RESEND_FROM_EMAIL;
   const resetUrlBase = process.env.FRONTEND_RESET_URL;
 
   if (!apiKey || !fromEmail || !resetUrlBase) {
@@ -69,6 +70,43 @@ const sendPasswordResetEmail = async ({ email, token }) => {
 
   const resetLink = `${resetUrlBase}?token=${encodeURIComponent(token)}`;
 
+  const resend = new Resend(apiKey);
+  const { error } = await resend.emails.send({
+    from: fromEmail,
+    to: [email],
+    subject: "Restablecer contraseña",
+    text: `Usá este enlace para restablecer tu contraseña: ${resetLink}`,
+  });
+
+  if (error) {
+    throw { status: 500, message: `Error enviando email: ${JSON.stringify(error)}` };
+  }
+
+  return;
+
+  /* Legacy REST implementation retained for reference.
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: fromEmail,
+      to: [email],
+      subject: "Restablecer contraseña",
+      text: `Usá este enlace para restablecer tu contraseña: ${resetLink}`,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw { status: 500, message: `Error enviando email: ${text}` };
+  }
+
+  return;
+
+  /*
   const payload = {
     personalizations: [{ to: [{ email }] }],
     from: { email: fromEmail },
@@ -94,6 +132,7 @@ const sendPasswordResetEmail = async ({ email, token }) => {
     const text = await response.text();
     throw { status: 500, message: `Error enviando email: ${text}` };
   }
+  */
 };
 
 export const requestPasswordReset = async (email) => {

@@ -11,6 +11,7 @@ import { ordenarTareas } from "../../utils/asignacionBasica/ordenarTareas.js";
 import { tieneDisponibilidad } from "../../utils/asignacionBasica/filtroDisponibilidad.js";
 import { calcularDatosGlobalesSimulacion } from "../simulationAssignment/simulationAssignment.service.js";
 import { upsertSimulacionAsignacion } from "../assignment/assignment.service.js";
+import { crearNotificacionTareaAsignada } from "../notifications/notification.service.js";
 
 dotenv.config()
 
@@ -448,6 +449,13 @@ export async function confirmarAsignacionPorTiempo(projectId, sugerencias) {
     tareaDB.desarrolladorAsignado = dev._id;
     tareaDB.asignada = true;
     await tareaDB.save();
+
+    await crearNotificacionTareaAsignada({
+      tareaId: tareaDB._id,
+      proyectoId: projectId,
+      desarrolladorId: dev._id,
+      emisorId: proyecto.administrador
+    });
 
     resultados.push({
       tarea: tareaDB.descripcion,
