@@ -84,6 +84,18 @@ const projectSchema = new mongoose.Schema({
     min: 1,
     max: 5,
     default: null
+  },
+  generarTareasConIA: {
+    type: Boolean,
+    default: false
+  },
+  tareasGeneradasConIA: {
+    type: Boolean,
+    default: false
+  },
+  fechaGeneracionTareasIA: {
+    type: Date,
+    default: null
   }
 });
 

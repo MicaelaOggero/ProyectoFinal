@@ -17,6 +17,10 @@ router.get("/:id", auth, projectController.getProjectById);
 // Actualizar un proyecto por ID (solo admins)
 router.put("/:id", authAdmin, projectController.updateProject);
 
+// GeneraciÃ³n de tareas con IA: preview y confirmaciÃ³n
+router.post("/:projectId/tasks-ai/preview", authAdmin, projectController.previewTasksWithAI);
+router.post("/:projectId/tasks-ai/confirm", authAdmin, projectController.confirmTasksWithAI);
+
 // Eliminar un proyecto por ID (solo admins)
 router.delete("/:id", authAdmin, projectController.deleteProject);
 

@@ -1,4 +1,25 @@
 import * as projectService from "./project.service.js";
+import { previewTasksWithAIService, confirmTasksWithAIService } from "./projectTaskGeneration.service.js";
+
+export const previewTasksWithAI = async (req, res) => {
+  try {
+    const result = await previewTasksWithAIService(req.params.projectId, req.user._id);
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error("Error en previewTasksWithAI:", error);
+    return res.status(400).json({ error: error.message });
+  }
+};
+
+export const confirmTasksWithAI = async (req, res) => {
+  try {
+    const result = await confirmTasksWithAIService(req.params.projectId, req.user._id, req.body);
+    return res.status(201).json(result);
+  } catch (error) {
+    console.error("Error en confirmTasksWithAI:", error);
+    return res.status(400).json({ error: error.message });
+  }
+};
 
 // Obtener todos los proyectos de un admin
 export const getProjects = async (req, res) => {

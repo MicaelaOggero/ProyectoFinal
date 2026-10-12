@@ -1,3 +1,5 @@
+import { normalizarHabilidad } from "./normalizarHabilidad.js";
+
 /**
  * Verifica si un desarrollador cumple con un porcentaje mínimo de habilidades requeridas
  * @param {Object} dev - Usuario desarrollador
@@ -9,8 +11,8 @@ export function tieneHabilidadesSuficientes(dev, habilidadesRequeridas, porcenta
   if (!habilidadesRequeridas || habilidadesRequeridas.length === 0) return true;
 
   // Normalizar nombres: todo a minúsculas y quitar espacios iniciales/finales
-  const habDev = dev.habilidades.map(h => h.nombre.trim().toLowerCase());
-  const habReq = habilidadesRequeridas.map(h => h.trim().toLowerCase());
+  const habDev = (dev.habilidades || []).map(h => normalizarHabilidad(h.nombre));
+  const habReq = habilidadesRequeridas.map(normalizarHabilidad);
 
   // Contar cuántas habilidades requeridas tiene el dev
   const cantidadCumplida = habReq.filter(h => habDev.includes(h)).length;
