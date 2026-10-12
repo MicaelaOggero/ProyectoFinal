@@ -13,9 +13,16 @@ import {
 } from "./task.controller.js";
 import { authAdmin, auth } from "../../middlewares/auth.js";
 import { addTask } from "./task.service.js";
+import {
+  listarTareasPendientesDeCalificar,
+  calificarTareaParaPreferencias
+} from "../taskPreference/taskPreference.controller.js";
 
 const router = express.Router();
 
+// Preferencias de habilidades del desarrollador
+router.get("/mis-tareas/pendientes-calificacion", auth, listarTareasPendientesDeCalificar);
+router.post("/:taskId/calificar-preferencia", auth, calificarTareaParaPreferencias);
 
 // Crear
 router.post("/:projectId", authAdmin, crearTask);

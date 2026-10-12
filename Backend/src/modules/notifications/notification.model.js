@@ -9,6 +9,7 @@ const notificationSchema = new mongoose.Schema({
     enum: [
       "CALIFICAR_TAREA",
       "CALIFICAR_PROYECTO_LOTE",
+      "CALIFICAR_PREFERENCIAS_TAREAS",
       "CALIFICACION_RECIBIDA",
       "RETRASO_TAREA",
       "TAREA_ASIGNADA"
