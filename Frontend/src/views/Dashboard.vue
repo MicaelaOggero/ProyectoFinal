@@ -91,11 +91,18 @@
     <!-- User Dashboard -->
     <div v-else-if="currentUser" class="user-dashboard">
       <!-- Welcome Message -->
-      <div class="welcome-section">
-        <h1 class="welcome-title">¡BIENVENIDO {{ currentUser?.nombre?.toUpperCase() }}!</h1>
-        <p class="welcome-subtitle">Aquí tienes un resumen de tus proyectos y tareas asignadas</p>
+      <div class="welcome-section dashboard-hero">
+        <div>
+          <span class="dashboard-eyebrow">ESPACIO DE TRABAJO</span>
+          <h1 class="welcome-title">Hola, {{ currentUser?.nombre }} <span>👋</span></h1>
+          <p class="welcome-subtitle">Este es tu resumen de actividad y próximos compromisos.</p>
+        </div>
+        <button class="dashboard-profile-link" @click="navigateToProfile">
+          <i class="bi bi-person-circle"></i> Ver mi perfil <i class="bi bi-arrow-up-right"></i>
+        </button>
       </div>
 
+      <div class="dashboard-workspace">
       <!-- User Stats -->
       <div class="user-stats">
         <div class="stat-card">
@@ -123,7 +130,8 @@
           <div class="calendar-mini-container">
             <div class="mini-calendar-header">
               <i class="bi bi-calendar3 me-2"></i>
-              <span class="mini-calendar-title">Calendario</span>
+              <span class="mini-calendar-title">Calendario de disponibilidad</span>
+              <span class="calendar-link">Ver calendario <i class="bi bi-arrow-up-right"></i></span>
             </div>
             <div v-if="calendarLoading" class="mini-calendar-loading">
               <div class="spinner-border spinner-border-sm" role="status">
@@ -173,7 +181,8 @@
       </div>
 
       <!-- My Projects Section -->
-      <div class="section">
+      <div class="user-content-grid">
+      <div class="section section-projects">
         <div class="section-header">
           <h2><i class="bi bi-folder2-open me-2"></i>Mis Proyectos</h2>
           <button class="btn btn-outline-primary" @click="navigateToProjects">
@@ -202,7 +211,7 @@
       </div>
 
       <!-- My Tasks Section -->
-      <div class="section">
+      <div class="section section-tasks">
         <div class="section-header">
           <h2><i class="bi bi-list-task me-2"></i>Mis Tareas</h2>
           <button class="btn btn-outline-primary" @click="navigateToTasks">
@@ -231,6 +240,9 @@
           </div>
         </div>
       </div>
+      </div>
+
+    </div>
 
 
     </div>
@@ -1300,6 +1312,62 @@ export default {
   to { transform: rotate(360deg); }
 }
 
+/* Dashboard de trabajo para usuarios */
+.dashboard-container:has(.user-dashboard) { background: linear-gradient(180deg, #f4f7fb 0%, #eef2f7 100%); padding-top: 1.5rem; }
+.user-dashboard { max-width: 1240px; padding: 0 2rem 3rem; }
+.dashboard-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem; padding: 1.75rem 0 1.5rem; margin-bottom: 1.25rem; }
+.dashboard-eyebrow { color: #0d6efd; font-size: 0.68rem; letter-spacing: 0.13em; font-weight: 700; }
+.dashboard-hero .welcome-title { margin: 0.35rem 0 0; font-size: clamp(1.8rem, 3vw, 2.45rem); letter-spacing: -0.045em; }
+.dashboard-hero .welcome-title span { font-size: 1.5rem; letter-spacing: 0; }
+.dashboard-hero .welcome-subtitle { margin: 0.5rem 0 0; color: #64748b; }
+.dashboard-profile-link { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.65rem 0.85rem; color: #0d6efd; background: #fff; border: 1px solid #dce6f3; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+.dashboard-profile-link:hover { background: #edf4ff; border-color: #a9c9f7; }
+.user-stats { grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(220px, 0.9fr); gap: 1rem; margin-bottom: 1.5rem; }
+.user-stats > .stat-card { min-height: 128px; padding: 1.25rem; border-radius: 0.75rem; border-color: #e1e8f1; background: #fff; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.035); }
+.user-stats > .stat-card > i { color: #0d6efd; background: #eaf2ff; font-size: 1.25rem; }
+.user-stats > .stat-card:nth-child(2) > i { color: #946500; background: #fff4d9; }
+.user-stats > .stat-card:nth-child(3) > i { color: #198754; background: #e7f5ee; }
+.user-stats .stat-content h4 { font-size: 1.6rem; }
+.user-stats .stat-content p { font-size: 0.78rem; }
+.calendar-card { min-height: 128px !important; cursor: pointer; border-radius: 0.75rem !important; }
+.mini-calendar-header { display: flex; align-items: center; padding: 0.65rem 0.85rem; color: #52647d; border-bottom: 1px solid #edf2f7; font-size: 0.8rem; }
+.mini-calendar-header i { color: #0d6efd; }
+.mini-calendar-month-header { background: #0d6efd; padding: 0.4rem; font-size: 0.72rem; }
+.mini-calendar-day { font-size: 0.68rem; }
+.user-content-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+.user-content-grid .section { margin-bottom: 0; padding: 1.35rem; border-radius: 0.75rem; border-color: #e1e8f1; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.035); }
+.user-content-grid .section-header { margin-bottom: 1rem; padding-bottom: 0.85rem; }
+.user-content-grid .section-header h2 { font-size: 1rem; }
+.user-content-grid .section-header h2 i { color: #0d6efd; }
+.user-content-grid .section-header .btn { padding: 0.4rem 0.7rem; border-radius: 0.45rem; font-size: 0.75rem; }
+.projects-grid { grid-template-columns: 1fr; gap: 0.75rem; }
+.project-card { padding: 1rem; border-radius: 0.6rem; background: #fbfcfe; border-color: #e5eaf1; }
+.project-card:hover { transform: translateY(-1px); }
+.project-header { margin-bottom: 0.55rem; align-items: center; }
+.project-header h3 { font-size: 0.95rem; }
+.project-description { margin-bottom: 0.75rem; font-size: 0.78rem; }
+.project-meta { gap: 0.35rem; font-size: 0.72rem; }
+.task-item { padding: 0.95rem 1rem; border-radius: 0.6rem; background: #fbfcfe; border-color: #e5eaf1; }
+.task-info h4 { font-size: 0.88rem; margin-bottom: 0.25rem; }
+.task-project { font-size: 0.75rem; }
+.task-meta { gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end; }
+.task-meta .badge, .task-meta .difficulty-badge { font-size: 0.68rem; }
+.dashboard-workspace { display: grid; grid-template-columns: 235px minmax(0, 1fr); column-gap: 1.25rem; row-gap: 0.6rem; align-items: start; }
+.dashboard-workspace .user-stats { display: flex; flex-direction: column; align-self: start; grid-column: 1; grid-row: 1; gap: 0.6rem; margin: 0; }
+.dashboard-workspace .user-stats > .stat-card { min-height: 0; padding: 0.9rem; gap: 0.7rem; box-shadow: 0 1px 5px rgba(15, 23, 42, 0.035); }
+.dashboard-workspace .user-stats > .stat-card:nth-child(-n+3) { grid-column: 1; }
+.dashboard-workspace .user-stats > .stat-card > i { padding: 0.6rem; font-size: 1rem; }
+.dashboard-workspace .user-stats .stat-content h4 { font-size: 1.35rem; }
+.dashboard-workspace .user-stats .stat-content p { font-size: 0.72rem; }
+.dashboard-workspace .calendar-card { grid-column: 1 / -1; grid-row: 4; min-height: 0 !important; padding: 0 !important; cursor: pointer; }
+.dashboard-workspace .calendar-card { display: none !important; }
+.dashboard-workspace .mini-calendar-header { display: flex; align-items: center; padding: 0.85rem 1rem; }
+.dashboard-workspace .mini-calendar-title { font-weight: 650; }
+.dashboard-workspace .calendar-link { margin-left: auto; color: #0d6efd; font-size: 0.72rem; font-weight: 600; }
+.dashboard-workspace .mini-calendar-month-header { font-size: 0.75rem; padding: 0.55rem; }
+.dashboard-workspace .mini-calendar-day { font-size: 0.72rem; aspect-ratio: auto; min-height: 38px; }
+.dashboard-workspace .user-content-grid { grid-column: 2; grid-row: 1; min-width: 0; }
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .main-content, .user-dashboard {
@@ -1356,5 +1424,15 @@ export default {
     align-items: flex-start;
     gap: 1rem;
   }
+
+  .dashboard-hero { align-items: flex-start; flex-direction: column; padding-top: 0.5rem; }
+  .dashboard-profile-link { align-self: stretch; justify-content: center; }
+  .user-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .calendar-card { grid-column: 1 / -1; }
+  .user-content-grid { grid-template-columns: 1fr; }
+  .dashboard-workspace { display: flex; flex-direction: column; }
+  .dashboard-workspace .user-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .dashboard-workspace .user-content-grid { order: 2; width: 100%; }
+  .dashboard-workspace .calendar-card { display: none !important; }
 }
 </style>

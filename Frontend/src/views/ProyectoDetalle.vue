@@ -1,10 +1,16 @@
 <template>
   <div class="project-detail-container">
+    <nav class="project-breadcrumb" aria-label="Ruta de navegación">
+      <router-link to="/proyectos"><i class="bi bi-arrow-left"></i> Proyectos</router-link>
+      <span>/</span><span>Espacio de trabajo</span>
+    </nav>
     <!-- Header del Proyecto -->
     <div class="project-header">
       <div class="project-info">
+        <div class="project-eyebrow"><i class="bi bi-code-square"></i> ESPACIO DEL EQUIPO</div>
         <h1 class="project-title">{{ project?.name || 'Cargando...' }}</h1>
         <div class="project-meta">
+          <span class="status-badge" :class="getStatusClass(project?.status)">{{ project?.status || 'Cargando' }}</span>
           <div class="priority-section">
             <span class="priority-label">Prioridad:</span>
             <span class="priority-badge" :class="getPriorityClass(project?.priority)">
@@ -57,6 +63,13 @@
       </div>
     </div>
 
+    <div class="project-metrics" aria-label="Resumen del proyecto">
+      <div class="overview-metric"><span class="metric-icon blue"><i class="bi bi-list-task"></i></span><div><strong>{{ projectTasks.length }}</strong><span>Tareas del proyecto</span></div></div>
+      <div class="overview-metric"><span class="metric-icon green"><i class="bi bi-check2-circle"></i></span><div><strong>{{ completedProjectTasks }}</strong><span>Completadas</span></div></div>
+      <div class="overview-metric"><span class="metric-icon amber"><i class="bi bi-person-exclamation"></i></span><div><strong>{{ unassignedTasksCount }}</strong><span>Sin asignar</span></div></div>
+      <div class="overview-metric"><span class="metric-icon violet"><i class="bi bi-people"></i></span><div><strong>{{ projectTeam.length }}</strong><span>Integrantes del equipo</span></div></div>
+    </div>
+
     <!-- Tabs de Navegación -->
     <div class="tabs-container">
       <div class="tabs">
@@ -65,21 +78,21 @@
           :class="{ active: activeTab === 'descripcion' }"
           @click="activeTab = 'descripcion'"
         >
-          Descripción
+          <i class="bi bi-grid-1x2"></i> Contexto
         </button>
         <button 
           class="tab-btn" 
           :class="{ active: activeTab === 'tareas' }"
           @click="activeTab = 'tareas'"
         >
-          Tareas
+          <i class="bi bi-list-check"></i> Tareas <span class="tab-count">{{ projectTasks.length }}</span>
         </button>
         <button 
           class="tab-btn" 
           :class="{ active: activeTab === 'equipo' }"
           @click="activeTab = 'equipo'"
         >
-          Equipo
+          <i class="bi bi-people"></i> Equipo <span class="tab-count">{{ projectTeam.length }}</span>
         </button>
         <button 
           v-if="isAdmin"
@@ -87,7 +100,7 @@
           :class="{ active: activeTab === 'asignaciones' }"
           @click="switchToAssignmentsTab"
         >
-          Asignaciones
+          <i class="bi bi-diagram-3"></i> Asignaciones
         </button>
       </div>
     </div>
@@ -97,12 +110,16 @@
       <!-- Tab Descripción -->
       <div v-if="activeTab === 'descripcion'" class="tab-pane active">
         <div class="description-content">
-          <div class="description-box">
-            <h3>Descripción del Proyecto</h3>
+          <div class="overview-main">
+          <div class="description-box context-panel">
+            <span class="section-kicker">CONTEXTO</span>
+            <h3>Acerca del proyecto</h3>
             <p>{{ project?.description || 'No hay descripción disponible para este proyecto.' }}</p>
+          </div>
           </div>
           
           <div class="project-details">
+            <div class="section-heading"><h3><i class="bi bi-calendar3"></i> Planificación</h3></div>
             <div class="detail-item">
               <strong>Fecha de Inicio:</strong> {{ formatDate(project?.startDate) }}
             </div>
@@ -1488,7 +1505,7 @@
     </div>
 
     <!-- Modal para Ver Detalles de Tarea -->
-    <div class="modal fade" id="viewTaskModal" tabindex="-1" aria-labelledby="viewTaskModalLabel" aria-hidden="true">
+    <div class="modal fade view-task-modal" id="viewTaskModal" tabindex="-1" aria-labelledby="viewTaskModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-xl">
         <div class="modal-content">
           <div class="modal-header bg-primary text-white">
@@ -1786,6 +1803,20 @@ export default {
     };
   },
   computed: {
+    completedProjectTasks() {
+      return this.projectTasks.filter(task => task.estado === 'completada').length;
+    },
+    projectCompletion() {
+      return this.projectTasks.length ? Math.round(this.completedProjectTasks / this.projectTasks.length * 100) : 0;
+    },
+    taskStages() {
+      return [
+        { label: 'Pendientes', color: 'slate', count: this.projectTasks.filter(task => !['en curso', 'completada', 'pausada'].includes(task.estado)).length },
+        { label: 'En curso', color: 'blue', count: this.projectTasks.filter(task => task.estado === 'en curso').length },
+        { label: 'Pausadas', color: 'amber', count: this.projectTasks.filter(task => task.estado === 'pausada').length },
+        { label: 'Completadas', color: 'green', count: this.completedProjectTasks }
+      ];
+    },
     isAdmin() {
       return AuthService.isAdmin(this.currentUser);
     },
@@ -2080,6 +2111,41 @@ export default {
       if (this.viewTaskModalInstance) {
         this.viewTaskModalInstance.show();
       }
+    },
+
+    openTaskInNewTab() {
+      if (!this.selectedTask) return;
+      const task = this.selectedTask;
+      const escapeHtml = value => String(value ?? '—')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+      const developer = task.desarrolladorAsignado
+        ? this.getDeveloperName(task.desarrolladorAsignado)
+        : 'Sin asignar';
+      const skills = (task.habilidadesRequeridas || []).map(skill => `<span class="tag">${escapeHtml(skill)}</span>`).join('') || '<span class="muted">No especificadas</span>';
+      const progress = task.tiempoEstimadoHoras
+        ? Math.min(Math.round(((task.tiempoInvertidoHoras || 0) / task.tiempoEstimadoHoras) * 100), 100)
+        : 0;
+      const rows = [
+        ['Estado', this.getTaskStatusText(task.estado)],
+        ['Prioridad', this.getTaskPriorityText(task.prioridad)],
+        ['Dificultad', `${task.nivelDificultad || '—'}/5`],
+        ['Categoría', task.categoria || '—'],
+        ['Asignada a', developer],
+        ['Tiempo estimado', task.tiempoEstimadoHoras ? `${task.tiempoEstimadoHoras} horas` : 'No especificado'],
+        ['Tiempo invertido', `${task.tiempoInvertidoHoras || 0} horas`],
+        ['Inicio estimado', task.fechaEstimadaInicio ? this.formatDate(task.fechaEstimadaInicio) : '—'],
+        ['Fin estimado', task.fechaEstimadaFin ? this.formatDate(task.fechaEstimadaFin) : '—']
+      ].map(([label, value]) => `<div class="fact"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('');
+      const history = (task.historial || []).map(entry => `<li><strong>${escapeHtml(entry.campo)}</strong><span>${escapeHtml(entry.valorAnterior)} → ${escapeHtml(entry.valorNuevo)}</span><small>${escapeHtml(this.formatDate(entry.fechaCambio))}</small></li>`).join('');
+      const comments = (task.comentarios || []).map(comment => `<article><strong>${escapeHtml(this.getDeveloperName(comment.usuario))}</strong><small>${escapeHtml(this.formatDate(comment.fecha))}</small><p>${escapeHtml(comment.mensaje)}</p></article>`).join('');
+      const popup = window.open('', '_blank');
+      if (!popup) return;
+      popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(task.descripcion)} · Tarea</title><style>
+        :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#172033;background:#f4f7fb}*{box-sizing:border-box}body{margin:0}.shell{max-width:1040px;margin:auto;padding:32px 20px 56px}.crumb{color:#64748b;font-size:13px;margin-bottom:18px}.hero,.panel{background:#fff;border:1px solid #e1e8f1;border-radius:14px;box-shadow:0 2px 8px #0f172a08}.hero{padding:30px 32px;background:linear-gradient(110deg,#fff 50%,#edf4ff)}.eyebrow{color:#0d6efd;font-size:11px;letter-spacing:.14em;font-weight:700}.hero h1{font-size:clamp(26px,4vw,40px);line-height:1.15;margin:10px 0 14px;letter-spacing:-.04em}.hero p{color:#52647d;margin:0;line-height:1.65}.layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(280px,.8fr);gap:20px;margin-top:20px}.panel{padding:24px}.panel h2{font-size:17px;margin:0 0 18px}.section-label{color:#64748b;font-size:11px;letter-spacing:.12em;font-weight:700}.tags{display:flex;flex-wrap:wrap;gap:8px}.tag{padding:6px 10px;border-radius:7px;background:#eaf1ff;color:#2759a1;font-size:13px;font-weight:600}.muted{color:#64748b}.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px}.fact{display:flex;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px solid #edf1f5;font-size:14px}.fact dt{color:#64748b}.fact dd{margin:0;text-align:right;font-weight:600}.progress{height:9px;border-radius:9px;background:#e6edf5;overflow:hidden}.progress span{display:block;height:100%;background:linear-gradient(90deg,#0d6efd,#55a6fa);border-radius:inherit}.progress-meta{display:flex;justify-content:space-between;margin:10px 0 18px;color:#64748b;font-size:13px}.history{padding-left:18px;margin:0}.history li{padding:9px 0;color:#52647d}.history li span,.history li small{display:block;margin-top:4px}.comments article{padding:12px 0;border-bottom:1px solid #edf1f5}.comments small{color:#64748b;margin-left:10px}.comments p{margin:7px 0 0;color:#52647d}.back{display:inline-block;margin-top:20px;color:#0d6efd;text-decoration:none;font-size:13px}@media(max-width:700px){.shell{padding:20px 14px}.layout{grid-template-columns:1fr}.hero{padding:24px}.panel{padding:18px}.facts{grid-template-columns:1fr}.fact dd{text-align:left}}
+      </style></head><body><main class="shell"><div class="crumb">Proyecto / Tarea</div><section class="hero"><span class="eyebrow">DETALLE DE TAREA</span><h1>${escapeHtml(task.descripcion)}</h1><p>Información completa para coordinar el trabajo del equipo.</p></section><div class="layout"><div><section class="panel"><span class="section-label">HABILIDADES REQUERIDAS</span><div class="tags" style="margin-top:12px">${skills}</div></section><section class="panel" style="margin-top:20px"><h2>Información y planificación</h2><dl class="facts">${rows}</dl></section>${history ? `<section class="panel" style="margin-top:20px"><h2>Historial de cambios</h2><ul class="history">${history}</ul></section>` : ''}${comments ? `<section class="panel comments" style="margin-top:20px"><h2>Comentarios</h2>${comments}</section>` : ''}</div><aside><section class="panel"><span class="section-label">PROGRESO</span><h2 style="margin-top:10px">${progress}% del tiempo estimado</h2><div class="progress"><span style="width:${progress}%"></span></div><div class="progress-meta"><span>${escapeHtml(task.tiempoInvertidoHoras || 0)} h invertidas</span><span>${escapeHtml(task.tiempoEstimadoHoras || '—')} h estimadas</span></div><dl class="facts" style="display:block">${rows.split('</div>').slice(0,5).join('</div>')}</dl></section></aside></div><a class="back" href="javascript:window.close()">Cerrar esta pestaña</a></main></body></html>`);
+      popup.document.close();
+      popup.focus();
     },
     
     // Cerrar modal de ver detalles de tarea
@@ -4870,49 +4936,32 @@ ${developers.length === 0 ? `
 
 <style scoped>
 .project-detail-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
+  min-height: 100%; margin: 0 auto; padding: 1.5rem clamp(1rem, 3vw, 3rem) 2.5rem; background: linear-gradient(180deg, #f4f7fb 0%, #eef2f7 100%); color: #1a2332;
 }
 
 /* Header del Proyecto */
 .project-header {
-  background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
-  padding: 2rem;
-  border-radius: 1rem;
-  margin-bottom: 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  color: white;
+  background: white; padding: 1.75rem; border: 1px solid #e3e9f1; border-radius: 0.85rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 1.5rem; box-shadow: 0 2px 8px #0f172a05;
 }
 
 .project-title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  margin: 0;
-  line-height: 1.2;
+  font-size: clamp(1.6rem, 3vw, 2.25rem); font-weight: 750; letter-spacing: -0.035em; margin: 0; line-height: 1.2; overflow-wrap: anywhere;
 }
 
 .project-meta {
-  margin-top: 1rem;
+  margin-top: 1rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.8rem;
 }
 
 .priority-section {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+  display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem;
 }
 
 .priority-label {
-  font-weight: 600;
+  font-weight: 500; color: #64748b;
 }
 
 .priority-badge {
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  font-weight: 700;
-  text-transform: uppercase;
+  padding: 0.3rem 0.65rem; border-radius: 2rem; font-weight: 600; font-size: 0.75rem;
 }
 
 .priority-high {
@@ -4931,42 +4980,24 @@ ${developers.length === 0 ? `
 }
 
 .add-task-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  color: white;
-  padding: 0.75rem 1.5rem;
-  border-radius: 2rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
+  background: linear-gradient(135deg, #198754, #157347); border: 1px solid #198754; color: white; padding: 0.65rem 1rem; border-radius: 0.5rem; font-weight: 600; box-shadow: 0 3px 10px #19875420;
 }
 
 .add-task-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: rgba(255, 255, 255, 0.5);
-  transform: translateY(-2px);
+  background: #146c43; border-color: #146c43; color: white;
 }
 
 /* Tabs */
 .tabs-container {
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
 }
 
 .tabs {
-  display: flex;
-  border-bottom: 2px solid #e9ecef;
-  gap: 0;
+  display: flex; border-bottom: 1px solid #dce3ed; gap: 1rem; overflow-x: auto;
 }
 
 .tab-btn {
-  background: none;
-  border: none;
-  padding: 1rem 2rem;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #6c757d;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border-bottom: 3px solid transparent;
+  background: none; border: none; padding: 0.9rem 0.75rem; font-size: 0.9rem; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 3px solid transparent; display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap;
 }
 
 .tab-btn:hover {
@@ -4974,16 +5005,12 @@ ${developers.length === 0 ? `
 }
 
 .tab-btn.active {
-  color: #dc3545;
-  border-bottom-color: #dc3545;
+  color: #0d6efd; border-bottom-color: #0d6efd;
 }
 
 /* Contenido de los Tabs */
 .tab-content {
-  background: #f8f9fa;
-  border-radius: 1rem;
-  padding: 2rem;
-  min-height: 400px;
+  min-width: 0; padding: 0; background: transparent;
 }
 
 .tab-pane {
@@ -4996,34 +5023,23 @@ ${developers.length === 0 ? `
 
 /* Tab Descripción */
 .description-content {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 2rem;
+  display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(260px, 1fr); gap: 1.25rem; align-items: start;
 }
 
 .description-box {
-  background: white;
-  padding: 2rem;
-  border-radius: 1rem;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  background: white; padding: 1.5rem; border: 1px solid #e3e9f1; border-radius: 0.75rem;
 }
 
 .description-box h3 {
-  color: #495057;
-  margin-bottom: 1rem;
+  color: #1a2332; font-size: 1.05rem; font-weight: 650; margin: 0.4rem 0 0.8rem;
 }
 
 .project-details {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  display: flex; flex-direction: column; gap: 0; padding: 1.5rem; background: white; border: 1px solid #e3e9f1; border-radius: 0.75rem;
 }
 
 .detail-item {
-  padding: 1rem;
-  background: white;
-  border-radius: 0.5rem;
-  border-left: 4px solid #007bff;
+  padding: 1rem 0; border-bottom: 1px solid #eef2f7; font-size: 0.85rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem;
 }
 
 .status-badge {
@@ -5074,10 +5090,7 @@ ${developers.length === 0 ? `
 }
 
 .tasks-table-container {
-  background: white;
-  border-radius: 0.5rem;
-  overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  background: white; border: 1px solid #e3e9f1; border-radius: 0.65rem; overflow-x: auto;
 }
 
 .tasks-table {
@@ -5086,14 +5099,7 @@ ${developers.length === 0 ? `
 }
 
 .tasks-table th {
-  background-color: #343a40 !important;
-  color: white;
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.8rem;
-  letter-spacing: 0.5px;
-  padding: 1rem 0.75rem;
-  border: none;
+  background-color: #f4f7fb !important; color: #64748b; font-weight: 600; font-size: 0.75rem; padding: 1rem 0.75rem; border: none; white-space: nowrap;
 }
 
 .tasks-table td {
@@ -5220,16 +5226,11 @@ ${developers.length === 0 ? `
 }
 
 .team-member-card {
-  background: white;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  text-align: center;
+  background: white; border: 1px solid #e3e9f1; border-radius: 0.75rem; padding: 1.5rem; text-align: left;
 }
 
 .member-avatar {
-  margin-bottom: 1rem;
-  color: #007bff;
+  margin-bottom: 1rem; color: #6366b7;
 }
 
 .member-name {
@@ -5238,14 +5239,7 @@ ${developers.length === 0 ? `
 }
 
 .member-role {
-  display: block;
-  background: #e9ecef;
-  color: #495057;
-  padding: 0.25rem 0.75rem;
-  border-radius: 1rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
+  display: inline-block; background: #eef2ff; color: #5455a1; padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.5rem;
 }
 
 .member-email {
@@ -5337,7 +5331,8 @@ ${developers.length === 0 ? `
   
   .project-header {
     flex-direction: column;
-    text-align: center;
+    text-align: left;
+    align-items: stretch;
     gap: 1rem;
   }
   
@@ -5350,7 +5345,7 @@ ${developers.length === 0 ? `
   }
   
   .tabs {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
   
   .tab-btn {
@@ -5635,5 +5630,99 @@ ${developers.length === 0 ? `
 .criterio-elegido-row {
   background-color: rgba(13, 110, 253, 0.12) !important;
   border-left: 3px solid #0d6efd;
+}
+
+/* Espacio de trabajo: misma paleta y superficies que Proyectos y Personas. */
+.project-breadcrumb { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1.25rem; font-size: 0.8rem; color: #64748b; }
+.project-breadcrumb a { color: #52647d; text-decoration: none; }
+.project-breadcrumb a:hover { color: #0d6efd; }
+.project-breadcrumb i { margin-right: 0.4rem; }
+.project-eyebrow, .section-kicker { font-size: 0.65rem; letter-spacing: 0.12em; font-weight: 700; color: #64748b; }
+.project-eyebrow { color: #0d6efd; margin-bottom: 0.65rem; }
+.project-eyebrow i { margin-right: 0.4rem; }
+.project-info { min-width: 0; }
+.project-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.5rem; }
+.project-actions .btn, .tasks-actions .btn { width: auto; margin: 0 !important; font-size: 0.85rem; border-radius: 0.5rem; white-space: nowrap; }
+.project-actions .btn:not(.add-task-btn) { background: #f4f7fb; border-color: #dce3ed; color: #42536b; }
+.project-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
+.overview-metric { display: flex; align-items: center; gap: 1rem; background: white; border: 1px solid #e3e9f1; border-radius: 0.75rem; padding: 1.2rem; }
+.overview-metric strong { display: block; font-size: 1.7rem; line-height: 1.2; letter-spacing: -0.04em; }
+.overview-metric div > span { display: block; font-size: 0.75rem; color: #64748b; margin-top: 0.25rem; }
+.metric-icon { width: 2.65rem; height: 2.65rem; flex-shrink: 0; display: grid; place-items: center; border-radius: 0.65rem; font-size: 1.2rem; }
+.blue { background: #e8f1ff; color: #0d6efd; }
+.green { background: #e7f5ee; color: #198754; }
+.amber { background: #fff4d9; color: #946500; }
+.violet { background: #f0ebfa; color: #7952b3; }
+.tab-count { border-radius: 0.35rem; padding: 0.05rem 0.4rem; font-size: 0.7rem; background: #e5ebf3; color: #53647b; }
+.tab-btn.active .tab-count { background: #dfebff; color: #0d6efd; }
+.overview-main { display: grid; gap: 1.25rem; min-width: 0; }
+.context-panel { min-height: 250px; display: flex; flex-direction: column; justify-content: center; }
+.context-panel h3 { font-size: 1.35rem; margin: 0.45rem 0 0.9rem; }
+.context-panel p { max-width: 720px; }
+.view-task-modal .modal-dialog { width: 95vw; max-width: 1100px; margin: 1.75rem auto; }
+.view-task-modal .modal-content { width: 100%; max-width: none; max-height: none; overflow: hidden; border: 1px solid #e1e8f1; border-radius: 0.85rem; }
+.view-task-modal .modal-header { background: linear-gradient(110deg, #0d6efd, #0a58ca) !important; padding: 1.15rem 1.5rem; }
+.view-task-modal .modal-body { background: #f4f7fb; padding: 1.5rem; max-height: calc(100vh - 180px); overflow-y: auto; }
+.view-task-modal .modal-body > .row > [class*="col-"] { min-width: 0; }
+.view-task-modal .modal-body > .row:first-child { align-items: stretch; margin-bottom: 1.25rem !important; }
+.view-task-modal .modal-body > .row:first-child > .col-md-8 { display: flex; flex-direction: column; justify-content: center; padding: 1.35rem 1.5rem; background: #fff; border: 1px solid #e1e8f1; border-radius: 0.7rem; }
+.view-task-modal .modal-body > .row:first-child > .col-md-8 h5 { margin-bottom: 1.35rem !important; color: #172033; }
+.view-task-modal .modal-body > .row:first-child > .col-md-8 h5 i { color: #0d6efd; }
+.view-task-modal .modal-body > .row:first-child > .col-md-8 h6 { margin-bottom: 0.65rem; }
+.view-task-modal .modal-body > .row:first-child > .col-md-4 .card { height: 100%; }
+.view-task-modal .modal-body > .row:first-child > .col-md-4 .card-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.45rem; align-content: center; }
+.view-task-modal .modal-body > .row:first-child > .col-md-4 .card-title { grid-column: 1 / -1; margin-bottom: 0.15rem; }
+.view-task-modal .modal-body > .row:first-child > .col-md-4 .card-body .mb-2 { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin: 0 !important; padding: 0.55rem 0.7rem; border-radius: 0.5rem; background: #f8fafc; }
+.view-task-modal .modal-body > .row:first-child > .col-md-4 .card-body .mb-2 br { display: none; }
+.view-task-modal .modal-body > .row:first-child > .col-md-4 .card-body .mb-2 strong { display: inline; color: #64748b; font-size: 0.78rem; font-weight: 600; margin: 0; white-space: nowrap; }
+.view-task-modal .modal-body > .row:first-child > .col-md-4 .card-body .badge { font-size: 0.8rem !important; }
+.view-task-modal .modal-body .card { border: 1px solid #e1e8f1 !important; border-radius: 0.7rem; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04) !important; }
+.view-task-modal .modal-body .card-body { padding: 1.2rem; }
+.view-task-modal .modal-body h5 { font-size: 1.25rem; font-weight: 650; }
+.view-task-modal .modal-body h6 { color: #52647d; font-size: 0.85rem; font-weight: 650; }
+.view-task-modal .modal-footer { background: #fff; border-top: 1px solid #e1e8f1; padding: 0.9rem 1.5rem; }
+.view-task-modal .modal-footer .btn { width: auto; margin: 0; border-radius: 0.5rem; }
+.delivery-panel { background: linear-gradient(120deg, #fff 45%, #f1f7ff); border: 1px solid #dbe6f3; border-radius: 0.75rem; padding: 1.5rem; }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.section-heading h3, .tasks-header h3, .team-header h3, .assignments-header h3 { font-size: 1.1rem; font-weight: 650; margin: 0.35rem 0; }
+.section-heading h3 i { color: #64748b; margin-right: 0.4rem; }
+.completion-value { color: #0d6efd; font-size: 2.5rem; font-weight: 700; letter-spacing: -0.06em; }
+.completion-value small { font-size: 1.1rem; margin-left: 0.15rem; }
+.delivery-progress { height: 9px; background: #e5ecf5; border-radius: 9px; margin-top: 1.2rem; overflow: hidden; }
+.delivery-progress > span { display: block; height: 100%; background: linear-gradient(90deg, #0d6efd, #55a6fa); border-radius: inherit; }
+.progress-caption { color: #64748b; font-size: 0.8rem; margin: 0.6rem 0 1.4rem; }
+.workflow-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.85rem 1.5rem; }
+.workflow-summary > div { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: #52647d; }
+.workflow-summary strong { margin-left: auto; color: #1a2332; }
+.workflow-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.workflow-dot.slate { color: #94a3b8; }
+.overview-link { display: inline-flex; align-items: center; gap: 0.6rem; padding: 0; margin-top: 1.4rem; border: 0; background: transparent; color: #0b5ed7; font-size: 0.8rem; font-weight: 600; }
+.description-box p { margin: 0; white-space: pre-line; overflow-wrap: anywhere; font-size: 0.9rem; line-height: 1.7; color: #52647d; }
+.detail-item strong { color: #64748b; font-weight: 500; }
+.detail-item:last-child { border-bottom: 0; padding-bottom: 0; }
+.tasks-content, .team-content, .assignments-content { background: white; border: 1px solid #e3e9f1; border-radius: 0.75rem; padding: 1.5rem; min-width: 0; }
+.tasks-header, .team-header { gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.tasks-table { --bs-table-striped-bg: #fafbfd; --bs-table-hover-bg: #f0f6ff; }
+.member-name, .member-email { overflow-wrap: anywhere; }
+.project-detail-container button:focus-visible, .project-breadcrumb a:focus-visible { outline: 3px solid #84b8ff; outline-offset: 3px; }
+@media (max-width: 1100px) {
+  .project-header { align-items: flex-start; flex-direction: column; }
+  .project-actions { justify-content: flex-start; }
+  .overview-metric { gap: 0.7rem; padding: 1rem; }
+}
+@media (max-width: 768px) {
+  .project-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+  .project-header { padding: 1.25rem; }
+  .project-title { font-size: 1.65rem; }
+  .tabs { gap: 0; }
+  .tab-btn { padding: 0.85rem 0.65rem; font-size: 0.8rem; }
+  .description-content { grid-template-columns: minmax(0, 1fr); }
+  .tasks-actions { align-items: stretch; }
+  .team-info { text-align: left; }
+  .team-grid { grid-template-columns: minmax(0, 1fr); }
+  .overview-metric { flex-direction: column; align-items: flex-start; }
+  .view-task-modal .modal-dialog { width: calc(100vw - 1rem); margin: 0.5rem auto; }
+  .view-task-modal .modal-body { padding: 0.8rem; }
+  .view-task-modal .modal-body > .row:first-child > .col-md-4 .card-body .card-title { margin-bottom: 0; }
 }
 </style>

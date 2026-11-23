@@ -26,6 +26,8 @@
         <button type="button" class="btn-close" @click="clearAlert" aria-label="Cerrar"></button>
       </div>
 
+      <ProjectTasksAI v-if="aiProject && isUserAdmin" :key="aiProject._id" :project="aiProject" @close="aiProject = null" @confirmed="handleTasksConfirmed" />
+
       <!-- Carga -->
       <div v-if="loading" class="text-center py-5 proyectos-panel">
         <div class="spinner-border text-primary" role="status">
@@ -155,6 +157,7 @@
               </div>
             </div>
             <div class="project-card-actions d-flex flex-shrink-0 align-items-start gap-2">
+              <button v-if="isUserAdmin && project.generarTareasConIA && !project.tareasGeneradasConIA" type="button" class="btn btn-outline-primary btn-sm" :disabled="!!aiProject" @click="aiProject = project">Generar tareas con IA</button>
               <router-link
                 :to="{ name: 'ProyectoDetalle', params: { id: project._id } }"
                 class="btn btn-outline-primary btn-sm btn-view"
@@ -213,7 +216,7 @@
     </div>
 
     <!-- Modal para Crear/Editar Proyecto -->
-    <div class="modal fade" id="projectModal" tabindex="-1" aria-labelledby="projectModalLabel" aria-hidden="true">
+    <div class="modal fade" id="projectModal" tabindex="-1" aria-labelledby="projectModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
       <div class="modal-dialog modal-lg">
         <div class="modal-content">
           <div class="modal-header">
@@ -222,13 +225,19 @@
           </div>
           <div class="modal-body">
             <form @submit.prevent="saveProject">
+              <fieldset :disabled="savingProject">
               <div class="mb-3">
                 <label for="projectName" class="form-label">Nombre del Proyecto</label>
                 <input type="text" class="form-control" id="projectName" v-model="editableProject.name" required>
               </div>
               <div class="mb-3">
                 <label for="projectDescription" class="form-label">Descripción</label>
-                <textarea class="form-control" id="projectDescription" rows="3" v-model="editableProject.description"></textarea>
+                <textarea class="form-control" id="projectDescription" rows="3" v-model="editableProject.description" :required="!isEditMode && editableProject.generarTareasConIA"></textarea>
+              </div>
+              <div v-if="!isEditMode" class="form-check mb-3">
+                <input id="generateTasksAI" v-model="editableProject.generarTareasConIA" type="checkbox" class="form-check-input">
+                <label for="generateTasksAI" class="form-check-label">Generar tareas con IA a partir de la descripción</label>
+                <p class="form-text">Después de crear el proyecto podrás revisar, editar y eliminar las propuestas antes de guardarlas.</p>
               </div>
               <div class="row">
                 <div class="col-md-6 mb-3">
@@ -288,8 +297,9 @@
               </div>
               <div class="modal-footer mt-4">
                 <button type="button" class="btn btn-secondary" @click="closeModal">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Guardar</button>
+                <button type="submit" class="btn btn-primary">{{ savingProject ? 'Guardando...' : 'Guardar' }}</button>
               </div>
+              </fieldset>
             </form>
           </div>
         </div>
@@ -308,15 +318,19 @@ import ProjectService from '@/services/project.service.js';
 import AuthService from '@/services/auth.service.js';
 import TaskService from '@/services/task.service.js';
 import LoginModal from '@/components/LoginModal.vue';
+import ProjectTasksAI from '@/components/ProjectTasksAI.vue';
 
 export default {
   name: 'ProyectosView',
   components: {
-    LoginModal
+    LoginModal,
+    ProjectTasksAI
   },
   data() {
     return {
       modalInstance: null,
+      aiProject: null,
+      savingProject: false,
       isEditMode: false,
       projects: [],
       editableProject: {},
@@ -563,7 +577,7 @@ export default {
       this.isEditMode = false;
       this.editableProject = {
         name: '', description: '', startDate: '', endDate: '', 
-          difficulty: 'Media', status: 'Pendiente', priority: 'Media'
+          difficulty: 'Media', status: 'Pendiente', priority: 'Media', generarTareasConIA: false
       };
       this.modalInstance.show();
     },
@@ -577,9 +591,20 @@ export default {
       this.modalInstance.show();
     },
     closeModal() {
+      if (this.savingProject) return;
       this.modalInstance.hide();
     },
+    async handleTasksConfirmed() {
+      this.aiProject = null;
+      await this.loadProjects();
+      this.showAlert('Tareas guardadas correctamente. Quedaron pendientes y sin desarrollador asignado.', 'alert-success');
+    },
     async saveProject() {
+      if (this.savingProject) return;
+      if (!this.isEditMode && this.editableProject.generarTareasConIA && !this.editableProject.description?.trim()) {
+        this.showAlert('Escribí una descripción para generar las tareas con IA.', 'alert-warning');
+        return;
+      }
       // Validación mejorada de fechas
       if (!this.editableProject.startDate || !this.editableProject.endDate) {
         this.showAlert('Las fechas de inicio y fin son obligatorias', 'alert-warning');
@@ -634,17 +659,28 @@ export default {
           endDate: this.editableProject.endDate,
           difficulty: this.editableProject.difficulty,
           priority: this.editableProject.priority,
-          status: this.editableProject.status
+          status: this.editableProject.status,
+          generarTareasConIA: this.editableProject.generarTareasConIA === true
         };
         
         
+        this.savingProject = true;
         if (this.isEditMode) {
           await ProjectService.updateProject(this.editableProject._id, projectData);
           this.showAlert('Proyecto actualizado correctamente', 'alert-success');
         } else {
-          await ProjectService.createProject(projectData);
+          const response = await ProjectService.createProject(projectData);
+          if (projectData.generarTareasConIA) {
+            const created = response.data?.proyecto;
+            if (created?._id) {
+              this.aiProject = { ...projectData, _id: created._id };
+            } else {
+              this.showAlert('Proyecto creado, pero no se recibió su identificador para generar las tareas. Revisá el listado de proyectos.', 'alert-warning');
+            }
+          }
           this.showAlert('Proyecto creado correctamente', 'alert-success');
         }
+        this.savingProject = false;
         this.loadProjects();
         this.closeModal();
       } catch (error) {
@@ -656,12 +692,16 @@ export default {
           // Mostrar mensaje de error específico del backend
           this.showAlert(`Error del servidor: ${error.response.data.error}`, 'alert-danger');
         } else if (error.response?.status === 401) {
-          this.showAlert('No tienes permisos para realizar esta acción', 'alert-danger');
+          this.showAlert('Tu sesión ha expirado. Iniciá sesión nuevamente.', 'alert-danger');
+        } else if (error.response?.status === 403) {
+          this.showAlert(error.response?.data?.error || 'No tenés permisos para guardar proyectos. Iniciá sesión nuevamente si sos administrador.', 'alert-danger');
         } else if (error.response?.status === 500) {
           this.showAlert(`Error interno del servidor: ${error.response?.data?.error || 'Error desconocido'}`, 'alert-danger');
         } else {
           this.showAlert(`Error al guardar el proyecto: ${error.message}`, 'alert-danger');
         }
+      } finally {
+        this.savingProject = false;
       }
     },
     async deleteProject(projectId) {

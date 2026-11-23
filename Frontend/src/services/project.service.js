@@ -80,7 +80,10 @@ class ProjectService {
       priority: priorityMap[project.prioridad] || 'Media',
       status: statusMap[project.estado] || 'Pendiente',
       team: project.equipo || [],
-      fechaCreacion: project.fechaCreacion
+      fechaCreacion: project.fechaCreacion,
+      generarTareasConIA: project.generarTareasConIA === true,
+      tareasGeneradasConIA: project.tareasGeneradasConIA === true,
+      fechaGeneracionTareasIA: project.fechaGeneracionTareasIA
     };
   }
 
@@ -117,12 +120,31 @@ class ProjectService {
   async createProject(project) {
     try {
       const backendProject = this._mapToBackend(project);
-      const response = await axios.post(`${API_URL}/project`, backendProject);
+      backendProject.generarTareasConIA = project.generarTareasConIA === true;
+      // El backend prioriza la cookie. Evitar que una cookie de otra sesión
+      // reemplace al token explícito en el alta de proyectos.
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_URL}/project`, backendProject, {
+        withCredentials: !token
+      });
       return response;
     } catch (error) {
       console.error('Error en createProject:', error);
       throw error;
     }
+  }
+
+  async previewTasksAI(id) {
+    const response = await axios.post(`${API_URL}/project/${id}/tasks-ai/preview`);
+    const tareas = response.data?.tareas;
+    if (!Array.isArray(tareas) || tareas.length === 0) {
+      throw new Error('El servidor no devolvió tareas para revisar.');
+    }
+    return tareas;
+  }
+
+  async confirmTasksAI(id, tareas) {
+    return axios.post(`${API_URL}/project/${id}/tasks-ai/confirm`, { tareas });
   }
 
   async updateProject(id, project) {
