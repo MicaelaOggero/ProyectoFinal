@@ -42,4 +42,8 @@ const TaskPreferenceRating = mongoose.model(
   taskPreferenceRatingSchema
 );
 
+<<<<<<< HEAD
 export default TaskPreferenceRating;
+=======
+export default TaskPreferenceRating;
+>>>>>>> 2b4a6d226b982b5798c3daa6729c74038a5743d3
