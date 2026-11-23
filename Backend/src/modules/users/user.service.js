@@ -6,6 +6,7 @@ import TaskLog from "../task/taskLog.model.js";
 import User from "./user.model.js";
 import PerformanceFeedback from "../performanceFeedback/performanceFeedback.model.js";
 import { tieneDisponibilidad } from "../../utils/asignacionBasica/filtroDisponibilidad.js";
+import { analizarDisponibilidad } from "../../utils/asignacionBasica/planificarDisponibilidad.js";
 
 // Obtener todos los usuarios (si es admin devuelve los 'user', si es user devuelve lista vacía)
 export const getUsers = async (rol) => {
@@ -133,12 +134,17 @@ export async function buscarUsuariosDisponiblesParaTareaService(payload) {
 
   // Trae solo usuarios rol="user" con calendario (lo mínimo necesario)
   const users = await User.find({ rol: "user" })
-    .select("nombre email rol calendario habilidades") // ajustá campos
+    .select("nombre apellido email rol calendario habilidades")
     .lean();
 
   const candidatos = [];
 
   for (const u of users /* o usersFiltrados */) {
+    if (payload.incluirAlternativas === true) {
+      const analisis = analizarDisponibilidad(u, payload);
+      candidatos.push({ _id: u._id, nombre: u.nombre, apellido: u.apellido, email: u.email, ...analisis });
+      continue;
+    }
     const ok = tieneDisponibilidad(u, inicio, fin, horasNecesarias);
     if (ok) {
       candidatos.push({

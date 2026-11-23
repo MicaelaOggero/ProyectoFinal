@@ -17,21 +17,24 @@ const ALIAS_GROUPS = [
   ["artificial intelligence", "ai"]
 ];
 
-const ALIAS_TO_CANONICAL = new Map(
-  ALIAS_GROUPS.flatMap(([canonical, ...aliases]) =>
-    [canonical, ...aliases].map((alias) => [alias, canonical])
-  )
-);
-
-export function normalizarHabilidad(value) {
-  const normalized = String(value || "")
+function normalizarTexto(value) {
+  return String(value || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toLowerCase()
     .replace(/[._-]+/g, " ")
     .replace(/\s+/g, " ");
+}
 
+const ALIAS_TO_CANONICAL = new Map(
+  ALIAS_GROUPS.flatMap(([canonical, ...aliases]) =>
+    [canonical, ...aliases].map((alias) => [normalizarTexto(alias), normalizarTexto(canonical)])
+  )
+);
+
+export function normalizarHabilidad(value) {
+  const normalized = normalizarTexto(value);
   return ALIAS_TO_CANONICAL.get(normalized) || normalized;
 }
 

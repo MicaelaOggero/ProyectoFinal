@@ -740,7 +740,7 @@
                           <i class="bi bi-exclamation-triangle me-2"></i>
                           <strong>Esta tarea no tiene candidatos automáticos.</strong>
                           <p class="mb-0 mt-2 small">
-                            Puedes asignar manualmente un desarrollador que tenga las habilidades requeridas.
+                            Revisá las horas y habilidades de cada desarrollador. Si termina después, podés aceptar una fecha alternativa.
                           </p>
                         </div>
                         <div v-else class="alert alert-info mb-3 py-2 small">
@@ -754,7 +754,7 @@
                             class="form-select" 
                             :data-tarea-id="tareaId"
                             :value="manualAssignments[tareaId]?.desarrolladorId || data.asignacionManual?.desarrolladorId || ''"
-                            @change="assignDeveloperManually(tareaId, $event.target.value)"
+                            @change="assignDeveloperManually(tareaId, $event.target.value, $event.target)"
                           >
                             <option value="">Seleccionar desarrollador...</option>
                             <!-- Solo devs con disponibilidad para esta tarea (desde POST /api/user/candidatos) -->
@@ -763,12 +763,20 @@
                               :key="dev._id"
                               :value="dev._id"
                             >
-                              {{ dev.nombre }}{{ dev.apellido ? ' ' + dev.apellido : '' }} ({{ dev.email || '' }})
+                              {{ dev.nombre }}{{ dev.apellido ? ' ' + dev.apellido : '' }} — {{ dev.horasEnPlazo }} / {{ dev.horasNecesarias }} h en plazo · {{ dev.habilidadesCoincidentes }}/{{ dev.habilidadesRequeridas }} habilidades{{ dev.disponibleEnPlazo ? ' · En plazo' : dev.fechaFinAlternativa ? ' · Termina ' + formatDate(dev.fechaFinAlternativa) : ' · Sin horas suficientes en el calendario' }}
                             </option>
-                            <option v-if="!(data.desarrolladoresCandidatos || []).length" disabled>
-                              No hay desarrolladores con disponibilidad para esta tarea
+                            <option v-if="data.errorCandidatos" disabled>No se pudo consultar la disponibilidad</option>
+                            <option v-else-if="!(data.desarrolladoresCandidatos || []).length" disabled>
+                              No hay desarrolladores registrados
                             </option>
                           </select>
+                          <p v-if="data.errorCandidatos" class="text-danger small mt-2" role="alert">{{ data.errorCandidatos }}</p>
+                          <div v-if="manualAssignments[tareaId]" class="mt-2">
+                            <p v-if="getManualCandidate(data, tareaId)?.habilidadesFaltantes?.length" class="small text-warning-emphasis">Habilidades no registradas: {{ getManualCandidate(data, tareaId).habilidadesFaltantes.join(', ') }}.</p>
+                            <label class="form-label" :for="`fecha-manual-${tareaId}`">Fecha límite para distribuir las horas</label>
+                            <input :id="`fecha-manual-${tareaId}`" type="date" class="form-control" :min="(data.tarea.fechaEstimadaFin || '').slice(0, 10)" :value="manualAssignments[tareaId].fechaFinPropuesta || (data.tarea.fechaEstimadaFin || '').slice(0, 10)" @change="changeManualDate(tareaId, $event.target)" />
+                            <small class="text-muted">Podés ampliar la fecha si otras tareas ocupan parte de estas horas.</small>
+                          </div>
                         </div>
                       </div>
                       
@@ -2343,41 +2351,48 @@ export default {
         // Construir estructura de candidatos por tarea
         for (const asignacion of asignacionesBasica) {
           const tareaId = asignacion.tareaId;
+          const tareaGuardada = this.tasks.find(t => String(t._id || t.id) === String(tareaId));
           
           // Si la tarea tiene sinCandidatos: true, pedir al backend solo devs con disponibilidad
           if (asignacion.sinCandidatos) {
             const payload = {
               tareaId,
               nombre: asignacion.nombre || asignacion.descripcion || 'Sin nombre',
-              descripcion: asignacion.descripcion || '',
-              fechaEstimadaInicio: asignacion.fechaEstimadaInicio,
-              fechaEstimadaFin: asignacion.fechaEstimadaFin,
-              habilidadesRequeridas: asignacion.habilidadesRequeridas || [],
-              prioridad: asignacion.prioridad || 'media',
-              estimacionHoras: asignacion.estimacionHoras || asignacion.horasTotales || 0,
+              descripcion: tareaGuardada?.descripcion || asignacion.descripcion || '',
+              fechaEstimadaInicio: tareaGuardada?.fechaEstimadaInicio ?? asignacion.fechaEstimadaInicio,
+              fechaEstimadaFin: tareaGuardada?.fechaEstimadaFin ?? asignacion.fechaEstimadaFin,
+              habilidadesRequeridas: tareaGuardada?.habilidadesRequeridas ?? asignacion.habilidadesRequeridas ?? [],
+              prioridad: tareaGuardada?.prioridad ?? asignacion.prioridad ?? 'media',
+              estimacionHoras: tareaGuardada?.tiempoEstimadoHoras ?? asignacion.estimacionHoras ?? asignacion.horasTotales ?? 0,
+              incluirAlternativas: true,
               sinCandidatos: true,
               candidatosDisponibles: asignacion.candidatosDisponibles || []
             };
             let candidatos = [];
+            let errorCandidatos = '';
             try {
               const res = await UserService.getCandidatosDisponibles(payload);
               if (res.data?.ok && Array.isArray(res.data?.data?.candidatos)) {
                 candidatos = res.data.data.candidatos;
+              } else {
+                errorCandidatos = 'No se pudo interpretar la respuesta de disponibilidad. Volvé a intentar.';
               }
             } catch (err) {
               console.error('Error obteniendo candidatos disponibles para tarea', tareaId, err);
+              errorCandidatos = err.response?.data?.message || 'No se pudo consultar la disponibilidad. Volvé a intentar.';
             }
             devsDataPorTarea[tareaId] = {
               tarea: {
                 id: tareaId,
-                descripcion: asignacion.descripcion || 'Sin descripción',
-                fechaEstimadaInicio: asignacion.fechaEstimadaInicio,
-                fechaEstimadaFin: asignacion.fechaEstimadaFin,
-                habilidadesRequeridas: asignacion.habilidadesRequeridas || [],
-                prioridad: asignacion.prioridad || 'media',
-                estimacionHoras: asignacion.estimacionHoras || asignacion.horasTotales || 0
+                descripcion: payload.descripcion || 'Sin descripción',
+                fechaEstimadaInicio: payload.fechaEstimadaInicio,
+                fechaEstimadaFin: payload.fechaEstimadaFin,
+                habilidadesRequeridas: payload.habilidadesRequeridas,
+                prioridad: payload.prioridad,
+                estimacionHoras: payload.estimacionHoras
               },
               desarrolladoresCandidatos: candidatos,
+              errorCandidatos,
               sinCandidatos: true
             };
           } else if (asignacion.desarrolladorId) {
@@ -2637,8 +2652,21 @@ export default {
     },
     
     // Asignar desarrollador manualmente a una tarea sin candidatos
+    getManualCandidate(data, tareaId) {
+      return (data.desarrolladoresCandidatos || []).find(dev => dev._id === this.manualAssignments[tareaId]?.desarrolladorId);
+    },
+    changeManualDate(tareaId, input) {
+      const previous = this.manualAssignments[tareaId]?.fechaFinPropuesta || (this.candidatesData[tareaId].tarea.fechaEstimadaFin || '').slice(0, 10);
+      const original = (this.candidatesData[tareaId].tarea.fechaEstimadaFin || '').slice(0, 10);
+      const finProyecto = (this.projects.find(p => p._id === this.selectedProject)?.endDate || '').slice(0, 10);
+      if (!input.value || input.value < original || (finProyecto && input.value > finProyecto && !window.confirm(`La fecha supera el fin del proyecto (${this.formatDate(finProyecto)}). ¿Aceptás esta fecha?`))) {
+        input.value = previous;
+        return;
+      }
+      this.manualAssignments[tareaId].fechaFinPropuesta = input.value > original ? input.value : null;
+    },
     // Solo guarda la selección, la validación se hará después al verificar disponibilidad
-    assignDeveloperManually(tareaId, desarrolladorId) {
+    assignDeveloperManually(tareaId, desarrolladorId, selector) {
       if (!tareaId) {
         return; // Si no hay tareaId, no hacer nada (puede ser que se esté limpiando el select)
       }
@@ -2668,6 +2696,21 @@ export default {
           alert('Desarrollador no encontrado');
           return;
         }
+        const candidato = (tareaData.desarrolladoresCandidatos || []).find(d => d._id === desarrolladorId);
+        if (!candidato?.fechaFinAlternativa) {
+          alert('No hay suficientes horas registradas en el calendario de este desarrollador.');
+          selector.value = this.manualAssignments[tareaId]?.desarrolladorId || '';
+          return;
+        }
+        const fechaFinPropuesta = candidato.disponibleEnPlazo ? null : candidato.fechaFinAlternativa;
+        if (fechaFinPropuesta) {
+          const finProyecto = (this.projects.find(p => p._id === this.selectedProject)?.endDate || '').slice(0, 10);
+          const avisoProyecto = finProyecto && fechaFinPropuesta > finProyecto ? ` La fecha supera el fin del proyecto (${this.formatDate(finProyecto)}).` : '';
+          if (!window.confirm(`La tarea necesita ${candidato.horasNecesarias} horas y solo hay ${candidato.horasEnPlazo} en el plazo. La primera fecha posible es ${this.formatDate(fechaFinPropuesta)}.${avisoProyecto} ¿Aceptás esta fecha?`)) {
+            selector.value = this.manualAssignments[tareaId]?.desarrolladorId || '';
+            return;
+          }
+        }
         
         // Solo guardar la asignación manual, sin validar inmediatamente
         // La validación se hará cuando se verifique disponibilidad al continuar
@@ -2676,7 +2719,8 @@ export default {
         }
         this.manualAssignments[tareaId] = {
           tareaId: tarea.id,
-          desarrolladorId: desarrolladorId
+          desarrolladorId: desarrolladorId,
+          fechaFinPropuesta
         };
         
         // Actualizar candidatesData para marcar que la tarea ya tiene asignación manual
@@ -2717,7 +2761,8 @@ export default {
           // 1. Construir array de asignaciones manuales para verificar
           const asignacionesManuales = Object.entries(this.manualAssignments).map(([tareaId, data]) => ({
             tareaId: tareaId,
-            desarrolladorId: data.desarrolladorId
+            desarrolladorId: data.desarrolladorId,
+            fechaFinPropuesta: data.fechaFinPropuesta
           }));
           
           console.log('Verificando disponibilidad de asignaciones manuales:', asignacionesManuales);
@@ -2754,16 +2799,10 @@ export default {
               mensajesError.push('Uno o más desarrolladores no tienen disponibilidad suficiente.');
             }
 
-            mensajesError.push('\nSe ha quitado la asignación de las tareas con error. Puede elegir otro desarrollador en el desplegable de cada tarea.');
+            mensajesError.push('\nPodés ampliar la fecha límite o elegir otro desarrollador.');
             alert('Error de disponibilidad\n\n' + mensajesError.join('\n\n'));
 
             // Quitar asignaciones manuales fallidas para que el usuario pueda elegir otro desarrollador
-            tareaIdsConError.forEach(tid => {
-              delete this.manualAssignments[tid];
-              if (this.candidatesData && this.candidatesData[tid] && this.candidatesData[tid].asignacionManual) {
-                delete this.candidatesData[tid].asignacionManual;
-              }
-            });
             this.$forceUpdate();
 
             this.isConfirming = false;

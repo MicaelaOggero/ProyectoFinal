@@ -154,19 +154,6 @@
                 />
               </div>
             </div>
-            <div class="col-md-6">
-              <div class="form-group">
-                <label for="aniosExperiencia">Años de Experiencia</label>
-                <input
-                  type="number"
-                  id="aniosExperiencia"
-                  v-model="registerData.aniosExperiencia"
-                  class="form-control"
-                  min="0"
-                  max="50"
-                />
-              </div>
-            </div>
           </div>
 
           <div class="row">
@@ -224,67 +211,34 @@
             </div>
           </div>
 
-          <div class="row">
-          
-            <div class="col-md-6">
-              <div class="form-group">
-                <label for="horasSemanalMaxima">Horas Semanales Máximas</label>
-                <input
-                  type="number"
-                  id="horasSemanalMaxima"
-                  v-model="registerData.horasSemanalMaxima"
-                  class="form-control"
-                  min="0"
-                  max="168"
-                />
-              </div>
-            </div>
-          </div>
-
           <!-- Habilidades Técnicas -->
-          <div class="form-group">
-            <label>Habilidades Técnicas *</label>
-            <div v-for="(skill, index) in registerData.habilidades" :key="index" class="skill-row mb-2">
-              <div class="row">
-                <div class="col-md-6">
-                  <select 
-                    class="form-control" 
-                    v-model="skill.nombre"
-                    required
-                  >
-                    <option disabled value="">Seleccione una habilidad</option>
-                    <option v-for="opt in skillOptions" :key="opt" :value="opt">{{ opt }}</option>
-                  </select>
-                </div>
-                <div class="col-md-4">
-                  <select 
-                    class="form-control" 
-                    v-model="skill.nivel"
-                    required
-                  >
-                    <option disabled value="">Nivel</option>
-                    <option value="1">1 - Principiante</option>
-                    <option value="2">2 - Básico</option>
-                    <option value="3">3 - Intermedio</option>
-                    <option value="4">4 - Avanzado</option>
-                    <option value="5">5 - Experto</option>
-                  </select>
-                </div>
-                <div class="col-md-2">
-                  <button 
-                    type="button" 
-                    class="btn btn-sm btn-danger" 
-                    @click="removeSkill(index)"
-                    v-if="registerData.habilidades.length > 1"
-                  >
-                    <i class="bi bi-trash"></i>
-                  </button>
-                </div>
+          <div class="form-group skills-picker">
+            <label for="skill-search">Habilidades técnicas *</label>
+            <p id="skills-help" class="skills-help">Buscá y elegí al menos una habilidad. Después indicá tu nivel en cada una.</p>
+            <div class="skill-dropdown">
+              <input id="skill-search" ref="skillSearch" v-model="skillSearch" class="form-control skill-search" type="text" placeholder="Buscar y seleccionar una habilidad" role="combobox" autocomplete="off" aria-describedby="skills-help" aria-controls="skill-options" aria-autocomplete="list" :aria-expanded="skillsOpen" :aria-activedescendant="skillsOpen && filteredSkills.length ? `skill-option-${activeSkillIndex}` : undefined" @focus="skillsOpen = true" @blur="skillsOpen = false" @input="activeSkillIndex = 0" @keydown.down.prevent="moveSkill(1)" @keydown.up.prevent="moveSkill(-1)" @keydown.enter.prevent="selectActiveSkill" @keydown.esc="skillsOpen = false" />
+              <button type="button" class="skill-dropdown-toggle" aria-label="Mostrar habilidades" tabindex="-1" @mousedown.prevent @click="openSkills">▾</button>
+              <div v-if="skillsOpen" id="skill-options" class="skills-options" role="listbox" aria-label="Habilidades disponibles">
+                <div v-for="(option, index) in filteredSkills" :id="`skill-option-${index}`" :key="option" class="skill-option" :class="{ active: index === activeSkillIndex }" role="option" :aria-selected="index === activeSkillIndex" @mousedown.prevent @click="selectSkill(option)" @mousemove="activeSkillIndex = index">{{ option }}</div>
+                <p v-if="!filteredSkills.length" class="skills-empty">{{ skillOptions.length ? 'No hay habilidades disponibles para esa búsqueda.' : 'No hay habilidades disponibles.' }}</p>
               </div>
             </div>
-            <button type="button" class="btn btn-sm btn-success mt-2" @click="addSkill">
-              <i class="bi bi-plus-circle me-1"></i>Agregar Habilidad
-            </button>
+            <div v-if="registerData.habilidades.length" class="selected-skills">
+              <p class="selected-skills-title">Tus habilidades ({{ registerData.habilidades.length }})</p>
+              <div v-for="(skill, index) in registerData.habilidades" :key="skill.nombre" class="selected-skill">
+                <span class="selected-skill-name">{{ skill.nombre }}</span>
+                <label class="visually-hidden" :for="`skill-level-${index}`">Nivel de {{ skill.nombre }}</label>
+                <select :id="`skill-level-${index}`" v-model.number="skill.nivel" class="form-control skill-level" required>
+                  <option disabled value="">Elegí tu nivel</option>
+                  <option :value="1">1 - Principiante</option>
+                  <option :value="2">2 - Básico</option>
+                  <option :value="3">3 - Intermedio</option>
+                  <option :value="4">4 - Avanzado</option>
+                  <option :value="5">5 - Experto</option>
+                </select>
+                <button type="button" class="skill-remove" :aria-label="`Quitar ${skill.nombre}`" @click="removeSkill(index)">×</button>
+              </div>
+            </div>
           </div>
 
           <button type="submit" class="btn btn-primary" :disabled="loading">
@@ -327,14 +281,21 @@ export default {
         dni: '',
         nombre: '',
         apellido: '',
-        habilidades: [{ nombre: '', nivel: '' }],
-        aniosExperiencia: 0,
-        horasSemanalMaxima: 0,
+        habilidades: [],
         email: '',
         password: ''
       },
-      skillOptions: []
+      skillOptions: [],
+      skillSearch: '',
+      skillsOpen: false,
+      activeSkillIndex: 0
     };
+  },
+  computed: {
+    filteredSkills() {
+      const query = this.skillSearch.trim().toLocaleLowerCase();
+      return this.skillOptions.filter(skill => !this.isSkillSelected(skill) && skill.toLocaleLowerCase().includes(query));
+    }
   },
   mounted() {
     this.loadSkills();
@@ -353,16 +314,33 @@ export default {
       }
     },
     
-    // Agregar habilidad
-    addSkill() {
-      this.registerData.habilidades.push({ nombre: '', nivel: '' });
+    isSkillSelected(name) {
+      return this.registerData.habilidades.some(skill => skill.nombre === name);
     },
-    
-    // Remover habilidad
-    removeSkill(index) {
-      if (this.registerData.habilidades.length > 1) {
-        this.registerData.habilidades.splice(index, 1);
+    openSkills() {
+      this.skillsOpen = true;
+      this.$refs.skillSearch.focus();
+    },
+    moveSkill(direction) {
+      if (!this.skillsOpen) {
+        this.skillsOpen = true;
+        this.activeSkillIndex = 0;
+      } else if (this.filteredSkills.length) {
+        this.activeSkillIndex = (this.activeSkillIndex + direction + this.filteredSkills.length) % this.filteredSkills.length;
       }
+      this.$nextTick(() => document.getElementById(`skill-option-${this.activeSkillIndex}`)?.scrollIntoView({ block: 'nearest' }));
+    },
+    selectActiveSkill() {
+      if (this.skillsOpen && this.filteredSkills[this.activeSkillIndex]) this.selectSkill(this.filteredSkills[this.activeSkillIndex]);
+    },
+    selectSkill(name) {
+      if (!this.isSkillSelected(name)) this.registerData.habilidades.push({ nombre: name, nivel: '' });
+      this.skillSearch = '';
+      this.skillsOpen = false;
+      this.activeSkillIndex = 0;
+    },
+    removeSkill(index) {
+      this.registerData.habilidades.splice(index, 1);
     },
     async handleLogin() {
       this.loading = true;
@@ -449,12 +427,13 @@ export default {
         dni: '',
         nombre: '',
         apellido: '',
-        habilidades: [{ nombre: '', nivel: '' }],
-        aniosExperiencia: 0,
-        horasSemanalMaxima: 0,
+        habilidades: [],
         email: '',
         password: ''
       };
+      this.skillSearch = '';
+      this.skillsOpen = false;
+      this.activeSkillIndex = 0;
     }
   }
 }
@@ -857,11 +836,110 @@ export default {
   min-width: 0;
 }
 
-.skill-row {
-  background: color-mix(in oklch, var(--muted) 50%, transparent);
-  padding: 0.75rem;
-  border-radius: 0.75rem;
+.skills-help, .skills-empty {
+  color: var(--muted-foreground);
+  font-size: 0.825rem;
+  margin: 0 0 0.65rem;
+}
+
+.skill-dropdown {
+  position: relative;
+}
+
+.skill-search {
+  padding-right: 2.5rem;
+}
+
+.skill-dropdown-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 3rem;
+  width: 2.5rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+
+.skills-options {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  max-height: 13rem;
+  overflow-y: auto;
+  padding: 0.3rem;
+  background: var(--card);
   border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 22px rgb(0 0 0 / 0.12);
+}
+
+.skill-option {
+  border-radius: 0.4rem;
+  color: var(--card-foreground);
+  padding: 0.55rem 0.75rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.skill-option.active {
+  background: var(--muted);
+}
+
+.skills-options .skills-empty {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+}
+
+.skill-remove:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.selected-skills {
+  border-top: 1px solid var(--border);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+}
+
+.selected-skills-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.825rem;
+  font-weight: 600;
+}
+
+.selected-skill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.selected-skill-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+}
+
+.skill-level {
+  width: 11rem;
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.825rem;
+}
+
+.skill-remove {
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .auth-container .btn-sm {

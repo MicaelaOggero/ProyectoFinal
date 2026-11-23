@@ -1,3 +1,4 @@
+import { validarDisponibilidadConfirmacion } from '../../utils/asignacionBasica/validarDisponibilidadConfirmacion.js';
 import OpenAI from "openai";
 import Project from "../projects/project.model.js";
 import Task from "../task/task.model.js";
@@ -311,7 +312,12 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
     );
   }
 
-  const asignaciones = sugerencias.asignaciones;
+  const asignaciones = sugerencias.asignaciones.map((asignacion) => {
+    if (!asignacion || !asignacion.desarrolladorId || asignacion.rendimientoHistorico != null) {
+      return asignacion;
+    }
+    return { ...asignacion, rendimientoHistorico: { promedioPorcentaje: 0, tareasCompletadas: 0 } };
+  });
 
   const {
     costoTotalSimulado,
@@ -348,6 +354,11 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
   // 2.3) Validar cada asignación
   for (const [index, asignacion] of asignaciones.entries()) {
     const path = `asignaciones[${index}]`;
+    if (!asignacion || !asignacion.desarrolladorId) {
+      const tarea = asignacion?.descripcion || asignacion?.nombre || asignacion?.tareaId || `numero ${index + 1}`;
+      errores.push(`La tarea "${tarea}" no tiene desarrollador asignado. Seleccione uno antes de confirmar.`);
+      continue;
+    }
 
     if (!asignacion.tareaId) {
       errores.push(`${path}: falta "tareaId".`);
@@ -369,8 +380,8 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
       errores.push(`${path}: "costoTotal" es requerido y debe ser numérico.`);
     }
 
-    if (asignacion.rendimientoHistorico.promedioPorcentaje == null ||
-      Number.isNaN(Number(asignacion.rendimientoHistorico.promedioPorcentaje))
+    if (asignacion.rendimientoHistorico?.promedioPorcentaje == null ||
+      Number.isNaN(Number(asignacion.rendimientoHistorico?.promedioPorcentaje))
     ) {
       errores.push(
         `${path}: "rendimientoHistorico.promedioPorcentaje" es requerido y debe ser numérico.`
@@ -394,6 +405,9 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
   }
 
   // 🔻🔻🔻 A PARTIR DE ACÁ recién tocamos la BD 🔻🔻🔻
+
+  // Revisar las horas diarias antes de guardar cambios.
+  await validarDisponibilidadConfirmacion(asignaciones);
 
   for (const asignacion of asignaciones) {
     const {
@@ -433,6 +447,18 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
       continue;
     }
 
+    // ✅ Evitar duplicar asignaciones
+    const existeAsignacion = await Asignacion.findOne({ tarea: tareaId });
+    if (existeAsignacion) {
+      resultados.push({
+        tarea: tareaDB.descripcion,
+        estado: "omitida",
+        mensaje: `La tarea "${tareaDB.descripcion}" ya está asignada.`
+      });
+      continue;
+    }
+
+
     // ✅ Actualizar calendario del dev
     for (const dia of dias) {
       const diaISO = new Date(dia.fecha).toISOString().split("T")[0];
@@ -448,17 +474,6 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
 
     await verificarYActualizarCalendario(dev);
     await dev.save();
-
-    // ✅ Evitar duplicar asignaciones
-    const existeAsignacion = await Asignacion.findOne({ tarea: tareaId });
-    if (existeAsignacion) {
-      resultados.push({
-        tarea: tareaDB.descripcion,
-        estado: "omitida",
-        mensaje: `La tarea "${tareaDB.descripcion}" ya está asignada.`
-      });
-      continue;
-    }
 
     // 🧠 Normalizar feedbackHistorico
     let feedbackHistoricoNormalizado = null;
@@ -503,6 +518,7 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
       nuevaAsignacionId: nuevaAsignacion._id,
     });
 
+    if (asignacion.fechaFinPropuesta) tareaDB.fechaEstimadaFin = new Date(asignacion.fechaFinPropuesta);
     tareaDB.desarrolladorAsignado = dev._id;
     tareaDB.asignada = true;
     await tareaDB.save();

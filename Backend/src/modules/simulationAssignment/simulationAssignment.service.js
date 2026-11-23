@@ -432,10 +432,10 @@ export async function verificarDisponibilidadAcumuladaAsignacionesManualesServic
 
     // 👇 Ajustá si tus campos se llaman distinto
     const fechaInicio = tarea.fechaEstimadaInicio;
-    const fechaFin = tarea.fechaEstimadaFin;
+    const fechaFin = item.fechaFinPropuesta ? new Date(item.fechaFinPropuesta) : tarea.fechaEstimadaFin;
     const horasNecesarias = tarea.tiempoEstimadoHoras;
 
-    if (!fechaInicio || !fechaFin || horasNecesarias == null) {
+    if (!fechaInicio || !fechaFin || Number.isNaN(new Date(fechaFin).getTime()) || new Date(fechaFin) < new Date(fechaInicio) || (item.fechaFinPropuesta && new Date(fechaFin) < new Date(tarea.fechaEstimadaFin)) || horasNecesarias == null) {
       const msg = `La tarea ${tareaId} no tiene fechaEstimadaInicio/fechaEstimadaFin/tiempoEstimadoHoras válidos`;
       errores.push(msg);
       resultados.push({ tareaId, desarrolladorId, disponible: false, motivo: msg });
@@ -571,6 +571,11 @@ export async function aplicarAsignacionesManualesService(payload) {
     throw new Error('Falta el criterio "basica" con su array de asignaciones.');
   }
 
+  // Recalcular la distribución conjunta; el calendario puede haber cambiado desde la vista previa.
+  const verificacion = await verificarDisponibilidadAcumuladaAsignacionesManualesService(payload);
+  if (!verificacion.ok) throw new Error(verificacion.errores.join('\n'));
+  const planesManuales = new Map(verificacion.resultados.map(r => [String(r.tareaId), r]));
+
   // Copia del objeto para no mutar req.body
   const resultado = { ...payload };
 
@@ -606,6 +611,7 @@ export async function aplicarAsignacionesManualesService(payload) {
     }
 
     const asignacionParaManual = buildAsignacionParaManualDesdeBasica(tareaBasica, desarrolladorId);
+    if (m.fechaFinPropuesta) asignacionParaManual.fechaEstimadaFin = m.fechaFinPropuesta;
 
     if (!asignacionParaManual.estimacionHoras || Number(asignacionParaManual.estimacionHoras) <= 0) {
       throw new Error(`La tarea ${tareaId} no tiene estimacionHoras válida en basica.`);
@@ -613,6 +619,8 @@ export async function aplicarAsignacionesManualesService(payload) {
 
     // 2) Llamar UNA sola vez a asignarTareaManual
     const baseCorregida = await asignarTareaManual(asignacionParaManual);
+    baseCorregida.dias = planesManuales.get(String(tareaId)).dias;
+    if (m.fechaFinPropuesta) baseCorregida.fechaFinPropuesta = m.fechaFinPropuesta;
 
     // 3) Reemplazar en TODOS los criterios (si existe allí)
     for (const criterioKey of CRITERIOS) {
