@@ -1,205 +1,98 @@
 <template>
-  <div class="container-fluid">
-    <!-- Encabezado con botón de regreso -->
-    <div class="d-flex justify-content-between align-items-center mt-3 mb-4">
-      <div class="d-flex align-items-center">
-        <button class="btn btn-outline-secondary me-3" @click="$router.go(-1)">
-          <i class="bi bi-arrow-left"></i> Volver
-        </button>
-        <h1>Perfil de Usuario</h1>
-      </div>
-      <div v-if="canEditProfile" class="d-flex gap-2">
-        <button class="btn btn-primary" @click="editProfile">Editar Perfil</button>
-      </div>
+  <div class="profile-page">
+    <nav class="profile-breadcrumb" aria-label="Ruta de navegación">
+      <button type="button" @click="$router.go(-1)"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver</button>
+      <span aria-hidden="true">/</span><span>Perfil del usuario</span>
+    </nav>
+    <div v-if="loading" class="profile-panel profile-state" role="status">
+      <div class="spinner-border text-primary" aria-hidden="true"></div><p>Cargando perfil...</p>
     </div>
-
-    <!-- Loading -->
-    <div v-if="loading" class="text-center py-5">
-      <div class="spinner-border" role="status">
-        <span class="visually-hidden">Cargando...</span>
-      </div>
-      <p class="mt-2">Cargando perfil...</p>
-    </div>
-
-    <!-- Error -->
     <div v-else-if="error" class="alert alert-danger" role="alert">
-      <h4 class="alert-heading">Error</h4>
-      <p>{{ error }}</p>
+      <h1 class="h5">No pudimos cargar el perfil</h1><p>{{ error }}</p>
       <button class="btn btn-outline-danger" @click="loadUserProfile">Reintentar</button>
     </div>
-
-    <!-- Perfil del Usuario -->
-    <div v-else-if="user" class="row">
-      <!-- Información Principal -->
-      <div class="col-md-8">
-        <div class="card mb-4">
-          <div class="card-header bg-primary text-white">
-            <h3 class="mb-0">{{ user.nombre }} {{ user.apellido }}</h3>
-          </div>
-          <div class="card-body">
-            <div class="row">
-              <div class="col-md-6">
-                <h5>Información Personal</h5>
-                <ul class="list-unstyled">
-                  <li><strong>DNI:</strong> {{ user.dni }}</li>
-                  <li><strong>Rol:</strong> 
-                    <span class="badge" :class="getRoleClass(user.rol)">{{ user.rol }}</span>
-                  </li>
-                  <li><strong>Email:</strong> {{ user.email }}</li>
-                  <li><strong>Años de Experiencia:</strong> {{ user.aniosExperiencia || 'No especificado' }}</li>
-                  <li><strong>Costo por Hora:</strong> ${{ user.costoPorHora }}</li>
-                </ul>
-              </div>
-              <div class="col-md-6">
-                <h5>Información del Sistema</h5>
-                <ul class="list-unstyled">
-                  <li><strong>Fecha de Creación:</strong> {{ formatDate(user.fechaCreacion) }}</li>
-                </ul>
-              </div>
+    <template v-else-if="user">
+      <header class="profile-hero profile-panel">
+        <div class="profile-identity">
+          <div class="profile-avatar" aria-hidden="true">{{ userInitials }}</div>
+          <div class="profile-identity-text">
+            <span class="profile-eyebrow">PERFIL DEL EQUIPO</span>
+            <h1>{{ user.nombre }} {{ user.apellido }}</h1>
+            <div class="profile-identity-meta">
+              <span class="profile-role"><i class="bi bi-person-badge" aria-hidden="true"></i> {{ user.rol === 'admin' ? 'Administrador' : 'Desarrollador' }}</span>
+              <span class="profile-email"><i class="bi bi-envelope" aria-hidden="true"></i> {{ user.email || 'Email no registrado' }}</span>
             </div>
           </div>
         </div>
+        <button v-if="canEditProfile" class="btn profile-edit-btn" @click="editProfile"><i class="bi bi-pencil-square" aria-hidden="true"></i> Editar perfil</button>
+      </header>
 
-        <!-- Habilidades -->
-        <div class="card mb-4">
-          <div class="card-header bg-success text-white">
-            <h4 class="mb-0">Habilidades Técnicas</h4>
-          </div>
-          <div class="card-body">
-            <div v-if="user.habilidades && user.habilidades.length > 0" class="row">
-              <div v-for="(skill, index) in user.habilidades" :key="index" class="col-md-6 mb-3">
-                <div class="card border-success">
-                  <div class="card-body">
-                    <h6 class="card-title text-success">{{ skill.nombre }}</h6>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <span class="text-muted">Nivel {{ skill.nivel }}/5</span>
-                      <span class="badge bg-success">{{ getNivelText(skill.nivel) }}</span>
-                    </div>
-                    <div class="skill-level-bar mt-2">
-                      <div class="progress" style="height: 8px;">
-                        <div class="progress-bar bg-success" 
-                             :style="{ width: (skill.nivel / 5) * 100 + '%' }"></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+      <section class="profile-metrics" aria-label="Resumen profesional">
+        <div class="profile-metric"><span class="metric-icon blue"><i class="bi bi-code-slash" aria-hidden="true"></i></span><div><strong>{{ user.habilidades?.length || 0 }}</strong><span>Habilidades técnicas</span></div></div>
+        <div class="profile-metric"><span class="metric-icon violet"><i class="bi bi-briefcase" aria-hidden="true"></i></span><div><strong>{{ user.aniosExperiencia ?? '—' }} <small v-if="user.aniosExperiencia != null">años</small></strong><span>Experiencia</span></div></div>
+        <div class="profile-metric"><span class="metric-icon green"><i class="bi bi-currency-dollar" aria-hidden="true"></i></span><div><strong>{{ user.costoPorHora != null ? '$' + user.costoPorHora : '—' }} <small>/ hora</small></strong><span>Costo de trabajo</span></div></div>
+        <div class="profile-metric"><span class="metric-icon amber"><i class="bi bi-star" aria-hidden="true"></i></span><div><strong>{{ getCalificacionDisplay(user) }}</strong><span>Calificación</span><small class="metric-note">{{ getCalificacionTareasLabel(user) || (getCalificacionDisplay(user) === '—' ? 'Sin calificaciones aún' : 'Calificación general') }}</small></div></div>
+      </section>
+
+      <div class="profile-layout">
+        <div class="profile-sidebar">
+          <section class="profile-panel profile-section" aria-labelledby="profile-info-title">
+            <div class="profile-section-heading"><span class="section-icon blue"><i class="bi bi-person-vcard" aria-hidden="true"></i></span><div><h2 id="profile-info-title">Información personal</h2><p>Datos del integrante</p></div></div>
+            <dl class="profile-facts">
+              <div><dt>DNI</dt><dd>{{ user.dni || 'No especificado' }}</dd></div>
+              <div><dt>Email</dt><dd>{{ user.email || 'No especificado' }}</dd></div>
+              <div><dt>Rol</dt><dd>{{ user.rol === 'admin' ? 'Administrador' : 'Desarrollador' }}</dd></div>
+              <div><dt>Fecha de registro</dt><dd>{{ formatDate(user.fechaCreacion) }}</dd></div>
+            </dl>
+          </section>
+          <section class="profile-panel profile-section" aria-labelledby="profile-skills-title">
+            <div class="profile-section-heading"><span class="section-icon violet"><i class="bi bi-code-square" aria-hidden="true"></i></span><div><h2 id="profile-skills-title">Habilidades técnicas</h2><p>Conocimientos y nivel de dominio</p></div><span class="section-count">{{ user.habilidades?.length || 0 }}</span></div>
+            <div v-if="user.habilidades?.length" class="profile-skills">
+              <div v-for="(skill, index) in user.habilidades" :key="index" class="profile-skill">
+                <div class="skill-heading"><h3>{{ skill.nombre }}</h3><span class="skill-level">{{ getNivelText(skill.nivel) }}</span></div>
+                <div class="skill-scale" role="progressbar" :aria-label="'Nivel de ' + skill.nombre" :aria-valuenow="Number(skill.nivel)" aria-valuemin="0" aria-valuemax="5"><span :style="{ width: Math.min(100, Math.max(0, Number(skill.nivel) / 5 * 100)) + '%' }"></span></div>
+                <p class="skill-caption">Nivel {{ skill.nivel }} de 5</p>
               </div>
             </div>
-            <div v-else class="text-center text-muted">
-              <p>No se han registrado habilidades técnicas.</p>
-            </div>
-          </div>
+            <div v-else class="profile-empty"><i class="bi bi-code-square" aria-hidden="true"></i><p>Aún no hay habilidades registradas.</p></div>
+          </section>
+          <section class="profile-panel profile-section" aria-labelledby="profile-preferences-title">
+            <div class="profile-section-heading"><span class="section-icon green"><i class="bi bi-sliders" aria-hidden="true"></i></span><div><h2 id="profile-preferences-title">Preferencias de trabajo</h2><p>Intereses para próximos proyectos</p></div></div>
+            <p v-if="preferenceText" class="preference-text">{{ preferenceText }}</p>
+            <template v-else-if="user.preferencias?.tipoTarea?.length || user.preferencias?.tecnologias?.length">
+              <div v-if="user.preferencias.tipoTarea?.length" class="preference-group"><h3>Tipos de tarea</h3><div class="preference-tags"><span v-for="tipo in user.preferencias.tipoTarea" :key="tipo">{{ tipo }}</span></div></div>
+              <div v-if="user.preferencias.tecnologias?.length" class="preference-group"><h3>Tecnologías</h3><div class="preference-tags"><span v-for="tech in user.preferencias.tecnologias" :key="tech">{{ tech }}</span></div></div>
+            </template>
+            <p v-else class="profile-empty-copy">Aún no hay preferencias registradas.</p>
+          </section>
         </div>
-
-        <!-- Preferencias -->
-        <div v-if="user.preferencias" class="card mb-4">
-          <div class="card-header bg-info text-white">
-            <h4 class="mb-0">Preferencias</h4>
-          </div>
-          <div class="card-body">
-            <div class="row">
-              <div class="col-md-6" v-if="user.preferencias.tipoTarea && user.preferencias.tipoTarea.length > 0">
-                <h6>Tipo de Tareas Preferidas:</h6>
-                <div class="d-flex flex-wrap gap-1">
-                  <span v-for="tipo in user.preferencias.tipoTarea" :key="tipo" 
-                        class="badge bg-secondary">{{ tipo }}</span>
-                </div>
-              </div>
-              <div class="col-md-6" v-if="user.preferencias.tecnologias && user.preferencias.tecnologias.length > 0">
-                <h6>Tecnologías Preferidas:</h6>
-                <div class="d-flex flex-wrap gap-1">
-                  <span v-for="tech in user.preferencias.tecnologias" :key="tech" 
-                        class="badge bg-info">{{ tech }}</span>
-                </div>
+        <div class="profile-main">
+          <section class="profile-panel profile-section profile-calendar" aria-labelledby="profile-calendar-title">
+            <div class="profile-section-heading"><span class="section-icon blue"><i class="bi bi-calendar3" aria-hidden="true"></i></span><div><h2 id="profile-calendar-title">Calendario de disponibilidad</h2><p>Organiza el tiempo y consulta las horas de cada día.</p></div></div>
+            <div v-if="calendarLoading" class="profile-state" role="status"><div class="spinner-border spinner-border-sm text-primary" aria-hidden="true"></div><p>Cargando calendario...</p></div>
+            <CalendarAvailability v-else
+              :user-id="user._id"
+              :user-calendar="userCalendar"
+              @update-availability="handleUpdateAvailability"
+              @remove-availability="handleRemoveAvailability"
+              @initialize-default-availability="handleInitializeDefaultAvailability"
+              @update-work-days-config="handleUpdateWorkDaysConfig"
+              @update-calendar-data="handleUpdateCalendarData"
+            />
+          </section>
+          <section v-if="user.historialDesempeño?.length" class="profile-panel profile-section" aria-labelledby="profile-history-title">
+            <div class="profile-section-heading"><span class="section-icon amber"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i></span><div><h2 id="profile-history-title">Historial de desempeño</h2><p>Calificaciones registradas por proyecto</p></div></div>
+            <div class="profile-history">
+              <div v-for="(historial, index) in user.historialDesempeño.slice(0, 3)" :key="index" class="history-item">
+                <div class="skill-heading"><span>Proyecto {{ index + 1 }}</span><span class="badge" :class="getRatingClass(historial.calificacion)">{{ historial.calificacion }}/5</span></div>
+                <div class="progress" role="progressbar" :aria-label="'Calificación del proyecto ' + (index + 1)" :aria-valuenow="Number(historial.calificacion)" aria-valuemin="0" aria-valuemax="5"><div class="progress-bar" :class="getRatingClass(historial.calificacion)" :style="{ width: (historial.calificacion / 5) * 100 + '%' }"></div></div>
               </div>
             </div>
-          </div>
+          </section>
         </div>
       </div>
+    </template>
 
-      <!-- Sidebar con Estadísticas -->
-      <div class="col-md-4">
-        <!-- Estadísticas Rápidas -->
-        <div class="card mb-4">
-          <div class="card-header bg-warning text-dark">
-            <h5 class="mb-0">Estadísticas</h5>
-          </div>
-          <div class="card-body">
-            <div class="text-center">
-              <div class="mb-3">
-                <h3 class="text-primary">{{ user.habilidades ? user.habilidades.length : 0 }}</h3>
-                <p class="text-muted mb-0">Habilidades</p>
-              </div>
-              <div class="mb-3">
-                <h3 class="text-warning">{{ user.aniosExperiencia || 'N/A' }}</h3>
-                <p class="text-muted mb-0">Años Exp.</p>
-              </div>
-              <div class="mb-3">
-                <h3 class="text-info">${{ user.costoPorHora }}</h3>
-                <p class="text-muted mb-0">Costo/Hora</p>
-              </div>
-              <div>
-                <h3 class="text-success">{{ getCalificacionDisplay(user) }}</h3>
-                <p class="text-muted mb-0">Calificación</p>
-                <small class="text-muted" v-if="getCalificacionTareasLabel(user)">
-                  {{ getCalificacionTareasLabel(user) }}
-                </small>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Calendario de Disponibilidad -->
-        <div class="card mb-4">
-          <div class="card-header bg-info text-white">
-            <h5 class="mb-0">
-              <i class="bi bi-calendar3 me-2"></i>
-              Calendario de Disponibilidad
-            </h5>
-          </div>
-          <div class="card-body">
-            <div v-if="calendarLoading" class="text-center py-3">
-              <div class="spinner-border spinner-border-sm" role="status">
-                <span class="visually-hidden">Cargando calendario...</span>
-              </div>
-              <p class="mt-2 mb-0 small text-muted">Cargando calendario...</p>
-            </div>
-            <div v-else>
-              <CalendarAvailability 
-                :user-id="user._id"
-                :user-calendar="userCalendar"
-                @update-availability="handleUpdateAvailability"
-                @remove-availability="handleRemoveAvailability"
-                @initialize-default-availability="handleInitializeDefaultAvailability"
-                @update-work-days-config="handleUpdateWorkDaysConfig"
-                @update-calendar-data="handleUpdateCalendarData"
-              />
-            </div>
-          </div>
-        </div>
-
-        <!-- Historial de Desempeño -->
-        <div v-if="user.historialDesempeño && user.historialDesempeño.length > 0" class="card">
-          <div class="card-header bg-dark text-white">
-            <h5 class="mb-0">Historial de Desempeño</h5>
-          </div>
-          <div class="card-body">
-            <div v-for="(historial, index) in user.historialDesempeño.slice(0, 3)" :key="index" class="mb-2">
-              <div class="d-flex justify-content-between align-items-center">
-                <small class="text-muted">Proyecto {{ index + 1 }}</small>
-                <span class="badge" :class="getRatingClass(historial.calificacion)">
-                  {{ historial.calificacion }}/5
-                </span>
-              </div>
-              <div class="progress mt-1" style="height: 6px;">
-                <div class="progress-bar" :class="getRatingClass(historial.calificacion)" 
-                     :style="{ width: (historial.calificacion / 5) * 100 + '%' }"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- Modal de Edición (reutilizar el existente) -->
     <div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
@@ -207,7 +100,7 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="editProfileModalLabel">Editar Perfil</h5>
-            <button type="button" class="btn-close" @click="closeEditModal" aria-label="Close"></button>
+            <button type="button" class="btn-close" @click="closeEditModal" aria-label="Cerrar"></button>
           </div>
           <div class="modal-body">
             <form @submit.prevent="saveProfile">
@@ -388,6 +281,16 @@ export default {
     };
   },
   computed: {
+    userInitials() {
+      const name = [this.user?.nombre, this.user?.apellido].filter(Boolean).join(' ');
+      return name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'U';
+    },
+    preferenceText() {
+      const preferences = this.user?.preferencias;
+      if (typeof preferences === 'string') return preferences.trim();
+      if (Array.isArray(preferences)) return preferences.filter(item => typeof item === 'string').join(' / ');
+      return '';
+    },
     isUserAdmin() {
       return AuthService.isAdmin(this.currentUser);
     },
@@ -720,46 +623,125 @@ export default {
 </script>
 
 <style scoped>
-.card-header {
-  border-bottom: none;
+.profile-page {
+  min-height: 100%;
+  padding: 1.5rem clamp(1rem, 3vw, 3rem) 2.5rem;
+  background: linear-gradient(180deg, #f4f7fb 0%, #eef2f7 100%);
+  color: #1a2332;
 }
+.profile-breadcrumb { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; font-size: 0.8rem; color: #64748b; }
+.profile-breadcrumb button { display: inline-flex; align-items: center; gap: 0.5rem; border: 0; padding: 0.25rem 0; background: transparent; color: #52647d; }
+.profile-breadcrumb button:hover { color: #0d6efd; }
+.profile-panel { background: #fff; border: 1px solid #e3e9f1; border-radius: 0.85rem; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03); }
+.profile-hero { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 2rem; margin-bottom: 1.25rem; background: linear-gradient(110deg, #fff 55%, #edf3ff); }
+.profile-identity { display: flex; align-items: center; gap: 1.4rem; min-width: 0; }
+.profile-avatar { display: grid; place-items: center; flex-shrink: 0; width: 88px; height: 88px; border: 4px solid #fff; border-radius: 1.3rem; background: linear-gradient(145deg, #e0e7ff, #c7d2fe); color: #454b91; font-size: 1.9rem; font-weight: 700; box-shadow: 0 4px 15px #4657aa12; }
+.profile-identity-text { min-width: 0; }
+.profile-eyebrow { color: #0d6efd; font-size: 0.65rem; letter-spacing: 0.12em; font-weight: 700; }
+.profile-hero h1 { font-size: clamp(1.6rem, 3vw, 2.2rem); letter-spacing: -0.035em; font-weight: 750; margin: 0.3rem 0 0.7rem; overflow-wrap: anywhere; }
+.profile-identity-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.65rem 1rem; font-size: 0.85rem; color: #64748b; }
+.profile-role { display: inline-flex; align-items: center; gap: 0.4rem; border-radius: 2rem; padding: 0.3rem 0.7rem; font-size: 0.75rem; font-weight: 600; background: #eaf1ff; color: #285caa; }
+.profile-email { overflow-wrap: anywhere; }
+.profile-email i { margin-right: 0.3rem; }
+.profile-edit-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; flex-shrink: 0; background: linear-gradient(135deg, #0d6efd, #0a58ca); border: 0; border-radius: 0.5rem; color: #fff; padding: 0.65rem 1rem; font-size: 0.85rem; font-weight: 600; box-shadow: 0 4px 12px #0d6efd20; }
+.profile-edit-btn:hover { background: #0a58ca; color: #fff; }
+.profile-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.profile-metric { display: flex; align-items: flex-start; gap: 1rem; padding: 1.25rem; background: #fff; border: 1px solid #e3e9f1; border-radius: 0.75rem; }
+.profile-metric > div { min-width: 0; }
+.metric-icon { display: grid; place-items: center; flex-shrink: 0; width: 2.65rem; height: 2.65rem; border-radius: 0.65rem; font-size: 1.2rem; }
+.blue { background: #e8f1ff; color: #0d6efd; }
+.violet { background: #f0ebfa; color: #7952b3; }
+.green { background: #e7f5ee; color: #198754; }
+.amber { background: #fff4d9; color: #946500; }
+.profile-metric strong { display: block; font-size: 1.65rem; letter-spacing: -0.035em; line-height: 1.25; overflow-wrap: anywhere; }
+.profile-metric strong small { font-size: 0.8rem; font-weight: 500; color: #64748b; letter-spacing: 0; }
+.profile-metric div > span { display: block; color: #64748b; font-size: 0.8rem; margin-top: 0.35rem; }
+.metric-note { display: block; color: #64748b; font-size: 0.7rem; margin-top: 0.25rem; }
+.profile-layout { display: grid; grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.65fr); align-items: start; gap: 1.5rem; }
+.profile-sidebar, .profile-main { display: grid; gap: 1.25rem; min-width: 0; }
+.profile-section { padding: 1.5rem; min-width: 0; }
+.profile-section-heading { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.4rem; }
+.section-icon { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; flex-shrink: 0; border-radius: 0.6rem; }
+.profile-section-heading h2 { font-size: 1rem; font-weight: 650; line-height: 1.4; margin: 0; }
+.profile-section-heading p { font-size: 0.75rem; color: #64748b; margin: 0.25rem 0 0; }
+.section-count { margin-left: auto; background: #f0ebfa; color: #7952b3; border-radius: 0.4rem; font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.5rem; }
+.profile-facts { margin: 0; }
+.profile-facts > div { display: grid; grid-template-columns: 95px minmax(0, 1fr); gap: 0.75rem; padding: 0.85rem 0; border-bottom: 1px solid #eef2f7; font-size: 0.8rem; }
+.profile-facts > div:first-child { padding-top: 0; }
+.profile-facts > div:last-child { padding-bottom: 0; border: 0; }
+.profile-facts dt { color: #64748b; font-weight: 500; }
+.profile-facts dd { margin: 0; overflow-wrap: anywhere; }
+.profile-skills { display: grid; gap: 1rem; }
+.profile-skill { padding: 1rem; border: 1px solid #e9edf5; border-radius: 0.6rem; background: #fcfcff; }
+.skill-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.85rem; flex-wrap: wrap; }
+.skill-heading h3 { margin: 0; font-size: 0.9rem; font-weight: 650; overflow-wrap: anywhere; }
+.skill-level { background: #eeebfa; color: #68519d; border-radius: 0.35rem; padding: 0.2rem 0.5rem; font-size: 0.65rem; font-weight: 600; }
+.skill-scale { height: 6px; background: #e9eaf4; border-radius: 6px; overflow: hidden; }
+.skill-scale > span { display: block; height: 100%; background: linear-gradient(90deg, #7775cc, #a09fe6); border-radius: inherit; }
+.skill-caption { margin: 0.5rem 0 0; font-size: 0.7rem; color: #64748b; }
+.preference-group + .preference-group { margin-top: 1rem; }
+.preference-group h3 { font-size: 0.75rem; font-weight: 500; color: #64748b; margin-bottom: 0.6rem; }
+.preference-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.preference-tags span { padding: 0.35rem 0.65rem; background: #f1f5f9; color: #52647d; border-radius: 0.4rem; font-size: 0.75rem; overflow-wrap: anywhere; }
+.preference-text { white-space: pre-line; overflow-wrap: anywhere; color: #52647d; font-size: 0.85rem; line-height: 1.7; margin: 0; }
+.profile-empty { padding: 1.5rem 0.75rem; text-align: center; background: #f8fafc; border: 1px dashed #dce3ed; border-radius: 0.6rem; color: #64748b; }
+.profile-empty > i { font-size: 1.5rem; }
+.profile-empty p { margin: 0.6rem 0 0; font-size: 0.8rem; }
+.profile-empty-copy { margin: 0; color: #64748b; font-size: 0.8rem; }
+.profile-state { padding: 3rem 1rem; text-align: center; color: #64748b; }
+.profile-state p { margin: 0.75rem 0 0; font-size: 0.85rem; }
+.profile-history { display: grid; gap: 1rem; }
+.history-item { font-size: 0.85rem; }
+.history-item .progress { height: 6px; background: #edf2f7; }
+.profile-page .modal-content { border: 1px solid #e3e9f1; border-radius: 0.85rem; }
+.profile-page .modal-header { background: #f8fafc; border-bottom: 1px solid #e3e9f1; }
+.profile-page .modal-title { font-size: 1.1rem; font-weight: 650; }
+.profile-page .modal-footer .btn { width: auto; margin: 0; font-size: 0.9rem; border-radius: 0.5rem; }
+.profile-page button:focus-visible { outline: 3px solid #84b8ff; outline-offset: 3px; }
 
-.badge {
-  font-size: 0.9em;
+/* El calendario compartido adopta el tema solamente dentro de este perfil. */
+.profile-calendar :deep(.calendar-availability) { padding: 0; box-shadow: none; background: transparent; }
+.profile-calendar :deep(.calendar-availability > .d-flex) { flex-wrap: wrap; gap: 0.85rem; padding-top: 1rem; border-top: 1px solid #edf2f7; }
+.profile-calendar :deep(.calendar-availability > .d-flex > h6) { color: #64748b; font-size: 0.8rem; }
+.profile-calendar :deep(.calendar-availability > .d-flex > .d-flex) { flex-wrap: wrap; align-items: center; }
+.profile-calendar :deep(.calendar-availability > .d-flex .fw-bold) { font-size: 0.85rem; min-width: 130px; text-align: center; }
+.profile-calendar :deep(.calendar-availability > .d-flex .btn) { border-radius: 0.45rem; font-size: 0.75rem; padding: 0.4rem 0.6rem; }
+.profile-calendar :deep(.calendar-availability > .row .alert-info) { background: #f0f6ff; border: 1px solid #e0ebfc; border-radius: 0.6rem; font-size: 0.8rem; line-height: 1.65; color: #526b91; margin-bottom: 0; padding: 0.85rem 1rem; }
+.profile-calendar :deep(.calendar-grid) { border-color: #e3e9f1; border-radius: 0.65rem; }
+.profile-calendar :deep(.calendar-header) { background: #f8fafc; border-color: #e3e9f1; }
+.profile-calendar :deep(.calendar-day-header) { border-color: #e3e9f1; font-size: 0.7rem; padding: 0.7rem 0.1rem; color: #64748b; }
+.profile-calendar :deep(.calendar-day) { border-color: #e3e9f1; min-height: 88px; padding: 0.6rem; }
+.profile-calendar :deep(.calendar-day.other-month) { background: #f8fafc; color: #94a3b8; }
+.profile-calendar :deep(.calendar-day.has-assigned-tasks) { background: #fffbef; border-left: 1px solid #f1e2b2; }
+.profile-calendar :deep(.calendar-day.today) { background: #edf4ff; border: 2px solid #6ea8fe; }
+.profile-calendar :deep(.calendar-day:not(.other-month):hover) { background: #eaf2ff; }
+.profile-calendar :deep(.day-number) { font-size: 0.85rem; color: inherit; }
+.profile-calendar :deep(.hours-text) { background: #e4f3eb; color: #187747; border-radius: 0.35rem; font-size: 0.7rem; }
+.profile-calendar :deep(.no-hours) { color: #9b4a42; font-size: 0.7rem; }
+@media (max-width: 1100px) {
+  .profile-layout { grid-template-columns: minmax(250px, 0.8fr) minmax(0, 1.2fr); gap: 1rem; }
+  .profile-section { padding: 1.2rem; }
+  .profile-metric { gap: 0.65rem; padding: 1rem; }
+  .profile-metric strong { font-size: 1.4rem; }
 }
-
-.progress {
-  background-color: #e9ecef;
+@media (max-width: 900px) {
+  .profile-layout { grid-template-columns: minmax(0, 1fr); }
+  .profile-sidebar { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .profile-calendar :deep(.calendar-day) { min-height: 76px; }
 }
-
-.progress-bar {
-  transition: width 0.6s ease;
+@media (max-width: 640px) {
+  .profile-hero { flex-direction: column; align-items: stretch; padding: 1.25rem; }
+  .profile-identity { gap: 0.85rem; align-items: flex-start; }
+  .profile-avatar { width: 62px; height: 62px; border-radius: 1rem; font-size: 1.3rem; }
+  .profile-hero h1 { font-size: 1.5rem; }
+  .profile-email { font-size: 0.75rem; }
+  .profile-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+  .profile-metric { flex-direction: column; }
+  .profile-sidebar { grid-template-columns: minmax(0, 1fr); }
+  .profile-calendar { padding: 1rem; }
+  .profile-calendar :deep(.calendar-day) { min-height: 65px; padding: 0.3rem 0.15rem; }
+  .profile-calendar :deep(.calendar-availability > .d-flex > .d-flex) { width: 100%; gap: 0.4rem !important; }
+  .profile-calendar :deep(.calendar-availability > .d-flex .btn:first-child) { flex-basis: 100%; }
+  .profile-calendar :deep(.calendar-availability > .d-flex .fw-bold) { flex: 1; min-width: 0; }
 }
-
-.text-decoration-none:hover {
-  text-decoration: underline !important;
-}
-
-.skill-level-bar .progress {
-  margin-bottom: 0.5rem;
-}
-
-.card {
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  border: none;
-  border-radius: 8px;
-}
-
-.card-header {
-  border-radius: 8px 8px 0 0 !important;
-}
-
-.list-unstyled li {
-  padding: 0.5rem 0;
-  border-bottom: 1px solid #f8f9fa;
-}
-
-.list-unstyled li:last-child {
-  border-bottom: none;
-}
-</style> 
+</style>
