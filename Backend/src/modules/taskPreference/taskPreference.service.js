@@ -215,8 +215,4 @@ export async function crearNotificacionesTareasPendientes(projectId, emisorId) {
   }
 
   return created;
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 2b4a6d226b982b5798c3daa6729c74038a5743d3
