@@ -16,5 +16,3 @@ export const findSimulacionByProyectoDAO = async (projectId) => {
     .select("-asignaciones") // 🚫 excluye el array de asignaciones
     .sort({ creadoEn: -1 }); // más recientes primero
 };
-
-

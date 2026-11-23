@@ -7,6 +7,7 @@ import User from "../users/user.model.js";
 import Notification from "../notifications/notification.model.js";
 import { saveProjectFinalReport } from "../reports/report.service.js";
 import { createFeedback } from "../performanceFeedback/performanceFeedback.dao.js";
+import { crearNotificacionesTareasPendientes } from "../taskPreference/taskPreference.service.js";
 
 // Obtener proyectos por administrador
 export const getProjects = async (adminId) => {
@@ -349,6 +350,8 @@ export async function calificarDesarrolladoresProyectoService(
       await notif.save();
     }
   }
+
+  await crearNotificacionesTareasPendientes(projectId, adminId);
 
   return {
     ok: true,

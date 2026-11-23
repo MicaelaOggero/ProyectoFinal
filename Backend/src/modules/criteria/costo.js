@@ -5,13 +5,14 @@ import User from "../users/user.model.js";
 import { obtenerDisponibilidadEnRango } from "../../utils/asignacionBasica/diasDisponible.js";
 import dotenv from "dotenv";
 import Asignacion from "../assignment/assignment.model.js";
+import Notification from "../notifications/notification.model.js";
 import { verificarYActualizarCalendario } from "../users/user.service.js";
 import { tieneHabilidadesSuficientes } from "../../utils/asignacionBasica/filtroHabilidades.js";
 import { ordenarTareas } from "../../utils/asignacionBasica/ordenarTareas.js";
 import { tieneDisponibilidad } from "../../utils/asignacionBasica/filtroDisponibilidad.js";
 import { calcularDatosGlobalesSimulacion } from "../simulationAssignment/simulationAssignment.service.js";
 import { upsertSimulacionAsignacion } from "../assignment/assignment.service.js";
-import Notification from "../notifications/notification.model.js";
+import { enviarEmailTareaAsignada } from "../notifications/notification.service.js";
 
 dotenv.config()
 
@@ -463,6 +464,8 @@ export async function confirmarAsignacionPorCosto(projectId, sugerencias) {
       leida: false,
       resuelta: false,
     });
+
+    await enviarEmailTareaAsignada(dev._id);
 
     resultados.push({
       tarea: tareaDB.descripcion,

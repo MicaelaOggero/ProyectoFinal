@@ -6,6 +6,7 @@ import Task from "../task/task.model.js";
 import SimulacionAsignacion from "../simulationAssignment/simulationAssignment.model.js";
 import User from "../users/user.model.js";
 import { obtenerDisponibilidadEnRango } from "../../utils/asignacionBasica/diasDisponible.js";
+import { crearNotificacionTareaAsignada } from "../notifications/notification.service.js";
 
 export async function recalcularDatosGlobales(simulacionActualizada) {
   if (!simulacionActualizada) throw new Error("Simulación inválida");
@@ -253,6 +254,13 @@ export const editarAsignacionService = async (asignacionId, nuevoDevId, userId) 
 
   // Guardar cambios en la asignación
   await saveAsignacion(asignacion);
+
+  await crearNotificacionTareaAsignada({
+    tareaId: tarea._id,
+    proyectoId: tarea.proyecto?._id ?? tarea.proyecto,
+    desarrolladorId: devNuevo._id,
+    emisorId: userId,
+  });
 
   // ---------------------------------------------------------
   // 🔥 10. RECALCULAR DATOS GLOBALES DE LA SIMULACIÓN 🔥

@@ -4,7 +4,7 @@ import { createHash, generateToken, isValidPassword } from "../../utils/utils.js
 import { findByAdmin } from "../projects/project.dao.js";
 import passport from "passport";
 import jwt from "jsonwebtoken";
-import { Resend } from "resend";
+import { sendEmail } from "../../utils/mailer.js";
 
 // Registrar un nuevo usuario
 export const registerUser = async (data) => {
@@ -60,32 +60,24 @@ const buildPasswordResetToken = (user, expiresIn = "1h") => {
 };
 
 const sendPasswordResetEmail = async ({ email, token }) => {
-  const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL;
   const resetUrlBase = process.env.FRONTEND_RESET_URL;
 
-  if (!apiKey || !fromEmail || !resetUrlBase) {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD || !resetUrlBase) {
     throw { status: 500, message: "Servicio de email no configurado" };
   }
 
   const resetLink = `${resetUrlBase}?token=${encodeURIComponent(token)}`;
 
-  const resend = new Resend(apiKey);
-  const { error } = await resend.emails.send({
-    from: fromEmail,
-    to: [email],
+  await sendEmail({
+    to: email,
     subject: "Restablecer contraseña",
     text: `Usá este enlace para restablecer tu contraseña: ${resetLink}`,
   });
 
-  if (error) {
-    throw { status: 500, message: `Error enviando email: ${JSON.stringify(error)}` };
-  }
-
   return;
 
   /* Legacy REST implementation retained for reference.
-  const response = await fetch("https://api.resend.com/emails", {
+  const response = await fetch("https://example.invalid/legacy-email", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,

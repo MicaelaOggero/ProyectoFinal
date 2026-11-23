@@ -5,7 +5,9 @@ import TaskLog from "../task/taskLog.model.js";
 import Project from "../projects/project.model.js";
 import { actualizarPuntuacionCalidadDesarrollador } from "../users/user.service.js"; // ajustá el path real
 import Task from "../task/task.model.js";
+import User from "../users/user.model.js";
 import { findNotificationsByUserDAO } from "../notifications/notification.dao.js";
+import { sendEmail } from "../../utils/mailer.js";
 
 export const calificarCalidadDesdeNotificacionService = async ({
   notificationId,
@@ -164,6 +166,26 @@ export const obtenerNotificacionesService = async (userId) => {
   return await findNotificationsByUserDAO(userId);
 };
 
+export const enviarEmailTareaAsignada = async (desarrolladorId) => {
+  const desarrollador = await User.findById(desarrolladorId).select("nombre email").lean();
+  if (!desarrollador?.email) return;
+
+  try {
+    await sendEmail({
+      to: desarrollador.email,
+      subject: "Nueva tarea asignada",
+      text: [
+        `Hola${desarrollador.nombre ? ` ${desarrollador.nombre}` : ""},`,
+        "",
+        "Se te ha asignado una nueva tarea en el proyecto.",
+        "Ingresa a la aplicación para revisar sus detalles.",
+      ].join("\\n"),
+    });
+  } catch (error) {
+    console.error("No se pudo enviar el email de tarea asignada:", error.message);
+  }
+};
+
 export const crearNotificacionTareaAsignada = async ({ tareaId, proyectoId, desarrolladorId, emisorId }) => {
   if (!tareaId || !proyectoId || !desarrolladorId || !emisorId) {
     throw new Error("Faltan datos para crear la notificación");
@@ -180,5 +202,24 @@ export const crearNotificacionTareaAsignada = async ({ tareaId, proyectoId, desa
     leida: false,
     resuelta: false,
   });
+
+  const desarrollador = await User.findById(desarrolladorId).select("nombre email").lean();
+  if (desarrollador?.email) {
+    try {
+      await sendEmail({
+        to: desarrollador.email,
+        subject: "Nueva tarea asignada",
+        text: [
+          `Hola${desarrollador.nombre ? ` ${desarrollador.nombre}` : ""},`,
+          "",
+          "Se te ha asignado una nueva tarea en el proyecto.",
+          "Ingresa a la aplicación para revisar sus detalles.",
+        ].join("\\n"),
+      });
+    } catch (error) {
+      console.error("No se pudo enviar el email de tarea asignada:", error.message);
+    }
+  }
+
   return notificacion;
 };
