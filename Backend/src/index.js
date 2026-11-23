@@ -18,6 +18,7 @@ import '../src/utils/resetDisponibilidad.js'
 import { conectarDB } from "./config/db.js"
 import feedbackRouter from '../src/modules/performanceFeedback/performanceFeedback.routes.js'
 import reportRouter from '../src/modules/reports/report.routes.js'
+import importRouter from '../src/modules/imports/import.routes.js'
 
 dotenv.config()
 const app=express()
@@ -80,10 +81,9 @@ app.use('/api/feedback', feedbackRouter)
 app.use('/api/simulation-assignment', simulationAssignmentRouter)
 app.use('/api/notification', notificationRouter)
 app.use('/api/report', reportRouter)
+app.use('/api/import', importRouter)
 
 // Conectar a la base de datos
 conectarDB()
 
 app.listen(process.env.PORT, () => console.log("servidor escuchando en el puerto " + process.env.PORT))
-
-// password: lScrBJKESna5DDYv 
