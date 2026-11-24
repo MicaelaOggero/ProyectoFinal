@@ -12,6 +12,7 @@ import {
   pausarOCompletarTareaController
 } from "./task.controller.js";
 import { authAdmin, auth } from "../../middlewares/auth.js";
+import { authorizeCurrentProject, authorizeCurrentTask, authorizeCompanyRecords } from '../companies/tenant.auth.js';
 import { addTask } from "./task.service.js";
 import {
   listarTareasPendientesDeCalificar,
@@ -22,19 +23,19 @@ const router = express.Router();
 
 // Preferencias de habilidades del desarrollador
 router.get("/mis-tareas/pendientes-calificacion", auth, listarTareasPendientesDeCalificar);
-router.post("/:taskId/calificar-preferencia", auth, calificarTareaParaPreferencias);
+router.post("/:taskId/calificar-preferencia", auth, authorizeCurrentTask(), calificarTareaParaPreferencias);
 
 // Crear
-router.post("/:projectId", authAdmin, crearTask);
+router.post("/:projectId", authAdmin, authorizeCurrentProject('projectId', { adminOnly: true }), crearTask);
 
 // Actualización de tarea
-router.patch("/:taskId", authAdmin,actualizarTask);
+router.patch("/:taskId", authAdmin, authorizeCurrentTask({ adminOnly: true }), actualizarTask);
 
 // Eliminar
-router.delete("/:taskId", authAdmin, eliminarTask);
+router.delete("/:taskId", authAdmin, authorizeCurrentTask({ adminOnly: true }), eliminarTask);
 
 // Listar por proyecto
-router.get("/proyecto/:projectId", auth, listarTasksPorProyecto);
+router.get("/proyecto/:projectId", auth, authorizeCurrentProject(), listarTasksPorProyecto);
 
 // Listar por desarrollador
 router.get("/desarrollador/:userId", auth, listarTasksPorDesarrollador);
@@ -43,19 +44,22 @@ router.get("/desarrollador/:userId", auth, listarTasksPorDesarrollador);
 router.get("/", authAdmin, listarTasks)
 
 // Listar tarea por proyecto y desarrollador
-router.get("/proyecto/:projectId/desarrollador/:developerId", auth, listarTasksPorProyectoYDev);
+router.get("/proyecto/:projectId/desarrollador/:developerId", auth, authorizeCurrentProject(), (req, res, next) => {
+  if (req.user.rol === 'user' && String(req.user._id) !== req.params.developerId) return res.status(404).json({ error: 'No encontrado' });
+  next();
+}, listarTasksPorProyectoYDev);
 
 // Obtener tareas ordenadas por prioridad y dificultad
-router.get("/ordenadas/:projectId", authAdmin, obtenerTareasOrdenadasController);
+router.get("/ordenadas/:projectId", authAdmin, authorizeCurrentProject('projectId', { adminOnly: true }), obtenerTareasOrdenadasController);
 
 // Cambiar el estado de una tarea a "en curso"
-router.put("/:taskId/iniciar", auth, iniciarTareas)
+router.put("/:taskId/iniciar", auth, authorizeCurrentTask(), iniciarTareas)
 
 // Cambiar el estado de una tarea a "pausada-completada"
-router.put("/:taskId/accion", auth, pausarOCompletarTareaController);
+router.put("/:taskId/accion", auth, authorizeCurrentTask(), pausarOCompletarTareaController);
 
 // 📌 Ruta para crear varias tareas dentro de un proyecto
-router.post("/bulk/:projectId", async (req, res) => {
+router.post("/bulk/:projectId", authAdmin, authorizeCurrentProject('projectId', { adminOnly: true }), async (req, res) => {
   const { projectId } = req.params;
   const tareas = req.body;
 
@@ -97,7 +101,7 @@ import mongoose from "mongoose";
 
 import { actualizarRendimientoDesarrollador, actualizarPuntuacionCalidadDesarrollador } from "../users/user.service.js"; // importa tu función
 
-router.post("/taskLog/masivo", async (req, res) => {
+router.post("/taskLog/masivo", authAdmin, authorizeCompanyRecords(req => req.body?.logs, { requireTask: true }), async (req, res) => {
   try {
     const logs = req.body.logs;
 

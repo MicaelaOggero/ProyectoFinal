@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { authAdmin } from '../../middlewares/auth.js';
+import { authorizeCurrentProject } from '../companies/tenant.auth.js';
 import {
   getWeeklyProjectMetricsController,
   getWeeklyDeveloperMetricsController,
@@ -9,12 +11,13 @@ import {
 } from "./report.controller.js";
 
 const router = Router();
+const manageProject = [authAdmin, authorizeCurrentProject('projectId', { adminOnly: true })];
 
-router.get("/weekly/project/:projectId", getWeeklyProjectMetricsController);
-router.get("/weekly/developers/:projectId", getWeeklyDeveloperMetricsController);
-router.get("/weekly/tasks/:projectId", getWeeklyTasksReportController);
-router.post("/final/:projectId", createFinalProjectReportController);
-router.get("/final/:projectId", getFinalProjectReportController);
-router.get("/final/:projectId/pdf", getFinalProjectReportPdfController);
+router.get("/weekly/project/:projectId", ...manageProject, getWeeklyProjectMetricsController);
+router.get("/weekly/developers/:projectId", ...manageProject, getWeeklyDeveloperMetricsController);
+router.get("/weekly/tasks/:projectId", ...manageProject, getWeeklyTasksReportController);
+router.post("/final/:projectId", ...manageProject, createFinalProjectReportController);
+router.get("/final/:projectId", ...manageProject, getFinalProjectReportController);
+router.get("/final/:projectId/pdf", ...manageProject, getFinalProjectReportPdfController);
 
 export default router;

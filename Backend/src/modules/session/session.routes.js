@@ -7,9 +7,9 @@ const router = Router();
 // Rutas de autenticación
 
 // Registro tradicional, login y logout
-router.post("/register", sessionController.registerUser);
+router.post("/register", (req, res) => res.status(403).json({ error: 'Para registrarte necesitás una invitación de tu empresa.' }));
 router.post("/login", sessionController.loginUser);
-router.delete("/logout", authToken, sessionController.logoutUser);
+router.delete("/logout", sessionController.logoutUser);
 
 // Gestión de perfil
 
@@ -30,9 +30,6 @@ router.get("/auth/google/callback", sessionController.googleCallback);
 // Obtener sesión de Google (datos del usuario)
 router.get("/google-session", auth, sessionController.getGoogleSession);
 export default router;
-
-// Resetear mi password (debe estar logueado)
-router.patch("/reset-password", sessionController.resetPassword);
 
 // Solicitar y confirmar reseteo por email
 router.post("/password-reset/request", sessionController.requestPasswordReset);

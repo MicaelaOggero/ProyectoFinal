@@ -3,7 +3,7 @@ import * as userService from "./user.service.js";
 // Obtener todos los usuarios con rol 'user'
 export const getUsers = async (req, res) => {
   try {
-    const usuarios = await userService.getUsers(req.user.rol);
+    const usuarios = await userService.getUsers(req.user.rol, req.user._id);
     res.json(usuarios);
   } catch (error) {
     console.error("❌ Error en controller.getUsers:", error);
@@ -100,7 +100,7 @@ export async function postCandidatosDisponiblesController(req, res) {
   try {
     const payload = req.body;
 
-    const candidatos = await userService.buscarUsuariosDisponiblesParaTareaService(payload);
+    const candidatos = await userService.buscarUsuariosDisponiblesParaTareaService(payload, req.user._id);
 
     return res.status(200).json({
       ok: true,
@@ -118,7 +118,7 @@ export async function postCandidatosDisponiblesController(req, res) {
       },
     });
   } catch (error) {
-    return res.status(400).json({
+    return res.status(error.status || 400).json({
       ok: false,
       message: error?.message || "Error al buscar candidatos disponibles.",
       error: String(error),

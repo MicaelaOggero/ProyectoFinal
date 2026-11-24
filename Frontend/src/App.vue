@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <NavbarComponent v-if="isAuthenticated" />
+    <NavbarComponent v-if="isAuthenticated && $route.path !== '/empresas'" />
     <main class="main-content">
       <router-view/>
     </main>
@@ -37,7 +37,7 @@ watch: {
 
   methods: {
  async checkAuthStatus() {
-  const publicRoutes = ['/login', '/reset-password', '/google-callback'];
+  const publicRoutes = ['/login', '/reset-password', '/google-callback', '/aceptar-invitacion'];
   if (publicRoutes.includes(this.$route.path)) {
     this.isAuthenticated = false;
     return;

@@ -1,0 +1,84 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
+import 'dotenv/config';
+import mongoose from 'mongoose';
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import User from '../users/user.model.js';
+import Company from './company.model.js';
+import Project from '../projects/project.model.js';
+import Task from '../task/task.model.js';
+import Notification from '../notifications/notification.model.js';
+
+test('flujo de invitación y aislamiento con dos empresas en base temporal', { skip: process.env.INTEGRATION_MONGO_TEST !== '1' }, async () => {
+  const testName = `satest_${randomBytes(12).toString('hex')}`;
+  assert.match(testName, /^satest_[a-f0-9]{24}$/);
+  assert.ok(process.env.MONGO);
+  process.env.OPENAI_API_KEY ||= 'test-key';
+  process.env.JWT_SECRET = 'integration-test-secret';
+  process.env.FRONTEND_URL = 'http://localhost:8081';
+  delete process.env.RESEND_API_KEY;
+  delete process.env.RESEND_FROM_EMAIL;
+  delete process.env.EMAIL_USER;
+  delete process.env.EMAIL_PASSWORD;
+  const { default: companyRouter } = await import('./company.routes.js');
+  const { default: projectRouter } = await import('../projects/project.routes.js');
+  const { default: taskRouter } = await import('../task/task.routes.js');
+  const { default: assignmentRouter } = await import('../assignment/assignment.routes.js');
+  let server;
+  try {
+    await mongoose.connect(process.env.MONGO, { dbName: testName, serverSelectionTimeoutMS: 10000 });
+    assert.equal(mongoose.connection.db.databaseName, testName);
+    const superadmin = await User.create({ nombre: 'Super', email: 'super@test.invalid', password: 'hash', rol: 'superadmin' });
+    const [a, b] = await Company.create([{ nombre: 'A', creadaPor: superadmin._id }, { nombre: 'B', creadaPor: superadmin._id }]);
+    const adminA = await User.create({ nombre: 'Admin A', email: 'a@test.invalid', password: 'hash', rol: 'admin', empresa: a._id });
+    const adminB = await User.create({ nombre: 'Admin B', email: 'b@test.invalid', password: 'hash', rol: 'admin', empresa: b._id });
+    const app = express();
+    app.use(express.json());
+    app.use('/api/company', companyRouter); app.use('/api/project', projectRouter); app.use('/api/task', taskRouter); app.use('/api/assignment', assignmentRouter);
+    server = await new Promise(resolve => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+    const root = `http://127.0.0.1:${server.address().port}/api`;
+    const headers = user => ({ Authorization: `Bearer ${jwt.sign({ _id: user._id, rol: user.rol }, process.env.JWT_SECRET)}`, 'Content-Type': 'application/json' });
+    const inviteResponse = await fetch(`${root}/company/mi-empresa/invitaciones`, { method: 'POST', headers: headers(adminA), body: JSON.stringify({ email: 'dev@test.invalid' }) });
+    assert.equal(inviteResponse.status, 201);
+    const invitation = await inviteResponse.json();
+    assert.equal(invitation.metodo, 'enlace');
+    const token = new URL(invitation.enlace).searchParams.get('token');
+    const accept = await fetch(`${root}/company/invitaciones/aceptar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, nombre: 'Dev', password: 'password-segura', empresa: b._id, rol: 'admin' }) });
+    assert.equal(accept.status, 201);
+    const developer = await User.findOne({ email: 'dev@test.invalid' });
+    assert.equal(String(developer.empresa), String(a._id));
+    assert.equal(developer.rol, 'user');
+    const reuse = await fetch(`${root}/company/invitaciones/aceptar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, nombre: 'Dev', password: 'password-segura' }) });
+    assert.equal(reuse.status, 404);
+    const unassigned = await User.create({ nombre: 'Sin tareas', email: 'sin-tareas@test.invalid', password: 'hash', rol: 'user', empresa: a._id });
+    const project = await Project.create({ nombre: 'Proyecto A', administrador: adminA._id, empresa: a._id, fechaInicioEstimada: '2026-11-23', fechaFinEstimada: '2026-11-30', nivelDificultad: 3, prioridad: 'media' });
+    const otherProject = await Project.create({ nombre: 'Proyecto B', administrador: adminB._id, empresa: b._id, fechaInicioEstimada: '2026-11-23', fechaFinEstimada: '2026-11-30', nivelDificultad: 3, prioridad: 'media' });
+    const task = await Task.create({ descripcion: 'Tarea', proyecto: project._id, habilidadesRequeridas: ['react'], categoria: 'frontend', nivelDificultad: 3, prioridad: 'media', tiempoEstimadoHoras: 4 });
+    assert.equal((await fetch(`${root}/project/${project._id}`, { headers: headers(developer) })).status, 404);
+    const assignment = { projectId: String(project._id), costoTotalSimulado: 40, tiempoTotalEstimado: 4, tiempoTotalSimulado: 4, calidadPromedioTareas: 3, calidadPromedioSimulado: 3, criterio: 'basica', asignaciones: [{ tareaId: String(task._id), desarrolladorId: String(developer._id), dias: [{ fecha: developer.calendario[0].fecha, horasAsignadas: 4 }], horasTotales: 4, costoTotal: 40, horasEstimadasSegunRendimiento: 4, calidadTarea: 3 }] };
+    const confirm = await fetch(`${root}/assignment/iaconfirm/proyecto/${project._id}/basica`, { method: 'POST', headers: headers(adminA), body: JSON.stringify(assignment) });
+    const confirmationBody = await confirm.json();
+    assert.equal(confirm.status, 200, JSON.stringify(confirmationBody));
+    assert.equal(String((await Task.findById(task._id)).desarrolladorAsignado), String(developer._id));
+    assert.equal(await Notification.countDocuments({ receptor: developer._id, tarea: task._id, tipo: 'TAREA_ASIGNADA' }), 1);
+    assert.equal((await fetch(`${root}/project/${project._id}`, { headers: headers(developer) })).status, 200);
+    assert.equal((await fetch(`${root}/project/${project._id}`, { headers: headers(unassigned) })).status, 404);
+    assert.equal((await fetch(`${root}/project/${project._id}`, { headers: headers(adminB) })).status, 404);
+    assert.equal((await fetch(`${root}/project/${otherProject._id}`, { headers: headers(developer) })).status, 404);
+    assert.equal((await fetch(`${root}/task/proyecto/${project._id}`, { headers: headers(adminB) })).status, 404);
+    const devProjects = await (await fetch(`${root}/project`, { headers: headers(developer) })).json();
+    assert.equal(devProjects.length, 1);
+    const adminProjects = await (await fetch(`${root}/project`, { headers: headers(adminB) })).json();
+    assert.equal(adminProjects.length, 1);
+    assert.equal(adminProjects[0].nombre, 'Proyecto B');
+  } finally {
+    if (server) await new Promise(resolve => server.close(resolve));
+    if (mongoose.connection.readyState === 1) {
+      if (mongoose.connection.db.databaseName !== testName || !/^satest_[a-f0-9]{24}$/.test(testName)) throw new Error('Se rechazó la limpieza de una base no temporal');
+      await mongoose.connection.dropDatabase();
+      await mongoose.disconnect();
+    }
+  }
+});

@@ -4,14 +4,18 @@ import Task from "../task/task.model.js";
 // services/iaAssignment.service.js
 import TaskLog from "../task/taskLog.model.js";
 import User from "./user.model.js";
+import Company from '../companies/company.model.js';
 import PerformanceFeedback from "../performanceFeedback/performanceFeedback.model.js";
 import { tieneDisponibilidad } from "../../utils/asignacionBasica/filtroDisponibilidad.js";
 import { analizarDisponibilidad } from "../../utils/asignacionBasica/planificarDisponibilidad.js";
 
 // Obtener todos los usuarios (si es admin devuelve los 'user', si es user devuelve lista vacía)
-export const getUsers = async (rol) => {
+export const getUsers = async (rol, userId) => {
   if (rol === "admin") {
-    return await userDao.findUsersByRole("user");
+    const admin = await User.findById(userId).select('rol empresa').lean();
+    if (!admin || admin.rol !== 'admin') throw new Error('No autorizado');
+    if (admin.empresa && !(await Company.exists({ _id: admin.empresa, activa: true }))) throw new Error('La empresa no está habilitada');
+    return await userDao.findUsersByRole("user", admin.empresa ?? null);
   }
   if (rol === "user") {
     return [];
@@ -26,7 +30,9 @@ export const getUserById = async (id) => {
 
 // Actualizar un usuario
 export const updateUser = async (id, data) => {
-  return await userDao.updateUser(id, data);
+  const allowed = ['nombre', 'apellido', 'dni', 'habilidades', 'aniosExperiencia', 'costoPorHora', 'preferencias', 'calendario'];
+  const safeData = Object.fromEntries(allowed.filter(key => Object.hasOwn(data, key)).map(key => [key, data[key]]));
+  return await userDao.updateUser(id, safeData);
 };
 
 // Eliminar un usuario
@@ -102,16 +108,27 @@ export const obtenerCalendarioService = async (userId, month = null) => {
   return calendarioFiltrado;
 };
 
-export async function buscarUsuariosDisponiblesParaTareaService(payload) {
+export async function buscarUsuariosDisponiblesParaTareaService(payload, adminId) {
   if (!payload || typeof payload !== "object") {
     throw new Error("Body inválido. Se esperaba un objeto.");
   }
 
-  const {
-    fechaEstimadaInicio,
-    fechaEstimadaFin,
-    estimacionHoras,
-  } = payload;
+  const [admin, tarea] = await Promise.all([
+    User.findById(adminId).select('rol empresa').lean(),
+    Task.findById(payload.tareaId).select('proyecto fechaEstimadaInicio fechaEstimadaFin tiempoEstimadoHoras habilidadesRequeridas').lean()
+  ]);
+  if (!admin || admin.rol !== 'admin' || !tarea) {
+    throw Object.assign(new Error('Tarea no encontrada o sin permisos'), { status: 404 });
+  }
+  const proyecto = await Project.findById(tarea.proyecto).select('empresa administrador').lean();
+  const mismaEmpresa = String(admin.empresa || '') === String(proyecto?.empresa || '');
+  const legadoAutorizado = admin.empresa || String(proyecto?.administrador) === String(adminId);
+  if (!proyecto || !mismaEmpresa || !legadoAutorizado) {
+    throw Object.assign(new Error('Tarea no encontrada o sin permisos'), { status: 404 });
+  }
+  const fechaEstimadaInicio = tarea.fechaEstimadaInicio;
+  const fechaEstimadaFin = tarea.fechaEstimadaFin;
+  const estimacionHoras = tarea.tiempoEstimadoHoras;
 
   if (!fechaEstimadaInicio || !fechaEstimadaFin) {
     throw new Error('Faltan "fechaEstimadaInicio" y/o "fechaEstimadaFin".');
@@ -133,7 +150,7 @@ export async function buscarUsuariosDisponiblesParaTareaService(payload) {
   }
 
   // Trae solo usuarios rol="user" con calendario (lo mínimo necesario)
-  const users = await User.find({ rol: "user" })
+  const users = await User.find({ rol: "user", empresa: proyecto.empresa ?? null })
     .select("nombre apellido email rol calendario habilidades")
     .lean();
 
@@ -141,7 +158,7 @@ export async function buscarUsuariosDisponiblesParaTareaService(payload) {
 
   for (const u of users /* o usersFiltrados */) {
     if (payload.incluirAlternativas === true) {
-      const analisis = analizarDisponibilidad(u, payload);
+      const analisis = analizarDisponibilidad(u, { ...payload, fechaEstimadaInicio, fechaEstimadaFin, estimacionHoras, habilidadesRequeridas: tarea.habilidadesRequeridas });
       candidatos.push({ _id: u._id, nombre: u.nombre, apellido: u.apellido, email: u.email, ...analisis });
       continue;
     }

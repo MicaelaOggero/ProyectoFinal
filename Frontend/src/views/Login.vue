@@ -50,27 +50,12 @@
       </div>
 
       <div class="auth-container">
-      <!-- Tabs para alternar entre Login y Registro -->
-      <div class="auth-tabs">
-        <button 
-          @click="activeTab = 'login'" 
-          :class="['tab-button', { active: activeTab === 'login' }]"
-        >
-          Iniciar Sesión
-        </button>
-        <button 
-          @click="activeTab = 'register'" 
-          :class="['tab-button', { active: activeTab === 'register' }]"
-        >
-          Registrarse
-        </button>
-      </div>
-
       <!-- Contenido del Login -->
       <div v-if="activeTab === 'login'" class="auth-content">
         <div class="auth-intro">
           <h2 class="auth-title">Bienvenido de nuevo</h2>
           <p class="auth-subtitle">Ingresa tus credenciales para acceder a tu cuenta</p>
+          <p class="auth-subtitle">Para crear una cuenta, solicitá una invitación a tu empresa.</p>
         </div>
 
         <!-- Opciones de inicio de sesión -->
@@ -348,7 +333,8 @@ export default {
       
       try {
         await AuthService.login(this.loginData.email, this.loginData.password);
-        this.$router.push('/dashboard');
+        const user = await AuthService.getCurrentUser();
+        this.$router.push(user?.rol === 'superadmin' ? '/empresas' : '/dashboard');
       } catch (error) {
         this.error = error.response?.data?.error || 'Error al iniciar sesión. Verifica tus credenciales.';
       } finally {

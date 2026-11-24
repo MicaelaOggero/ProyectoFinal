@@ -27,9 +27,15 @@ const userSchema = new mongoose.Schema({
   },
   rol: {
     type: String,
-    enum: ['admin', 'user'],
+    enum: ['superadmin', 'admin', 'user'],
     default: 'user',
     required: true
+  },
+  empresa: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Empresa',
+    default: null,
+    index: true
   },
   habilidades: {
     type: [

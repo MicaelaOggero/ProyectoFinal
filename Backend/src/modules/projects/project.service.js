@@ -4,14 +4,25 @@ import Task from "../task/task.model.js";
 import * as userDao from "../users/user.dao.js";
 import { crearNotificacionFeedbackProyecto } from "../notifications/notification.service.js";
 import User from "../users/user.model.js";
+import Company from '../companies/company.model.js';
 import Notification from "../notifications/notification.model.js";
 import { saveProjectFinalReport } from "../reports/report.service.js";
 import { createFeedback } from "../performanceFeedback/performanceFeedback.dao.js";
 import { crearNotificacionesTareasPendientes } from "../taskPreference/taskPreference.service.js";
 
 // Obtener proyectos por administrador
-export const getProjects = async (adminId) => {
-  return await projectDao.findByAdmin(adminId);
+export const getProjects = async (userId) => {
+  const user = await User.findById(userId).select('rol empresa').lean();
+  if (!user || !['admin', 'user'].includes(user.rol)) throw new Error('No autorizado');
+  if (user.empresa) {
+    const company = await Company.findById(user.empresa).select('activa').lean();
+    if (!company?.activa) throw new Error('La empresa no está habilitada');
+  }
+  if (user.rol === 'admin') {
+    return Project.find(user.empresa ? { empresa: user.empresa } : { empresa: null, administrador: user._id });
+  }
+  const ids = await Task.distinct('proyecto', { desarrolladorAsignado: user._id });
+  return Project.find({ _id: { $in: ids }, empresa: user.empresa ?? null });
 };
 
 // Obtener un proyecto por ID
@@ -22,6 +33,8 @@ export const getProjectById = async (id) => {
 // Crear un nuevo proyecto
 export const createProject = async (projectData, adminId) => {
   const { nombre, descripcion, fechaInicioEstimada, fechaFinEstimada, nivelDificultad, prioridad, estado, generarTareasConIA } = projectData;
+  const administrador = await User.findById(adminId).select('empresa').lean();
+  if (!administrador) throw new Error('Administrador no encontrado');
 
   return await projectDao.create({
     nombre,
@@ -33,12 +46,15 @@ export const createProject = async (projectData, adminId) => {
     estado,
     generarTareasConIA: generarTareasConIA === true,
     administrador: adminId,
+    empresa: administrador.empresa ?? null,
   });
 };
 
 // Actualizar un proyecto por ID
 export const updateProject = async (id, updatedData) => {
-  return await projectDao.update(id, updatedData);
+  const allowed = ['nombre', 'descripcion', 'fechaInicioEstimada', 'fechaFinEstimada', 'nivelDificultad', 'prioridad', 'estado'];
+  const safeData = Object.fromEntries(allowed.filter(key => Object.hasOwn(updatedData, key)).map(key => [key, updatedData[key]]));
+  return await projectDao.update(id, safeData);
 };
 
 // Eliminar un proyecto por ID
@@ -252,6 +268,9 @@ export async function calificarDesarrolladoresProyectoService(
     if (!Number.isFinite(p) || p < 1 || p > 5) {
       throw new Error(`Puntuación inválida para ${c.desarrolladorId}. Debe ser 1 a 5`);
     }
+    const dev = await User.exists({ _id: c.desarrolladorId, rol: 'user', empresa: proyecto.empresa ?? null });
+    const participa = await Task.exists({ proyecto: projectId, desarrolladorAsignado: c.desarrolladorId });
+    if (!dev || !participa) throw new Error('El desarrollador no participa en este proyecto');
   }
 
   const updates = [];

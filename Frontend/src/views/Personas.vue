@@ -9,7 +9,7 @@
           </p>
         </div>
         <button
-          v-if="isUserAdmin"
+          v-if="isUserAdmin && !currentUser?.empresa"
           type="button"
           class="btn btn-add-person"
           @click="openCreateModal"
@@ -18,6 +18,8 @@
           Añadir Nueva Persona
         </button>
       </header>
+
+      <InvitarDesarrollador v-if="isUserAdmin && currentUser?.empresa" />
 
       <!-- Carga -->
       <div v-if="loading" class="text-center py-5 personas-panel">
@@ -31,7 +33,7 @@
       <div v-else-if="people.length === 0" class="personas-panel empty-state text-center py-5">
         <i class="bi bi-people display-4 text-muted d-block mb-3"></i>
         <h5 class="fw-semibold">No hay personas registradas</h5>
-        <p class="text-muted mb-0">Añade la primera persona desde el botón superior.</p>
+        <p class="text-muted mb-0">Invitá a la primera persona para sumarla a tu empresa.</p>
       </div>
 
       <template v-else>
@@ -372,9 +374,11 @@ import { Modal } from 'bootstrap';
 import UserService from '@/services/user.service.js';
 import SkillsService from '@/services/skills.service.js';
 import AuthService from '@/services/auth.service.js';
+import InvitarDesarrollador from '@/components/InvitarDesarrollador.vue';
 
 export default {
   name: 'PersonasView',
+  components: { InvitarDesarrollador },
   data() {
     return {
       modalInstance: null,

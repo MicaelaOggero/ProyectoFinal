@@ -1,4 +1,5 @@
 import { validarDisponibilidadConfirmacion } from '../../utils/asignacionBasica/validarDisponibilidadConfirmacion.js';
+import { validarAsignacionesEmpresa } from '../companies/assignment.auth.js';
 import OpenAI from "openai";
 import Project from "../projects/project.model.js";
 import Task from "../task/task.model.js";
@@ -39,7 +40,7 @@ export const previsualizarAsignacionBasica = async (projectId) => {
   tareas = ordenarTareas(tareas);
 
   // 🔹 Obtener desarrolladores
-  let desarrolladores = await User.find({ rol: "user" });
+  let desarrolladores = await User.find({ rol: "user", empresa: project.empresa ?? null });
 
   const candidatosPorTarea = {};
   const devsDataPorTarea = {};
@@ -407,6 +408,7 @@ export async function confirmarAsignacionBasica(projectId, sugerencias) {
   // 🔻🔻🔻 A PARTIR DE ACÁ recién tocamos la BD 🔻🔻🔻
 
   // Revisar las horas diarias antes de guardar cambios.
+  await validarAsignacionesEmpresa(projectId, asignaciones);
   await validarDisponibilidadConfirmacion(asignaciones);
 
   for (const asignacion of asignaciones) {

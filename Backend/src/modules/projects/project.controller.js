@@ -24,12 +24,7 @@ export const confirmTasksWithAI = async (req, res) => {
 // Obtener todos los proyectos de un admin
 export const getProjects = async (req, res) => {
   try {
-    // Si el usuario NO es admin, devolvemos lista vacía
-    if (req.user.rol !== "admin") {
-      return res.json([]); 
-    }
-
-    // Si es admin, traer sus proyectos
+    // Los desarrolladores solo ven proyectos con tareas asignadas.
     const projects = await projectService.getProjects(req.user._id);
     res.json(projects);
   } catch (error) {

@@ -4,7 +4,9 @@ import * as sessionService from "./session.service.js";
 export const registerUser = async (req, res) => {
   try {
     const nuevoUsuario = await sessionService.registerUser(req.body);
-    res.status(201).json({ mensaje: "✅ Usuario registrado correctamente", usuario: nuevoUsuario });
+    const usuario = nuevoUsuario.toObject ? nuevoUsuario.toObject() : { ...nuevoUsuario };
+    delete usuario.password;
+    res.status(201).json({ mensaje: "✅ Usuario registrado correctamente", usuario });
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message });
   }

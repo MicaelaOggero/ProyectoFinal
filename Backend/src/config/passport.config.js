@@ -29,12 +29,8 @@ async (accessToken, refreshToken, profile, done) => {
   try {
     let user = await User.findOne({ googleId: profile.id });
     if (!user) {
-      user = await User.create({
-        googleId: profile.id,
-        nombre: profile.name.givenName,
-        apellido: profile.name.familyName,
-        email: profile.emails[0].value,
-      });
+      // Las nuevas cuentas se incorporan mediante una invitación de empresa.
+      return done(null, false);
     }
     return done(null, user);
   } catch (error) {

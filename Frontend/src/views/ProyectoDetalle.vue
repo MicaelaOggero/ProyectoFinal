@@ -2930,6 +2930,7 @@ export default {
           
           // 2. Verificar disponibilidad
           const verificacion = await AssignmentService.verificarDisponibilidadAsignacionesManuales({
+            projectId: this.$route.params.id,
             "asignaciones-manuales": asignacionesManuales
           });
           
@@ -3023,6 +3024,7 @@ export default {
         
           // Construir payload con el resumen completo + asignaciones manuales
           const payload = {
+            projectId: this.$route.params.id,
             ...this.resumenSimulacion, // basica, costo, tiempoIA, calidad
             basica: basicaConFechas,
             "asignaciones-manuales": asignacionesManuales

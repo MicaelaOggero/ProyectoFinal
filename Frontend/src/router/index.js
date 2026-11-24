@@ -12,8 +12,12 @@ import AssignmentSummaryView from '@/views/AssignmentSummaryView.vue';
 import ResetPasswordView from '@/views/ResetPassword.vue';
 import ReportesView from '@/views/Reportes.vue';
 import AuthService from '@/services/auth.service.js';
+import EmpresasView from '@/views/Empresas.vue';
+import AceptarInvitacionView from '@/views/AceptarInvitacion.vue';
 
 const routes = [
+  { path: '/aceptar-invitacion', name: 'AceptarInvitacion', component: AceptarInvitacionView },
+  { path: '/empresas', name: 'Empresas', component: EmpresasView, meta: { requiresAuth: true, requiresSuperadmin: true } },
   {
     path: '/',
     redirect: '/login'  // Cambiado: redirige a login por defecto
@@ -108,6 +112,8 @@ router.beforeEach(async (to, from, next) => {
   try {
     const user = await AuthService.getCurrentUser();
     if (user) {
+      if (to.meta.requiresSuperadmin && user.rol !== 'superadmin') return next('/dashboard');
+      if (user.rol === 'superadmin' && !to.meta.requiresSuperadmin) return next('/empresas');
       if (requiresAdmin && !AuthService.isAdmin(user)) {
         return next('/dashboard');
       }
@@ -122,6 +128,8 @@ router.beforeEach(async (to, from, next) => {
     const g = await AuthService.getCurrentUserGoogle();
     const googleUser = g?.user || g;
     if (googleUser) {
+      if (to.meta.requiresSuperadmin && googleUser.rol !== 'superadmin') return next('/dashboard');
+      if (googleUser.rol === 'superadmin' && !to.meta.requiresSuperadmin) return next('/empresas');
       if (requiresAdmin && !AuthService.isAdmin(googleUser)) {
         return next('/dashboard');
       }

@@ -1,8 +1,8 @@
 import User from "./user.model.js";
 
 // Buscar usuarios por rol
-export const findUsersByRole = async (rol) => {
-  return await User.find({ rol }).select("-password");
+export const findUsersByRole = async (rol, empresa = null) => {
+  return await User.find({ rol, empresa }).select("-password");
 };
 
 // Buscar un usuario por ID
@@ -12,12 +12,12 @@ export const findUserById = async (id) => {
 
 // Actualizar usuario
 export const updateUser = async (id, data) => {
-  return await User.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+  return await User.findByIdAndUpdate(id, data, { new: true, runValidators: true }).select('-password');
 };
 
 // Eliminar usuario
 export const deleteUser = async (id) => {
-  return await User.findByIdAndDelete(id);
+  return await User.findByIdAndDelete(id).select('-password');
 };
 
 // Guardar cambios en el dev

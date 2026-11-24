@@ -38,7 +38,7 @@ export async function actualizarTask(req, res) {
 export async function listarTasks(req, res) {
   //obtener todas las tareas de la base de datos
   try {
-    const tareas = await obtenerTodasTareasService();
+    const tareas = await obtenerTodasTareasService(req.user._id);
     res.status(200).json(tareas);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -76,7 +76,7 @@ export async function listarTasksPorProyecto(req, res) {
 
 export async function listarTasksPorDesarrollador(req, res) {
   try {
-    const tasks = await getTasksByDeveloper(req.params.userId);
+    const tasks = await getTasksByDeveloper(req.params.userId, req.user._id);
     res.json(tasks);
   } catch (error) {
     res.status(500).json({ error: error.message });

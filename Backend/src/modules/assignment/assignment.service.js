@@ -139,12 +139,13 @@ export const editarAsignacionService = async (asignacionId, nuevoDevId, userId) 
   const devOriginal = asignacion.desarrollador;
   const devNuevo = await findUserById(nuevoDevId);
 
+  if (!devNuevo) throw new Error("Nuevo desarrollador no encontrado");
+
   //verificar que el devNuevo sea diferente al original
   if (devOriginal._id.toString() === devNuevo._id.toString()) {
     throw new Error("El nuevo desarrollador debe ser diferente al original");
   }
 
-  if (!devNuevo) throw new Error("Nuevo desarrollador no encontrado");
 
   // 🛑 VALIDACIÓN NUEVA: solo puede editarse si la tarea está en pendiente
   if (tarea.estado !== "pendiente") {

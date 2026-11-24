@@ -19,6 +19,7 @@ import { conectarDB } from "./config/db.js"
 import feedbackRouter from '../src/modules/performanceFeedback/performanceFeedback.routes.js'
 import reportRouter from '../src/modules/reports/report.routes.js'
 import importRouter from '../src/modules/imports/import.routes.js'
+import companyRouter from '../src/modules/companies/company.routes.js'
 
 dotenv.config()
 const app=express()
@@ -82,6 +83,7 @@ app.use('/api/simulation-assignment', simulationAssignmentRouter)
 app.use('/api/notification', notificationRouter)
 app.use('/api/report', reportRouter)
 app.use('/api/import', importRouter)
+app.use('/api/company', companyRouter)
 
 // Conectar a la base de datos
 conectarDB()

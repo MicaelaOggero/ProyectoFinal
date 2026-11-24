@@ -2,6 +2,7 @@
 import { Router } from "express";
 import { auth, authAdmin, authToken } from "../../middlewares/auth.js";
 import * as projectController from "./project.controller.js";
+import { authorizeCurrentProject } from '../companies/tenant.auth.js';
 
 const router = Router();
 
@@ -12,30 +13,30 @@ router.post("/", authAdmin, projectController.createProject);
 router.get("/", auth, projectController.getProjects);
 
 // Obtener un proyecto específico por ID
-router.get("/:id", auth, projectController.getProjectById);
+router.get("/:id", auth, authorizeCurrentProject('id'), projectController.getProjectById);
 
 // Actualizar un proyecto por ID (solo admins)
-router.put("/:id", authAdmin, projectController.updateProject);
+router.put("/:id", authAdmin, authorizeCurrentProject('id', { adminOnly: true }), projectController.updateProject);
 
 // GeneraciÃ³n de tareas con IA: preview y confirmaciÃ³n
-router.post("/:projectId/tasks-ai/preview", authAdmin, projectController.previewTasksWithAI);
-router.post("/:projectId/tasks-ai/confirm", authAdmin, projectController.confirmTasksWithAI);
+router.post("/:projectId/tasks-ai/preview", authAdmin, authorizeCurrentProject('projectId', { adminOnly: true }), projectController.previewTasksWithAI);
+router.post("/:projectId/tasks-ai/confirm", authAdmin, authorizeCurrentProject('projectId', { adminOnly: true }), projectController.confirmTasksWithAI);
 
 // Eliminar un proyecto por ID (solo admins)
-router.delete("/:id", authAdmin, projectController.deleteProject);
+router.delete("/:id", authAdmin, authorizeCurrentProject('id', { adminOnly: true }), projectController.deleteProject);
 
 // Iniciar un proyecto
-router.put("/:projectId/iniciar", authAdmin, projectController.iniciarProyecto);
+router.put("/:projectId/iniciar", authAdmin, authorizeCurrentProject('projectId', { adminOnly: true }), projectController.iniciarProyecto);
 
 // Pausar un proyecto
-router.put("/:projectId/pausar",authAdmin, projectController.pausarProyecto);
+router.put("/:projectId/pausar",authAdmin, authorizeCurrentProject('projectId', { adminOnly: true }), projectController.pausarProyecto);
 
 // Finalizar un proyecto
-router.put("/:projectId/finalizar", authAdmin, projectController.finalizarProyecto);
+router.put("/:projectId/finalizar", authAdmin, authorizeCurrentProject('projectId', { adminOnly: true }), projectController.finalizarProyecto);
 
 // Calificar desarrolladores del proyecto
 
-router.post("/:projectId/feedback", authAdmin, projectController.calificarDesarrolladoresProyectoController);
+router.post("/:projectId/feedback", authAdmin, authorizeCurrentProject('projectId', { adminOnly: true }), projectController.calificarDesarrolladoresProyectoController);
 
 
 export default router;

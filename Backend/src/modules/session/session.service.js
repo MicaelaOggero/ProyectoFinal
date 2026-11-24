@@ -4,15 +4,18 @@ import { createHash, generateToken, isValidPassword } from "../../utils/utils.js
 import { findByAdmin } from "../projects/project.dao.js";
 import passport from "passport";
 import jwt from "jsonwebtoken";
-import { Resend } from "resend";
+import { sendEmail, isMailConfigured } from '../../utils/mailer.js';
 
 // Registrar un nuevo usuario
-export const registerUser = async (data) => {
+export const registerUser = async (data, { empresa = null } = {}) => {
   const userExists = await sessionDao.findByEmail(data.email);
   if (userExists) throw { status: 409, message: "Ya existe un usuario con ese Email" };
 
-  data.password = createHash(data.password);
-  return await sessionDao.createUser(data);
+  const { nombre, apellido, dni, email, password, habilidades, aniosExperiencia, costoPorHora } = data;
+  return await sessionDao.createUser({
+    nombre, apellido, dni, email, password: createHash(password), habilidades,
+    aniosExperiencia, costoPorHora, rol: 'user', empresa
+  });
 };
 
 
@@ -60,79 +63,21 @@ const buildPasswordResetToken = (user, expiresIn = "1h") => {
 };
 
 const sendPasswordResetEmail = async ({ email, token }) => {
-  const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL;
   const resetUrlBase = process.env.FRONTEND_RESET_URL;
 
-  if (!apiKey || !fromEmail || !resetUrlBase) {
+  if (!isMailConfigured() || !resetUrlBase) {
     throw { status: 500, message: "Servicio de email no configurado" };
   }
 
   const resetLink = `${resetUrlBase}?token=${encodeURIComponent(token)}`;
 
-  const resend = new Resend(apiKey);
-  const { error } = await resend.emails.send({
-    from: fromEmail,
-    to: [email],
+  await sendEmail({
+    to: email,
     subject: "Restablecer contraseña",
     text: `Usá este enlace para restablecer tu contraseña: ${resetLink}`,
   });
 
-  if (error) {
-    throw { status: 500, message: `Error enviando email: ${JSON.stringify(error)}` };
-  }
 
-  return;
-
-  /* Legacy REST implementation retained for reference.
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: fromEmail,
-      to: [email],
-      subject: "Restablecer contraseña",
-      text: `Usá este enlace para restablecer tu contraseña: ${resetLink}`,
-    }),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw { status: 500, message: `Error enviando email: ${text}` };
-  }
-
-  return;
-
-  /*
-  const payload = {
-    personalizations: [{ to: [{ email }] }],
-    from: { email: fromEmail },
-    subject: "Restablecer contraseña",
-    content: [
-      {
-        type: "text/plain",
-        value: `Usá este enlace para restablecer tu contraseña: ${resetLink}`,
-      },
-    ],
-  };
-
-  const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw { status: 500, message: `Error enviando email: ${text}` };
-  }
-  */
 };
 
 export const requestPasswordReset = async (email) => {
@@ -187,7 +132,9 @@ export const getProfile = async (userId) => {
 // Actualizar perfil de usuario
 export const updateMe = async (userId, data) => {
   if (!userId) throw { status: 401, message: "No autorizado" };
-  return await sessionDao.updateUser(userId, data);
+  const allowed = ['nombre', 'apellido', 'dni', 'habilidades', 'aniosExperiencia', 'costoPorHora', 'preferencias'];
+  const safeData = Object.fromEntries(allowed.filter(key => Object.hasOwn(data, key)).map(key => [key, data[key]]));
+  return await sessionDao.updateUser(userId, safeData);
 };
 
 // Obtener datos del dashboard según el rol
@@ -197,7 +144,9 @@ export async function getDashboardData(user) {
 
     if (user.rol === "admin") {
       const projects = await findByAdmin(user._id);
-      const users = await findUsersByRole("user");
+      const admin = await sessionDao.findById(user._id);
+      if (!admin || admin.rol !== 'admin') throw new Error('No autorizado');
+      const users = await findUsersByRole("user", admin.empresa ?? null);
 
       payload.projects = projects;
       payload.users = users;

@@ -336,6 +336,8 @@ export async function getWeeklyTasksReport({ projectId, weekStart, weekEnd } = {
   if (!projectId) throw new Error("projectId es requerido");
 
   const { start, end } = parseDateRange(weekStart, weekEnd);
+  const project = await Project.findById(projectId).select('empresa').lean();
+  if (!project) throw new Error('Proyecto no encontrado');
 
   const [tasks, sessions, taskLogs, simulation, users] = await Promise.all([
     Task.find({ proyecto: projectId }).lean(),
@@ -349,7 +351,7 @@ export async function getWeeklyTasksReport({ projectId, weekStart, weekEnd } = {
       creadoEn: { $gte: start, $lt: end },
     }).lean(),
     findLatestSimulationByProject(projectId),
-    User.find({ rol: "user" })
+    User.find({ rol: "user", empresa: project.empresa ?? null })
       .select("nombre apellido costoPorHora puntuacionPromedioCalidad")
       .lean(),
   ]);

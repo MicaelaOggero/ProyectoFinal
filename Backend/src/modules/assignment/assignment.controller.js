@@ -59,10 +59,9 @@ export async function confirmAsignacionBasica(req, res) {
     console.log(JSON.stringify(req.body, null, 2));
 
     const sugerencias = req.body;
-    const { projectId } = sugerencias;
-
-    if (!projectId) {
-      return res.status(400).json({ error: "Falta projectId en el body" });
+    const { projectId } = req.params;
+    if (sugerencias?.projectId && String(sugerencias.projectId) !== projectId) {
+      return res.status(400).json({ error: "El proyecto indicado no coincide con la ruta" });
     }
 
     const resultado = await confirmarAsignacionBasica(projectId, sugerencias);
@@ -93,10 +92,9 @@ export async function confirmarAsignacionPorCostoController(req, res) {
     console.log(JSON.stringify(req.body, null, 2));
 
     const sugerencias = req.body;
-    const { projectId } = sugerencias;
-
-    if (!projectId) {
-      return res.status(400).json({ error: "Falta projectId en el body" });
+    const { projectId } = req.params;
+    if (sugerencias?.projectId && String(sugerencias.projectId) !== projectId) {
+      return res.status(400).json({ error: "El proyecto indicado no coincide con la ruta" });
     }
 
     const resultado = await confirmarAsignacionPorCosto(projectId, sugerencias);
@@ -126,10 +124,9 @@ export const confirmarAsignacionesPorTiempoController = async (req, res) => {
     console.log(JSON.stringify(req.body, null, 2));
 
     const sugerencias = req.body;
-    const { projectId } = sugerencias;
-
-    if (!projectId) {
-      return res.status(400).json({ error: "Falta projectId en el body" });
+    const { projectId } = req.params;
+    if (sugerencias?.projectId && String(sugerencias.projectId) !== projectId) {
+      return res.status(400).json({ error: "El proyecto indicado no coincide con la ruta" });
     }
 
     const resultado = await confirmarAsignacionPorTiempo(projectId, sugerencias);
@@ -159,10 +156,9 @@ export const confirmarAsignacionesPorCalidadController = async (req, res) => {
     console.log(JSON.stringify(req.body, null, 2));
 
     const sugerencias = req.body;
-    const { projectId } = sugerencias;
-
-    if (!projectId) {
-      return res.status(400).json({ error: "Falta projectId en el body" });
+    const { projectId } = req.params;
+    if (sugerencias?.projectId && String(sugerencias.projectId) !== projectId) {
+      return res.status(400).json({ error: "El proyecto indicado no coincide con la ruta" });
     }
 
     const resultado = await confirmarAsignacionPorCalidad(projectId, sugerencias);

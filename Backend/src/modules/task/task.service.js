@@ -16,6 +16,20 @@ import TaskLog from "../task/taskLog.model.js"; // 👈 importar el modelo
 import Task from "../task/task.model.js";
 import { actualizarRendimientoDesarrollador } from "../users/user.service.js";
 import Notification from "../notifications/notification.model.js";
+import Company from '../companies/company.model.js';
+
+async function verificarEmpresaActiva(user) {
+  if (!user.empresa) return;
+  const company = await Company.findById(user.empresa).select('activa').lean();
+  if (!company?.activa) throw new Error('La empresa no está habilitada');
+}
+
+async function verificarDesarrolladorDeProyecto(developerId, project) {
+  const developer = await User.findById(developerId);
+  if (!developer || developer.rol !== 'user' || String(developer.empresa ?? '') !== String(project.empresa ?? '')) {
+    throw new Error('El desarrollador no pertenece a la empresa del proyecto');
+  }
+}
 
 export async function addTask(taskData) {
   // 1️⃣ Verificar que el proyecto exista
@@ -58,10 +72,7 @@ export async function addTask(taskData) {
 
   // 3️⃣ Verificar que el desarrollador exista (si fue asignado)
   if (taskData.desarrolladorAsignado) {
-    const devExistente = await User.findById(taskData.desarrolladorAsignado);
-    if (!devExistente) {
-      throw new Error("El desarrollador asignado no existe");
-    }
+    await verificarDesarrolladorDeProyecto(taskData.desarrolladorAsignado, proyectoExistente);
   }
 
   // 4️⃣ Crear la tarea
@@ -74,10 +85,15 @@ export async function editTask(taskId, taskData, usuarioId) {
   const tarea = await getTaskByIdDAO(taskId);
   if (!tarea) throw new Error("Tarea no encontrada");
 
+  // La edición no puede trasladar una tarea a otro proyecto ni modificar sus registros internos.
+  const allowed = ['descripcion', 'habilidadesRequeridas', 'categoria', 'nivelDificultad', 'prioridad', 'estado', 'desarrolladorAsignado', 'tiempoEstimadoHoras', 'fechaEstimadaInicio', 'fechaEstimadaFin'];
+  taskData = Object.fromEntries(allowed.filter(key => Object.hasOwn(taskData, key)).map(key => [key, taskData[key]]));
+
   // 2. Si se cambia desarrollador, validar que exista
   if (taskData.desarrolladorAsignado !== undefined && taskData.desarrolladorAsignado !== null) {
-    const devExistente = await User.findById(taskData.desarrolladorAsignado);
-    if (!devExistente) throw new Error("El desarrollador asignado no existe");
+    const proyecto = await Project.findById(tarea.proyecto);
+    if (!proyecto) throw new Error('Proyecto no encontrado');
+    await verificarDesarrolladorDeProyecto(taskData.desarrolladorAsignado, proyecto);
   }
 
   // 3. Recorrer campos enviados y registrar historial
@@ -104,10 +120,18 @@ export async function editTask(taskId, taskData, usuarioId) {
   return tarea;
 }
 
-export async function obtenerTodasTareasService() {
-  const tareas = await obtenerTodasTareasDAO();
-  // Podés agregar lógica extra si querés
-  return tareas;
+async function proyectosAccesiblesParaAdmin(userId) {
+  const admin = await User.findById(userId).select('rol empresa').lean();
+  if (!admin || admin.rol !== 'admin') throw new Error('No autorizado');
+  await verificarEmpresaActiva(admin);
+  const filter = admin.empresa ? { empresa: admin.empresa } : { empresa: null, administrador: admin._id };
+  const projects = await Project.find(filter).select('_id').lean();
+  return projects.map(project => project._id);
+}
+
+export async function obtenerTodasTareasService(userId) {
+  const projectIds = await proyectosAccesiblesParaAdmin(userId);
+  return Task.find({ proyecto: { $in: projectIds } });
 }
 
 export async function getTaskById(taskId) {
@@ -130,8 +154,19 @@ export async function getTasksByProject(projectId) {
   return await findTasksByProject(projectId);
 }
 
-export async function getTasksByDeveloper(userId) {
-  return await findTasksByDeveloper(userId);
+export async function getTasksByDeveloper(userId, actorId) {
+  const actor = await User.findById(actorId).select('rol empresa').lean();
+  if (!actor) throw new Error('No autorizado');
+  await verificarEmpresaActiva(actor);
+  if (actor.rol === 'user' && String(actor._id) === String(userId)) {
+    const projects = await Project.find({ empresa: actor.empresa ?? null }).select('_id').lean();
+    return Task.find({ desarrolladorAsignado: userId, proyecto: { $in: projects.map(project => project._id) } }).populate('proyecto').populate('desarrolladorAsignado', 'nombre email');
+  }
+  if (actor.rol !== 'admin') throw new Error('No autorizado');
+  const developer = await User.findById(userId).select('rol empresa').lean();
+  if (!developer || developer.rol !== 'user' || String(developer.empresa ?? '') !== String(actor.empresa ?? '')) throw new Error('No autorizado');
+  const projectIds = await proyectosAccesiblesParaAdmin(actorId);
+  return Task.find({ desarrolladorAsignado: userId, proyecto: { $in: projectIds } }).populate('proyecto').populate('desarrolladorAsignado', 'nombre email');
 }
 
 

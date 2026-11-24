@@ -90,8 +90,8 @@ function normalizeTask(task, project) {
   };
 }
 
-async function getAvailableDeveloperSkills() {
-  const developers = await User.find({ rol: "user" }).select("habilidades").lean();
+async function getAvailableDeveloperSkills(empresa) {
+  const developers = await User.find({ rol: "user", empresa: empresa ?? null }).select("habilidades").lean();
   return normalizarListaHabilidades(
     developers.flatMap((developer) =>
       (developer.habilidades || []).map((skill) => skill.nombre)
@@ -118,7 +118,7 @@ export async function previewTasksWithAIService(projectId, adminId) {
     throw new Error("El proyecto necesita una descripcion para generar tareas con IA");
   }
 
-  const availableDeveloperSkills = await getAvailableDeveloperSkills();
+  const availableDeveloperSkills = await getAvailableDeveloperSkills(project.empresa);
 
   const prompt = [
     "Genera todas las tareas necesarias para ejecutar este proyecto.",
